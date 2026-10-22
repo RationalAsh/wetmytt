@@ -69,7 +69,7 @@ codex
 
 Welcome to My TED Talk does not need to launch or supervise the agent. Changes from any editor or agent appear automatically.
 
-For an MCP-capable client, this repo also provides a stdio MCP server exposing `list_files`, `read_file`, and `write_file`, scoped to one deck. Configure your client to execute Node with absolute paths:
+For an MCP-capable client, this repo also provides a stdio MCP server exposing `list_files`, `read_file`, `write_file`, and `screenshot_slide`, scoped to one deck. Configure your client to execute Node with absolute paths:
 
 ```json
 {
@@ -83,6 +83,8 @@ For an MCP-capable client, this repo also provides a stdio MCP server exposing `
 ```
 
 Or run `npm run mcp -- /absolute/path/to/my-presentation`. This app exposes an MCP server for external agents; it does not run an embedded MCP client. No listener or API key is required for MCP.
+
+Call `screenshot_slide` with `{ "slide": 2 }` to inspect the second slide. Slide numbers start at 1. The tool returns a 1280×720 PNG image directly to the model, using the same local server and navigation bridge as the app. It waits for slide containers, images, and fonts, and reports invalid slide numbers or rendering timeouts. Screenshots run in a separate hidden Electron window without changing the app's current slide or saving files into the deck. Electron must be installed (`npm install`) and a desktop session must be available. This tool is exposed through MCP; the built-in BYOK chat still uses the three text file tools.
 
 ## Architecture and checks
 
