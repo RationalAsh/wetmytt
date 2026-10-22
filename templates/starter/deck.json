@@ -1,0 +1,8 @@
+{
+  "title": "A little idea. A big possibility.",
+  "slides": [
+    { "eyebrow": "01 / THE BEGINNING", "title": "A little idea.\nA big possibility.", "body": "Every great story starts somewhere. This one starts with you.", "layout": "cover" },
+    { "eyebrow": "02 / THE OPPORTUNITY", "title": "Make room for\nsomething better.", "body": "Name the problem. Find the insight. Show people a new way forward.", "bullets": ["Start with a real human need.", "Keep the story clear and focused.", "Give every slide one job."], "layout": "split", "image": "assets/orbit.svg" },
+    { "eyebrow": "03 / WHAT COMES NEXT", "title": "Good things\nstart small.", "body": "Edit these files. Talk to your AI. Make this story your own.", "layout": "closing" }
+  ]
+}

@@ -1,0 +1,28 @@
+(() => {
+  let index = 0;
+  let parentOrigin;
+  const slides = () => [...document.querySelectorAll('[data-slide]')];
+  function render() {
+    const all = slides();
+    // JSON renderers may still be fetching when the iframe finishes loading.
+    // Preserve the requested slide until containers actually exist.
+    if (all.length) index = Math.max(0, Math.min(index, all.length - 1));
+    all.forEach((slide, i) => { slide.hidden = i !== index; });
+    if (parentOrigin) parent.postMessage({ type: 'decklet:state', index, count: all.length, title: document.title }, parentOrigin);
+  }
+  addEventListener('message', event => {
+    if (event.source !== parent || event.data?.type !== 'decklet:navigate') return;
+    parentOrigin = event.origin;
+    if (Number.isInteger(event.data.index)) index = event.data.index;
+    render();
+  });
+  addEventListener('keydown', event => {
+    if (event.target.closest('input, textarea, select, [contenteditable]')) return;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      event.preventDefault(); index += event.key === 'ArrowRight' ? 1 : -1; render();
+    }
+    if (event.key === 'Escape' && parentOrigin) parent.postMessage({ type: 'decklet:escape' }, parentOrigin);
+  });
+  new MutationObserver(render).observe(document.body, { childList: true, subtree: true });
+  render();
+})();
