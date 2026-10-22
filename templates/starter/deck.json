@@ -1,8 +1,8 @@
 {
-  "title": "A little idea. A big possibility.",
+  "title": "Okay, hear me out.",
   "slides": [
-    { "eyebrow": "01 / THE BEGINNING", "title": "A little idea.\nA big possibility.", "body": "Every great story starts somewhere. This one starts with you.", "layout": "cover" },
-    { "eyebrow": "02 / THE OPPORTUNITY", "title": "Make room for\nsomething better.", "body": "Name the problem. Find the insight. Show people a new way forward.", "bullets": ["Start with a real human need.", "Keep the story clear and focused.", "Give every slide one job."], "layout": "split", "image": "assets/orbit.svg" },
-    { "eyebrow": "03 / WHAT COMES NEXT", "title": "Good things\nstart small.", "body": "Edit these files. Talk to your AI. Make this story your own.", "layout": "closing" }
+    { "eyebrow": "01 / THE FLOOR IS YOURS", "title": "Okay,\nhear me out.", "body": "You have an idea. These are the slides to back it up.", "layout": "cover" },
+    { "eyebrow": "02 / HERE’S THE THING", "title": "A big claim.\nA little evidence.", "body": "Show the problem. Make your case. Give people something to think about.", "bullets": ["Start with something people care about.", "Give every slide one clear point.", "Show your working."], "layout": "split", "image": "assets/orbit.svg" },
+    { "eyebrow": "03 / THANKS FOR HEARING ME OUT", "title": "Now go\nmake your point.", "body": "Edit the files. Ask your AI. Make this talk yours.", "layout": "closing" }
   ]
 }

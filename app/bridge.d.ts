@@ -3,7 +3,7 @@ export type Settings = { baseUrl: string; model: string; hasKey: boolean };
 export type Message = { role: 'user' | 'assistant'; content: string };
 declare global {
   interface Window {
-    decklet?: {
+    wetmytt?: {
       state(): Promise<Deck>;
       open(): Promise<Deck | null>;
       create(): Promise<Deck | null>;

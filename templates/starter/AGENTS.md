@@ -1,6 +1,6 @@
 # Editing this presentation
 
-This folder is the complete presentation. Edit files directly; Decklet reloads on every change.
+This folder is the complete presentation. Edit files directly; Welcome to My TED Talk reloads on every change.
 
 - `deck.json`: slide content, local image paths, and layout choices.
 - `index.html`: editable HTML entry point. You can replace the rendering entirely.

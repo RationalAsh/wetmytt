@@ -50,7 +50,7 @@ export default function Home() {
     setDragging(false);
   }, []);
   const showDrag = useCallback(() => {
-    if (!deckRef.current.root || !window.decklet) return;
+    if (!deckRef.current.root || !window.wetmytt) return;
     setDragging(true);
     if (dragTimer.current) clearTimeout(dragTimer.current);
     dragTimer.current = setTimeout(() => setDragging(false), 800);
@@ -58,11 +58,11 @@ export default function Home() {
   const addAssets = useCallback(async (files: File[]) => {
     clearDrag();
     const root = deckRef.current.root;
-    if (!root || !window.decklet || !files.length) return;
+    if (!root || !window.wetmytt || !files.length) return;
     const currentSession = session.current;
     setAssetStatus('Adding assets…'); setError('');
     try {
-      const result = await window.decklet.importAssets(root, files);
+      const result = await window.wetmytt.importAssets(root, files);
       if (session.current !== currentSession) return;
       setAssetStatus(result.imported.length ? `Added ${result.imported.join(', ')}` : '');
       if (result.errors.length) setError(result.errors.join('\n'));
@@ -73,10 +73,10 @@ export default function Home() {
 
   const navigate = useCallback((index: number) => {
     if (!deckRef.current.url) return;
-    iframe.current?.contentWindow?.postMessage({ type: 'decklet:navigate', index }, new URL(deckRef.current.url).origin);
+    iframe.current?.contentWindow?.postMessage({ type: 'wetmytt:navigate', index }, new URL(deckRef.current.url).origin);
   }, []);
   const present = useCallback(async (value: boolean) => {
-    try { await window.decklet?.present(value); setPresenting(value); }
+    try { await window.wetmytt?.present(value); setPresenting(value); }
     catch (err) { setError(String(err)); }
   }, []);
   const receiveDeck = useCallback((next: Deck) => {
@@ -90,7 +90,7 @@ export default function Home() {
   }, [clearDrag]);
 
   useEffect(() => {
-    const api = window.decklet;
+    const api = window.wetmytt;
     if (!api) { setDesktop(false); return; }
     api.state().then(receiveDeck).catch(err => setError(String(err)));
     api.settings().then(setSettings).catch(err => setError(String(err)));
@@ -100,12 +100,12 @@ export default function Home() {
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       if (!deckRef.current.url || event.source !== iframe.current?.contentWindow || event.origin !== new URL(deckRef.current.url).origin) return;
-      if (event.data?.type === 'decklet:state' && Number.isInteger(event.data.index) && Number.isInteger(event.data.count)) {
+      if (event.data?.type === 'wetmytt:state' && Number.isInteger(event.data.index) && Number.isInteger(event.data.count)) {
         slideRef.current = event.data.index; setSlide(event.data.index); setCount(event.data.count);
       }
-      if (event.data?.type === 'decklet:escape') void present(false);
-      if (event.data?.type === 'decklet:drag') showDrag();
-      if (event.data?.type === 'decklet:drop' && Array.isArray(event.data.files) && event.data.files.every((file: unknown) => file instanceof File)) void addAssets(event.data.files);
+      if (event.data?.type === 'wetmytt:escape') void present(false);
+      if (event.data?.type === 'wetmytt:drag') showDrag();
+      if (event.data?.type === 'wetmytt:drop' && Array.isArray(event.data.files) && event.data.files.every((file: unknown) => file instanceof File)) void addAssets(event.data.files);
     }
     function onKey(event: KeyboardEvent) {
       if ((event.target as HTMLElement).closest('input, textarea, select, [contenteditable], dialog')) return;
@@ -144,11 +144,11 @@ export default function Home() {
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, activity]);
 
   async function choose(create: boolean) {
-    try { await (create ? window.decklet?.create() : window.decklet?.open()); }
+    try { await (create ? window.wetmytt?.create() : window.wetmytt?.open()); }
     catch (err) { setError(String(err)); }
   }
   async function closeProject() {
-    try { await window.decklet?.close(); }
+    try { await window.wetmytt?.close(); }
     catch (err) { setError(String(err)); }
   }
   async function send(text = draft) {
@@ -158,7 +158,7 @@ export default function Home() {
     const currentSession = session.current;
     setMessages(history); setDraft(''); setBusy(true); setActivity('Thinking…'); setError('');
     try {
-      const content = await window.decklet!.chat(history);
+      const content = await window.wetmytt!.chat(history);
       if (session.current === currentSession) setMessages([...history, { role: 'assistant', content }]);
     } catch (err) { if (session.current === currentSession) setError(String(err)); }
     finally { if (session.current === currentSession) { setBusy(false); setActivity(''); } }
@@ -166,15 +166,15 @@ export default function Home() {
   async function saveSettings(event: React.FormEvent) {
     event.preventDefault();
     try {
-      const result = await window.decklet!.saveSettings({ baseUrl: settings.baseUrl, model: settings.model, ...(key ? { apiKey: key } : {}) });
-      setSettings(await window.decklet!.settings()); setKey(''); setSettingsOpen(false);
+      const result = await window.wetmytt!.saveSettings({ baseUrl: settings.baseUrl, model: settings.model, ...(key ? { apiKey: key } : {}) });
+      setSettings(await window.wetmytt!.settings()); setKey(''); setSettingsOpen(false);
       if (!result.persistedKey) setError('OS encryption is unavailable. Your API key is kept only for this session.');
     } catch (err) { setError(String(err)); }
   }
 
   return <main className={presenting ? 'app presenting' : 'app'}>
     <header className="topbar">
-      <div className="brand"><span className="brand-mark">d<span>·</span></span><strong>decklet</strong><span className="alpha">EARLY BUILD</span></div>
+      <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="alpha">EARLY BUILD</span></div>
       <div className="file-actions"><button onClick={() => void choose(false)} disabled={!desktop}><Icon name="folder" />Open folder</button><button onClick={() => void choose(true)} disabled={!desktop}><Icon name="plus" />New deck</button>{deck.root && <button onClick={() => void closeProject()} disabled={!desktop}><Icon name="close" />Close project</button>}</div>
       <div className="top-actions"><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle chat sidebar" aria-label="Toggle chat sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
@@ -184,30 +184,30 @@ export default function Home() {
     {dragging && deck.root && <div className="asset-drop-overlay"><div><Icon name="folder" size={32} /><strong>Drop files to add assets</strong><span>Copy to {deck.name}/assets/</span></div></div>}
     <div className="workspace">
       <section className="editor">
-        <div className="deck-heading"><div><span className="eyebrow">YOUR PRESENTATION</span><h1>{deck.name || 'A little idea. A great deck.'}</h1></div>{deck.root && <button className="folder-path" title={deck.root} onClick={() => void window.decklet?.reveal()}><Icon name="folder" size={15} />Show files</button>}</div>
+        <div className="deck-heading"><div><span className="eyebrow">YOUR PRESENTATION</span><h1>{deck.name || 'Got a point? Make it.'}</h1></div>{deck.root && <button className="folder-path" title={deck.root} onClick={() => void window.wetmytt?.reveal()}><Icon name="folder" size={15} />Show files</button>}</div>
         <div className="canvas-area">
           {deck.url ? <div className="slide-frame"><iframe ref={iframe} title="Presentation slide" src={`${deck.url}index.html?revision=${revision}`} sandbox="allow-scripts allow-same-origin" onLoad={() => navigate(slideRef.current)} /></div> : <div className="welcome-card">
-            <div className="welcome-grid" /><span className="welcome-tag"><span />FROM THOUGHT TO SLIDE</span>
-            <h2>Your next big idea<br />starts with a <em>little deck.</em></h2>
-            <p>Plain files. An open canvas. A creative partner.<br />Make something worth presenting.</p>
+            <div className="welcome-spotlight" aria-hidden="true" /><span className="welcome-tag"><span />THE FLOOR IS YOURS</span>
+            <h2>Okay,<br /><em>hear me out.</em></h2>
+            <p>Big opinions. Questionable theories. Your next great idea.<br />Give them a few slides. Make your point.</p>
             <div className="welcome-actions"><button className="primary" disabled={!desktop} onClick={() => void choose(true)}><Icon name="plus" />Create a presentation</button><button disabled={!desktop} onClick={() => void choose(false)}>Open a folder <span>↗</span></button></div>
-            <div className="paper-stack"><div /><div /><div><span>01 / YOUR NEXT IDEA</span><strong>Less busywork.<br /><i>More possibility.</i></strong><small>MADE WITH DECKLET ↗</small></div></div>
+            <div className="stage-card" aria-hidden="true"><span>01 / A VERY IMPORTANT TALK</span><strong>I made<br />slides<span>about it.</span></strong><div className="stage-line" /><small>WETMYTT / PRESS PLAY ↗</small></div>
           </div>}
         </div>
         <footer className="slide-controls"><span className="live-status"><span />{deck.root ? 'Watching your folder' : 'Everything lives in your folder'}</span><div className="pagination"><button className="icon-button" aria-label="Previous slide" disabled={!count || slide === 0} onClick={() => navigate(slide - 1)}><Icon name="left" size={17} /></button><span>{count ? String(slide + 1).padStart(2, '0') : '—'}<b>/</b>{count ? String(count).padStart(2, '0') : '—'}</span><button className="icon-button" aria-label="Next slide" disabled={!count || slide >= count - 1} onClick={() => navigate(slide + 1)}><Icon name="right" size={17} /></button></div><span className="key-hint"><kbd>←</kbd><kbd>→</kbd> to navigate</span></footer>
         <div className="local-note"><Icon name="terminal" size={14} /><span>Your editor, your agent, your files. Changes appear automatically.</span></div>
       </section>
       {sidebar && <aside className="sidebar">
-        <div className="chat-header"><div><Icon name="spark" /><strong>Creative partner</strong></div><div><button className="icon-button" title="AI settings" aria-label="AI settings" onClick={() => setSettingsOpen(true)}><Icon name="settings" size={17} /></button><button className="icon-button" title="Hide chat" aria-label="Hide chat" onClick={() => setSidebar(false)}><Icon name="close" size={17} /></button></div></div>
+        <div className="chat-header"><div><Icon name="spark" /><strong>Backstage</strong></div><div><button className="icon-button" title="AI settings" aria-label="AI settings" onClick={() => setSettingsOpen(true)}><Icon name="settings" size={17} /></button><button className="icon-button" title="Hide chat" aria-label="Hide chat" onClick={() => setSidebar(false)}><Icon name="close" size={17} /></button></div></div>
         <div className="chat-messages">
-          {messages.length === 0 ? <div className="chat-intro"><span className="spark-tile"><Icon name="spark" size={25} /></span><h2>A second pair<br />of creative hands.</h2><p>Shape a story, simplify a slide, or try a whole new direction. Just ask.</p><div className="suggestions">{['Give this deck a stronger opening', 'Make the slides more concise', 'Try a warm, editorial visual style'].map((text, i) => <button key={text} disabled={!deck.root || busy} onClick={() => void send(text)}><span>{['↗', '≋', '◐'][i]}</span>{text}<span>↗</span></button>)}</div><div className="agent-note"><Icon name="terminal" size={17} /><p>Already have an agent?<br /><span>Run it in your deck folder. We’ll keep up.</span></p></div></div> : messages.map((message, index) => <div key={index} className={`message ${message.role}`}><span>{message.role === 'user' ? 'YOU' : 'DECKLET'}</span><p>{message.content}</p></div>)}
+          {messages.length === 0 ? <div className="chat-intro"><span className="spark-tile"><Icon name="spark" size={25} /></span><h2>You bring the idea.<br />We’ll bring the slides.</h2><p>Find your opening. Cut the waffle. Land the ending. Tell your AI what you’re thinking.</p><div className="suggestions">{['Give this deck a stronger opening', 'Make the slides more concise', 'Give this deck a bold stage presence'].map((text, i) => <button key={text} disabled={!deck.root || busy} onClick={() => void send(text)}><span>{['↗', '≋', '◐'][i]}</span>{text}<span>↗</span></button>)}</div><div className="agent-note"><Icon name="terminal" size={17} /><p>Already have an agent?<br /><span>Run it in your deck folder. We’ll keep up.</span></p></div></div> : messages.map((message, index) => <div key={index} className={`message ${message.role}`}><span>{message.role === 'user' ? 'YOU' : 'WETMYTT'}</span><p>{message.content}</p></div>)}
           {busy && <div className="activity" role="status"><span />{activity}</div>}<div ref={bottom} />
         </div>
-        <form className="composer" onSubmit={event => { event.preventDefault(); void send(); }}><textarea aria-label="Message your creative partner" placeholder={deck.root ? 'What are we making?' : 'Open a deck to start creating…'} value={draft} disabled={!deck.root || busy} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} /><div><button type="button" className="model-select" onClick={() => setSettingsOpen(true)}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}<span>⌄</span></button>{busy ? <button type="button" className="send-button" aria-label="Stop generation" onClick={() => void window.decklet?.cancel()}><Icon name="stop" size={16} /></button> : <button className="send-button" aria-label="Send message" disabled={!deck.root || !draft.trim()}><Icon name="send" size={18} /></button>}</div></form>
-        <div className="chat-footnote">Your key. Your files. Your creative process.</div>
+        <form className="composer" onSubmit={event => { event.preventDefault(); void send(); }}><textarea aria-label="Message your creative partner" placeholder={deck.root ? 'What’s your big idea?' : 'Open a deck to start creating…'} value={draft} disabled={!deck.root || busy} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} /><div><button type="button" className="model-select" onClick={() => setSettingsOpen(true)}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}<span>⌄</span></button>{busy ? <button type="button" className="send-button" aria-label="Stop generation" onClick={() => void window.wetmytt?.cancel()}><Icon name="stop" size={16} /></button> : <button className="send-button" aria-label="Send message" disabled={!deck.root || !draft.trim()}><Icon name="send" size={18} /></button>}</div></form>
+        <div className="chat-footnote">Your talk. Your files. Your call.</div>
       </aside>}
     </div>
     {presenting && <button className="exit-present" onClick={() => void present(false)}>Exit presentation <kbd>esc</kbd></button>}
-    {settingsOpen && <div className="modal-backdrop" onClick={() => setSettingsOpen(false)}><section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === 'Escape') setSettingsOpen(false); }}><div className="modal-heading"><Icon name="spark" /><h2 id="settings-title">Bring your own AI</h2><button className="icon-button" aria-label="Close settings" onClick={() => setSettingsOpen(false)}><Icon name="close" /></button></div><p>Connect any OpenAI-compatible provider with tool calling. Sending a message lets the model read and edit files in this deck.</p><form onSubmit={saveSettings}><label>API base URL<input autoFocus required type="url" value={settings.baseUrl} onChange={event => setSettings({ ...settings, baseUrl: event.target.value })} placeholder="https://api.openai.com/v1" /></label><label>Model<input required value={settings.model} onChange={event => setSettings({ ...settings, model: event.target.value })} placeholder="Your provider’s model ID" /></label><label>API key<input type="password" autoComplete="off" value={key} onChange={event => setKey(event.target.value)} placeholder={settings.hasKey ? 'Key saved · leave blank to keep it' : 'Optional for local models'} /></label><small>Keys are encrypted with your operating system when available. Chat is kept in memory for this session.</small><div className="settings-buttons">{settings.hasKey && <button type="button" onClick={async () => { try { await window.decklet!.saveSettings({ ...settings, apiKey: '' }); setSettings(await window.decklet!.settings()); } catch (err) { setError(String(err)); } }}>Remove key</button>}<button className="primary" disabled={!desktop}>Save connection</button></div></form><div className="mcp-note"><strong>Prefer an external agent?</strong><p>Hide this sidebar and run Codex in the deck folder, or connect the stdio MCP server:</p><code>node electron/mcp.js /path/to/deck</code></div></section></div>}
+    {settingsOpen && <div className="modal-backdrop" onClick={() => setSettingsOpen(false)}><section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === 'Escape') setSettingsOpen(false); }}><div className="modal-heading"><Icon name="spark" /><h2 id="settings-title">Bring your own AI</h2><button className="icon-button" aria-label="Close settings" onClick={() => setSettingsOpen(false)}><Icon name="close" /></button></div><p>Connect any OpenAI-compatible provider with tool calling. Sending a message lets the model read and edit files in this deck.</p><form onSubmit={saveSettings}><label>API base URL<input autoFocus required type="url" value={settings.baseUrl} onChange={event => setSettings({ ...settings, baseUrl: event.target.value })} placeholder="https://api.openai.com/v1" /></label><label>Model<input required value={settings.model} onChange={event => setSettings({ ...settings, model: event.target.value })} placeholder="Your provider’s model ID" /></label><label>API key<input type="password" autoComplete="off" value={key} onChange={event => setKey(event.target.value)} placeholder={settings.hasKey ? 'Key saved · leave blank to keep it' : 'Optional for local models'} /></label><small>Keys are encrypted with your operating system when available. Chat is kept in memory for this session.</small><div className="settings-buttons">{settings.hasKey && <button type="button" onClick={async () => { try { await window.wetmytt!.saveSettings({ ...settings, apiKey: '' }); setSettings(await window.wetmytt!.settings()); } catch (err) { setError(String(err)); } }}>Remove key</button>}<button className="primary" disabled={!desktop}>Save connection</button></div></form><div className="mcp-note"><strong>Prefer an external agent?</strong><p>Hide this sidebar and run Codex in the deck folder, or connect the stdio MCP server:</p><code>node electron/mcp.js /path/to/deck</code></div></section></div>}
   </main>;
 }

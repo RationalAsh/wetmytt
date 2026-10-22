@@ -8,6 +8,8 @@ import { chat } from './agent.js';
 import { createDeck } from './decks.js';
 import { importAssets } from './files.js';
 
+app.setName('Welcome to My TED Talk');
+
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
 let settings = { baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
@@ -41,7 +43,12 @@ function handle(channel, callback) {
 app.whenReady().then(async () => {
 const settingsPath = path.join(app.getPath('userData'), 'ai-settings.json');
 try {
-  const saved = JSON.parse(await fs.readFile(settingsPath, 'utf8'));
+  // Keep existing connections when upgrading from the original app name.
+  const savedText = await fs.readFile(settingsPath, 'utf8').catch(error => {
+    if (error.code !== 'ENOENT') throw error;
+    return fs.readFile(path.join(app.getPath('appData'), 'decklet', 'ai-settings.json'), 'utf8');
+  });
+  const saved = JSON.parse(savedText);
   settings = { baseUrl: saved.baseUrl, model: saved.model, apiKey: saved.encryptedKey && safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(Buffer.from(saved.encryptedKey, 'base64')) : '' };
 } catch {}
 
@@ -93,10 +100,10 @@ handle('ai:chat', async history => {
 });
 
 async function createWindow() {
-  if (!shellServer && !process.env.DECKLET_DEV_URL) shellServer = await serveFolder(path.join(project, 'out'));
-  const url = process.env.DECKLET_DEV_URL || shellServer.url;
+  if (!shellServer && !process.env.WETMYTT_DEV_URL) shellServer = await serveFolder(path.join(project, 'out'));
+  const url = process.env.WETMYTT_DEV_URL || shellServer.url;
   shellOrigin = new URL(url).origin;
-  window = new BrowserWindow({ width: 1440, height: 940, minWidth: 900, minHeight: 620, backgroundColor: '#f6f5f1', title: 'Decklet', webPreferences: { preload: path.join(project, 'electron/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  window = new BrowserWindow({ width: 1440, height: 940, minWidth: 900, minHeight: 620, backgroundColor: '#f4f2f8', title: 'Welcome to My TED Talk', webPreferences: { preload: path.join(project, 'electron/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('before-input-event', (_event, input) => {
     // Exit even when keyboard focus is inside custom slide HTML.
@@ -122,6 +129,6 @@ app.on('window-all-closed', () => { pendingChat?.abort(); if (process.platform !
 app.on('before-quit', () => { pendingChat?.abort(); watcher?.close(); deckServer?.close(); shellServer?.close(); });
 }).catch(error => {
   console.error(error);
-  dialog.showErrorBox('Decklet could not start', error.message);
+  dialog.showErrorBox('Welcome to My TED Talk could not start', error.message);
   app.quit();
 });

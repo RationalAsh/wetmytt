@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createDeck } from '../electron/decks.js';
 
 async function fixture(t) {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'decklet-create-'));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'wetmytt-create-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   return path.join(directory, 'New presentation');
 }

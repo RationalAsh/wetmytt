@@ -8,7 +8,7 @@ import { serveFolder } from '../electron/server.js';
 import { chat } from '../electron/agent.js';
 
 async function fixture(t) {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'decklet-'));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'wetmytt-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const root = path.join(directory, 'deck');
   await fs.mkdir(root);
@@ -85,7 +85,7 @@ test('preview serves local assets, injects navigation, rejects paths and disable
   t.after(() => server.close());
   const response = await fetch(`${server.url}index.html`);
   assert.equal(response.status, 200);
-  assert.match(await response.text(), /decklet:navigate/);
+  assert.match(await response.text(), /wetmytt:navigate/);
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.match(response.headers.get('content-security-policy'), /connect-src 'self'/);
   assert.equal((await fetch(`${server.url}%2e%2e%2fsecret.txt`)).status, 404);

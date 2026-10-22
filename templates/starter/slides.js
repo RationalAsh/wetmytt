@@ -1,4 +1,4 @@
-// The rendering is yours to change. Keep data-slide on each slide for Decklet navigation.
+// The rendering is yours to change. Keep data-slide on each slide for Welcome to My TED Talk navigation.
 fetch('deck.json').then(response => {
   if (!response.ok) throw new Error('Could not read deck.json');
   return response.json();
@@ -31,7 +31,7 @@ fetch('deck.json').then(response => {
       image.src = slide.image; image.alt = slide.imageAlt || ''; section.append(image);
     }
     const footer = document.createElement('footer');
-    footer.textContent = `${deck.title || 'DECKLET'}   /   ${String(index + 1).padStart(2, '0')}`;
+    footer.textContent = `${deck.title || 'WETMYTT'}   /   ${String(index + 1).padStart(2, '0')}`;
     section.append(footer); container.append(section);
   });
 }).catch(error => {

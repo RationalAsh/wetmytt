@@ -13,7 +13,7 @@ test('preview forwards file drags and drops to its parent and prevents file navi
     addEventListener: (name, listener) => { listeners[name] = listener; },
   });
   const origin = 'http://127.0.0.1:3210';
-  listeners.message({ source: parent, origin, data: { type: 'decklet:navigate', index: 0 } });
+  listeners.message({ source: parent, origin, data: { type: 'wetmytt:navigate', index: 0 } });
   messages.length = 0;
   const file = new File(['image'], 'photo.png');
   for (const type of ['dragenter', 'dragover', 'drop']) {
@@ -23,7 +23,7 @@ test('preview forwards file drags and drops to its parent and prevents file navi
     assert.equal(prevented, true);
     assert.equal(dataTransfer.dropEffect, 'copy');
     assert.equal(messages.at(-1).origin, origin);
-    assert.equal(messages.at(-1).message.type, type === 'drop' ? 'decklet:drop' : 'decklet:drag');
+    assert.equal(messages.at(-1).message.type, type === 'drop' ? 'wetmytt:drop' : 'wetmytt:drag');
   }
   assert.equal(messages.at(-1).message.files[0], file);
   listeners.drop({ dataTransfer: { types: ['text/plain'] }, preventDefault: () => assert.fail('Text drops should be unaffected') });

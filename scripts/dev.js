@@ -11,7 +11,7 @@ for (let attempt = 0; attempt < 120 && !stopping; attempt++) {
   try {
     const response = await fetch('http://127.0.0.1:3210');
     if (response.ok) {
-      desktop = spawn(electron, ['.'], { stdio: 'inherit', env: { ...process.env, DECKLET_DEV_URL: 'http://127.0.0.1:3210' } });
+      desktop = spawn(electron, ['.'], { stdio: 'inherit', env: { ...process.env, WETMYTT_DEV_URL: 'http://127.0.0.1:3210' } });
       desktop.on('exit', stop);
       break;
     }

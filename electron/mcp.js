@@ -6,7 +6,7 @@ import path from 'node:path';
 import { runTool } from './agent.js';
 const root = path.resolve(process.argv[2] || '.');
 await fs.access(path.join(root, 'index.html'));
-const server = new McpServer({ name: 'decklet', version: '0.1.0' });
+const server = new McpServer({ name: 'wetmytt', version: '0.1.0' });
 for (const [name, description, inputSchema] of [
   ['list_files', 'List presentation files.', {}],
   ['read_file', 'Read a presentation text file.', { path: z.string() }],

@@ -1,4 +1,8 @@
-# Decklet
+# Welcome to My TED Talk
+
+**Got a point? Make it.**
+
+`wetmytt` for short. A playful nod to the familiar “welcome to my TED talk” sign-off, with its own violet-and-lime stage identity. An independent project, not affiliated with TED.
 
 A minimal AI-first presentation app built with Electron, Next.js, and React. A presentation is an ordinary folder. There is no database, custom document format, or compilation step for slides.
 
@@ -44,7 +48,7 @@ Use the visible arrows or **← / →** to navigate. **Present** enters full scr
 
 ### Custom slide HTML
 
-Mark each slide container with `data-slide`, keep a closing `</body>` tag, and respect `[hidden] { display: none !important; }`. Decklet injects a small bridge that counts those containers, hides inactive slides, and communicates navigation with the shell. It does not prescribe the HTML structure inside a slide. The default renderer reads JSON, but custom HTML can use any local rendering approach.
+Mark each slide container with `data-slide`, keep a closing `</body>` tag, and respect `[hidden] { display: none !important; }`. Welcome to My TED Talk injects a small bridge that counts those containers, hides inactive slides, and communicates navigation with the shell. It does not prescribe the HTML structure inside a slide. The default renderer reads JSON, but custom HTML can use any local rendering approach.
 
 ## AI: bring your own key
 
@@ -63,16 +67,16 @@ cd /path/to/my-presentation
 codex
 ```
 
-Decklet does not need to launch or supervise the agent. Changes from any editor or agent appear automatically.
+Welcome to My TED Talk does not need to launch or supervise the agent. Changes from any editor or agent appear automatically.
 
 For an MCP-capable client, this repo also provides a stdio MCP server exposing `list_files`, `read_file`, and `write_file`, scoped to one deck. Configure your client to execute Node with absolute paths:
 
 ```json
 {
   "mcpServers": {
-    "decklet": {
+    "wetmytt": {
       "command": "node",
-      "args": ["/absolute/path/to/decklet/electron/mcp.js", "/absolute/path/to/my-presentation"]
+      "args": ["/absolute/path/to/wetmytt/electron/mcp.js", "/absolute/path/to/my-presentation"]
     }
   }
 }
