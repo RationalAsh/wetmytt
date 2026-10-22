@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import chokidar from 'chokidar';
 import { serveFolder } from './server.js';
 import { chat } from './agent.js';
+import { createDeck } from './decks.js';
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin;
@@ -52,8 +53,7 @@ handle('deck:open', async () => {
 handle('deck:create', async () => {
   const result = await dialog.showSaveDialog(window, { title: 'Create presentation folder', defaultPath: path.join(app.getPath('documents'), 'Untitled presentation'), buttonLabel: 'Create presentation' });
   if (result.canceled || !result.filePath) return null;
-  try { await fs.mkdir(result.filePath); } catch (error) { if (error.code === 'EEXIST') throw new Error('Choose a new folder name to avoid overwriting files.'); throw error; }
-  await fs.cp(path.join(project, 'templates', 'starter'), result.filePath, { recursive: true, force: false, errorOnExist: true });
+  await createDeck(result.filePath);
   return openDeck(result.filePath);
 });
 handle('deck:reveal', () => root ? shell.openPath(root) : undefined);
