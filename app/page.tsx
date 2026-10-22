@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Deck, Message, Settings } from './bridge';
 import { AISettings } from './ai-settings';
+import { AgentConnection } from './agent-connection';
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const paths: Record<string, React.ReactNode> = {
@@ -35,6 +36,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [dragging, setDragging] = useState(false);
   const [assetStatus, setAssetStatus] = useState('');
+  const [agentOpen, setAgentOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>({ provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', hasKey: false });
   const [desktop, setDesktop] = useState(true);
@@ -168,7 +170,7 @@ export default function Home() {
     <header className="topbar">
       <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="alpha">EARLY BUILD</span></div>
       <div className="file-actions"><button onClick={() => void choose(false)} disabled={!desktop}><Icon name="folder" />Open folder</button><button onClick={() => void choose(true)} disabled={!desktop}><Icon name="plus" />New deck</button>{deck.root && <button onClick={() => void closeProject()} disabled={!desktop}><Icon name="close" />Close project</button>}</div>
-      <div className="top-actions"><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle chat sidebar" aria-label="Toggle chat sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
+      <div className="top-actions"><button className="agent-connect" disabled={!desktop} onClick={() => setAgentOpen(true)}><Icon name="terminal" />Connect to Codex</button><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle chat sidebar" aria-label="Toggle chat sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}
     {error && <div className="error" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><Icon name="close" size={15} /></button></div>}
@@ -200,6 +202,7 @@ export default function Home() {
       </aside>}
     </div>
     {presenting && <button className="exit-present" onClick={() => void present(false)}>Exit presentation <kbd>esc</kbd></button>}
+    {agentOpen && <AgentConnection onClose={() => setAgentOpen(false)} />}
     {settingsOpen && <AISettings saved={settings} desktop={desktop} onClose={() => setSettingsOpen(false)} onSaved={(next, persistedKey) => {
       setSettings(next); setSettingsOpen(false);
       if (!persistedKey) setError('OS encryption is unavailable. Your API key is kept only for this session.');

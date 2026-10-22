@@ -5,6 +5,8 @@ export type Message = { role: 'user' | 'assistant'; content: string };
 declare global {
   interface Window {
     wetmytt?: {
+      mcpConnection(): Promise<{ url?: string; config?: string; error?: string }>;
+      copyMcpConfig(): Promise<void>;
       state(): Promise<Deck>;
       open(): Promise<Deck | null>;
       create(): Promise<Deck | null>;

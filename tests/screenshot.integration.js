@@ -6,7 +6,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { spawn } from 'node:child_process';
+import electron from 'electron';
 
 // Read the first pixel of Electron's RGB/RGBA PNG without another image dependency.
 function inspectPNG(data) {
@@ -36,16 +38,32 @@ test('MCP screenshot tool captures requested slides, fresh edits, and the starte
     <style>html,body { margin:0; width:100%; height:100% } [data-slide] { width:100%; height:100% } [hidden] { display:none!important }</style>
     <script>setTimeout(() => { document.body.insertAdjacentHTML('beforeend', '<section data-slide style="background:rgb(255,0,0)"></section><section data-slide style="background:rgb(0,255,0)"></section>'); }, 200);</script>
   </body></html>`);
-  const transport = new StdioClientTransport({
-    command: process.execPath,
-    args: [fileURLToPath(new URL('../electron/mcp.js', import.meta.url)), root],
-    stderr: 'pipe',
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  const child = spawn(electron, [fileURLToPath(new URL('./fixtures/mcp-app.js', import.meta.url)), root, directory], { env, stdio: ['ignore', 'ignore', 'pipe'] });
+  let output = '', spawnError;
+  child.stderr.on('data', chunk => { output += chunk; });
+  child.on('error', error => { spawnError = error; });
+  t.after(async () => {
+    if (child.exitCode !== null || child.signalCode !== null || spawnError) return;
+    await new Promise(resolve => { child.once('exit', resolve); child.kill('SIGTERM'); });
   });
+  let connection;
+  const deadline = Date.now() + 20000;
+  while (!connection) {
+    if (spawnError) throw spawnError;
+    if (child.exitCode !== null || child.signalCode !== null) throw new Error(`Electron exited: ${output}`);
+    try { connection = JSON.parse(await fs.readFile(path.join(directory, 'connection.json'), 'utf8')); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (Date.now() > deadline) throw new Error(`Electron startup timed out: ${output}`);
+    if (!connection) await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  const transport = new StreamableHTTPClientTransport(new URL(connection.url), { requestInit: { headers: { Authorization: 'Bearer test-token' } } });
   const client = new Client({ name: 'screenshot-test', version: '1.0.0' });
-  t.after(() => client.close());
+  t.after(() => transport.terminateSession().catch(() => {}).finally(() => client.close()));
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map(tool => tool.name).sort(), ['list_files', 'read_file', 'screenshot_slide', 'write_file']);
+  assert.deepEqual(tools.map(tool => tool.name).sort(), ['get_presentation', 'list_files', 'read_file', 'screenshot_slide', 'write_file']);
   for (const [slide, dominantChannel] of [[2, 1], [1, 0]]) {
     const result = await client.callTool({ name: 'screenshot_slide', arguments: { slide } });
     assert.ok(!result.isError, JSON.stringify(result));
@@ -55,6 +73,14 @@ test('MCP screenshot tool captures requested slides, fresh edits, and the starte
     const pixel = inspectPNG(result.content[0].data);
     assert.ok(pixel[dominantChannel] > 200);
     assert.ok(pixel.every((value, channel) => channel === dominantChannel || value < pixel[dominantChannel] - 100));
+  }
+  // Concurrent captures must retain their own navigation and local request scope.
+  const concurrent = await Promise.all([1, 2].map(slide => client.callTool({ name: 'screenshot_slide', arguments: { slide } })));
+  for (const [channel, result] of concurrent.entries()) {
+    assert.ok(!result.isError, JSON.stringify(result));
+    const pixel = inspectPNG(result.content[0].data);
+    assert.ok(pixel[channel] > 200);
+    assert.ok(pixel[channel] > pixel[1 - channel] + 100);
   }
   const outOfRange = await client.callTool({ name: 'screenshot_slide', arguments: { slide: 3 } });
   assert.equal(outOfRange.isError, true);

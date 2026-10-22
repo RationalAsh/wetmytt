@@ -69,22 +69,36 @@ codex
 
 Welcome to My TED Talk does not need to launch or supervise the agent. Changes from any editor or agent appear automatically.
 
-For an MCP-capable client, this repo also provides a stdio MCP server exposing `list_files`, `read_file`, `write_file`, and `screenshot_slide`, scoped to one deck. Configure your client to execute Node with absolute paths:
+### Connect Codex to the running app
 
-```json
-{
-  "mcpServers": {
-    "wetmytt": {
-      "command": "node",
-      "args": ["/absolute/path/to/wetmytt/electron/mcp.js", "/absolute/path/to/my-presentation"]
-    }
-  }
-}
+The Electron app hosts a Streamable HTTP MCP endpoint at `http://127.0.0.1:43187/mcp` while it is running. No presentation contains server code, and clients do not need a path to this app's installation.
+
+1. Start the app and open a presentation.
+2. Click **Connect to Codex** in the toolbar, then **Copy settings**.
+3. Add the copied block to your local `~/.codex/config.toml`, replacing any previous `[mcp_servers.wetmytt]` entry.
+4. Start a new Codex session. Use `/mcp` to check the connection.
+
+The copied configuration has this form (use the actual token from the app):
+
+```toml
+[mcp_servers.wetmytt]
+url = "http://127.0.0.1:43187/mcp"
+http_headers = { Authorization = "Bearer <installation-token>" }
 ```
 
-Or run `npm run mcp -- /absolute/path/to/my-presentation`. This app exposes an MCP server for external agents; it does not run an embedded MCP client. No listener or API key is required for MCP.
+The token is generated once and stored with owner-only permissions in `mcp-token` in Electron's user data directory. It remains valid across app restarts. Treat the copied settings as a secret; keep them out of shared presentations and version control. To revoke the token, quit the app, remove that token file, restart, and copy the new settings. The endpoint binds only to `127.0.0.1`, checks Host and Origin headers, and requires the token on every request. Only one app instance runs at a time. If the fixed port is occupied, the app still opens and the connection dialog reports the error; free the port and restart the app.
 
-Call `screenshot_slide` with `{ "slide": 2 }` to inspect the second slide. Slide numbers start at 1. The tool returns a 1280×720 PNG image directly to the model, using the same local server and navigation bridge as the app. It waits for slide containers, images, and fonts, and reports invalid slide numbers or rendering timeouts. Screenshots run in a separate hidden Electron window without changing the app's current slide or saving files into the deck. Electron must be installed (`npm install`) and a desktop session must be available. This tool is exposed through MCP; the built-in BYOK chat still uses the three text file tools.
+Tools available through MCP:
+
+- `get_presentation`: identifies the presentation bound to this session and whether it is still current.
+- `list_files`, `read_file`, `write_file`: operate within that presentation folder, with the existing path and symlink restrictions.
+- `screenshot_slide`: accepts `{ "slide": 2 }` and returns a 1280×720 PNG of the second slide directly to the model.
+
+Each session binds to the presentation open at initialization. Switching, closing, or reopening a presentation invalidates file and screenshot calls for existing sessions, including when the same folder is reopened. Reconnect MCP or start a new Codex session to select the newly open presentation. A connection made before opening a deck also needs to reconnect. An operation already in progress keeps its original folder; it never redirects into the new presentation.
+
+Screenshots use isolated hidden windows inside the running Electron app. They wait for slide containers, images, and fonts, report invalid slide numbers or rendering timeouts, and leave the visible preview and presentation folder untouched. Sessions expire after 30 minutes without requests; reconnect if needed. Quitting the app stops MCP. The built-in BYOK chat still uses the three text file tools.
+
+The former standalone stdio command (`npm run mcp` / `node electron/mcp.js`) has been replaced by this app-hosted endpoint. Remove its `command` and `args` configuration when migrating.
 
 ## Architecture and checks
 
@@ -93,12 +107,13 @@ Call `screenshot_slide` with `{ "slide": 2 }` to inspect the second slide. Slide
 - `electron/server.js`: loopback HTTP serving; decks have separate origins and random URL prefixes, with local-only CSP.
 - `electron/bridge.js`: injected deck navigation protocol.
 - `electron/files.js`: shared folder-scoped file tools, with traversal and symlink checks.
-- `electron/agent.js` and `mcp.js`: BYOK tool loop and stdio MCP server.
+- `electron/agent.js` and `mcp.js`: BYOK tool loop and app-hosted HTTP MCP server.
 
 ```sh
 npm test
 npm run typecheck
 npm run build
+npm run test:screenshot
 ```
 
 The preview is sandboxed without Node integration, and IPC validates that calls come from the main application frame. File tools reject hidden paths and paths or symlinks outside the deck. This is a local desktop prototype; avoid opening untrusted folders or allowing concurrent untrusted processes to replace symlinks during writes.

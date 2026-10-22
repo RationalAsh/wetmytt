@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, Menu, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell, Menu, safeStorage, clipboard } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,11 +8,14 @@ import { chat } from './agent.js';
 import { inferProvider, normalizeSettings } from '../shared/ai.js';
 import { createDeck } from './decks.js';
 import { importAssets } from './files.js';
+import { loadMcpToken, startMcpServer } from './mcp.js';
+import { screenshotSlide } from './screenshot.js';
 
 app.setName('Welcome to My TED Talk');
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
+let mcp, mcpError, generation = 0;
 let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
 const state = () => ({ root, url: deckServer?.url, name: root ? path.basename(root) : null });
 const notify = (name, data) => { if (window && !window.isDestroyed()) window.webContents.send(name, data); };
@@ -24,7 +27,7 @@ async function openDeck(folder) {
   await watcher?.close();
   clearTimeout(watchTimer);
   await deckServer?.close();
-  root = folder; deckServer = next;
+  root = folder; deckServer = next; generation++;
   watcher = chokidar.watch(root, { ignored: /(^|[/\\])\.|node_modules/, ignoreInitial: true, awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 } });
   watcher.on('all', () => { clearTimeout(watchTimer); watchTimer = setTimeout(() => notify('deck:changed', state()), 100); });
   watcher.on('error', error => console.error('Deck watcher:', error.message));
@@ -41,7 +44,8 @@ function handle(channel, callback) {
 
 // Electron waits for ESM evaluation before emitting ready. Awaiting whenReady at
 // module scope would deadlock startup and leave the Dock icon bouncing.
-app.whenReady().then(async () => {
+if (!app.requestSingleInstanceLock()) app.quit();
+else app.whenReady().then(async () => {
 const settingsPath = path.join(app.getPath('userData'), 'ai-settings.json');
 try {
   // Keep existing connections when upgrading from the original app name.
@@ -53,6 +57,18 @@ try {
   settings = normalizeSettings({ provider: saved.provider ?? inferProvider(saved.baseUrl), baseUrl: saved.baseUrl, model: saved.model, apiKey: saved.encryptedKey && safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(Buffer.from(saved.encryptedKey, 'base64')) : '' }, {}, { requireKey: false });
 } catch {}
 
+try {
+  const token = await loadMcpToken(app.getPath('userData'));
+  mcp = await startMcpServer({ getDeck: () => ({ root, generation }), screenshotSlide, token });
+} catch (error) {
+  mcpError = `Could not start the agent connection: ${error.message}`;
+  console.error(mcpError);
+}
+handle('mcp:connection', () => ({ url: mcp?.url, config: mcp?.config, error: mcpError }));
+handle('mcp:copy', () => {
+  if (!mcp) throw new Error(mcpError || 'Agent connection unavailable.');
+  clipboard.writeText(mcp.config);
+});
 handle('deck:state', state);
 handle('deck:import-assets', (expectedRoot, sources) => {
   if (!root || root !== expectedRoot) throw new Error('The open project changed. Drop the files again.');
@@ -63,7 +79,7 @@ handle('deck:close', async () => {
   await watcher?.close();
   clearTimeout(watchTimer);
   await deckServer?.close();
-  watcher = undefined; deckServer = undefined; root = undefined;
+  watcher = undefined; deckServer = undefined; root = undefined; generation++;
   window.setFullScreen(false);
   notify('deck:changed', state());
   return state();
@@ -125,9 +141,16 @@ Menu.setApplicationMenu(Menu.buildFromTemplate([
   { role: 'editMenu' }, { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }, { role: 'togglefullscreen' }] },
  ]));
 await createWindow();
+app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); } });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 app.on('window-all-closed', () => { pendingChat?.abort(); if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', () => { pendingChat?.abort(); watcher?.close(); deckServer?.close(); shellServer?.close(); });
+let quitting = false;
+app.on('before-quit', event => {
+  if (quitting) return;
+  event.preventDefault(); quitting = true;
+  pendingChat?.abort(); generation++;
+  Promise.allSettled([mcp?.close(), watcher?.close(), deckServer?.close(), shellServer?.close()]).finally(() => app.quit());
+});
 }).catch(error => {
   console.error(error);
   dialog.showErrorBox('Welcome to My TED Talk could not start', error.message);

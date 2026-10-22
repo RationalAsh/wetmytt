@@ -164,3 +164,12 @@ kbd { display: inline-flex; align-items: center; justify-content: center; border
 .endpoint-settings { border-top: 1px solid var(--line); padding-top: 14px; margin-bottom: 20px; }
 .endpoint-settings summary { cursor: pointer; color: #625276; font-size: 11px; margin-bottom: 12px; }
 .settings-error { padding: 12px; border-radius: 6px; color: #885a39; background: #fff0e4; font-size: 12px; line-height: 1.6; margin-bottom: 16px; overflow-wrap: anywhere; }
+
+.agent-modal { color: var(--ink); margin: auto; }
+.agent-modal::backdrop { background: #24163f66; }
+.agent-steps { font-size: 12px; color: var(--muted); padding-left: 20px; line-height: 1.8; }
+.agent-config { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; line-height: 1.7; padding: 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; user-select: text; }
+.agent-modal .settings-buttons { align-items: center; }
+.agent-modal [role="status"] { margin-right: auto; font-size: 11px; color: var(--muted); }
+
+.agent-connect { font-size: 12px; white-space: nowrap; padding: 8px; }

@@ -10,7 +10,6 @@
     "dev:web": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "electron .",
-    "mcp": "node electron/mcp.js",
     "test": "node --test tests/*.test.js",
     "test:screenshot": "node --test tests/screenshot.integration.js",
     "typecheck": "tsc --noEmit"
