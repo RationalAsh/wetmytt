@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import chokidar from 'chokidar';
 import { serveFolder } from './server.js';
 import { chat } from './agent.js';
+import { inferProvider, normalizeSettings } from '../shared/ai.js';
 import { createDeck } from './decks.js';
 import { importAssets } from './files.js';
 
@@ -12,7 +13,7 @@ app.setName('Welcome to My TED Talk');
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
-let settings = { baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
+let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
 const state = () => ({ root, url: deckServer?.url, name: root ? path.basename(root) : null });
 const notify = (name, data) => { if (window && !window.isDestroyed()) window.webContents.send(name, data); };
 
@@ -49,7 +50,7 @@ try {
     return fs.readFile(path.join(app.getPath('appData'), 'decklet', 'ai-settings.json'), 'utf8');
   });
   const saved = JSON.parse(savedText);
-  settings = { baseUrl: saved.baseUrl, model: saved.model, apiKey: saved.encryptedKey && safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(Buffer.from(saved.encryptedKey, 'base64')) : '' };
+  settings = normalizeSettings({ provider: saved.provider ?? inferProvider(saved.baseUrl), baseUrl: saved.baseUrl, model: saved.model, apiKey: saved.encryptedKey && safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(Buffer.from(saved.encryptedKey, 'base64')) : '' }, {}, { requireKey: false });
 } catch {}
 
 handle('deck:state', state);
@@ -80,12 +81,12 @@ handle('deck:create', async () => {
 });
 handle('deck:reveal', () => root ? shell.openPath(root) : undefined);
 handle('deck:present', value => { window.setFullScreen(Boolean(value)); });
-handle('ai:settings', () => ({ baseUrl: settings.baseUrl, model: settings.model, hasKey: Boolean(settings.apiKey) }));
+handle('ai:settings', () => ({ provider: settings.provider, baseUrl: settings.baseUrl, model: settings.model, hasKey: Boolean(settings.apiKey) }));
 handle('ai:save', async value => {
-  const endpoint = new URL(value.baseUrl);
-  if (endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname))) throw new Error('Use HTTPS, or HTTP for a local model.');
-  settings = { baseUrl: endpoint.href, model: String(value.model), apiKey: value.apiKey === undefined ? settings.apiKey : String(value.apiKey) };
-  await fs.writeFile(settingsPath, JSON.stringify({ baseUrl: settings.baseUrl, model: settings.model, encryptedKey: settings.apiKey && safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(settings.apiKey).toString('base64') : null }), { mode: 0o600 });
+  // An explicit empty key is the "Remove saved key" action.
+  const next = normalizeSettings(value, settings, { requireKey: value.apiKey !== '' });
+  await fs.writeFile(settingsPath, JSON.stringify({ provider: next.provider, baseUrl: next.baseUrl, model: next.model, encryptedKey: next.apiKey && safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(next.apiKey).toString('base64') : null }), { mode: 0o600 });
+  settings = next;
   return { persistedKey: !settings.apiKey || safeStorage.isEncryptionAvailable() };
 });
 handle('ai:cancel', () => pendingChat?.abort());

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Deck, Message, Settings } from './bridge';
+import { AISettings } from './ai-settings';
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const paths: Record<string, React.ReactNode> = {
@@ -35,8 +36,7 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [assetStatus, setAssetStatus] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState<Settings>({ baseUrl: 'https://api.openai.com/v1', model: '', hasKey: false });
-  const [key, setKey] = useState('');
+  const [settings, setSettings] = useState<Settings>({ provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', hasKey: false });
   const [desktop, setDesktop] = useState(true);
   const iframe = useRef<HTMLIFrameElement>(null);
   const slideRef = useRef(0);
@@ -163,14 +163,6 @@ export default function Home() {
     } catch (err) { if (session.current === currentSession) setError(String(err)); }
     finally { if (session.current === currentSession) { setBusy(false); setActivity(''); } }
   }
-  async function saveSettings(event: React.FormEvent) {
-    event.preventDefault();
-    try {
-      const result = await window.wetmytt!.saveSettings({ baseUrl: settings.baseUrl, model: settings.model, ...(key ? { apiKey: key } : {}) });
-      setSettings(await window.wetmytt!.settings()); setKey(''); setSettingsOpen(false);
-      if (!result.persistedKey) setError('OS encryption is unavailable. Your API key is kept only for this session.');
-    } catch (err) { setError(String(err)); }
-  }
 
   return <main className={presenting ? 'app presenting' : 'app'}>
     <header className="topbar">
@@ -208,6 +200,9 @@ export default function Home() {
       </aside>}
     </div>
     {presenting && <button className="exit-present" onClick={() => void present(false)}>Exit presentation <kbd>esc</kbd></button>}
-    {settingsOpen && <div className="modal-backdrop" onClick={() => setSettingsOpen(false)}><section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === 'Escape') setSettingsOpen(false); }}><div className="modal-heading"><Icon name="spark" /><h2 id="settings-title">Bring your own AI</h2><button className="icon-button" aria-label="Close settings" onClick={() => setSettingsOpen(false)}><Icon name="close" /></button></div><p>Connect any OpenAI-compatible provider with tool calling. Sending a message lets the model read and edit files in this deck.</p><form onSubmit={saveSettings}><label>API base URL<input autoFocus required type="url" value={settings.baseUrl} onChange={event => setSettings({ ...settings, baseUrl: event.target.value })} placeholder="https://api.openai.com/v1" /></label><label>Model<input required value={settings.model} onChange={event => setSettings({ ...settings, model: event.target.value })} placeholder="Your provider’s model ID" /></label><label>API key<input type="password" autoComplete="off" value={key} onChange={event => setKey(event.target.value)} placeholder={settings.hasKey ? 'Key saved · leave blank to keep it' : 'Optional for local models'} /></label><small>Keys are encrypted with your operating system when available. Chat is kept in memory for this session.</small><div className="settings-buttons">{settings.hasKey && <button type="button" onClick={async () => { try { await window.wetmytt!.saveSettings({ ...settings, apiKey: '' }); setSettings(await window.wetmytt!.settings()); } catch (err) { setError(String(err)); } }}>Remove key</button>}<button className="primary" disabled={!desktop}>Save connection</button></div></form><div className="mcp-note"><strong>Prefer an external agent?</strong><p>Hide this sidebar and run Codex in the deck folder, or connect the stdio MCP server:</p><code>node electron/mcp.js /path/to/deck</code></div></section></div>}
+    {settingsOpen && <AISettings saved={settings} desktop={desktop} onClose={() => setSettingsOpen(false)} onSaved={(next, persistedKey) => {
+      setSettings(next); setSettingsOpen(false);
+      if (!persistedKey) setError('OS encryption is unavailable. Your API key is kept only for this session.');
+    }} />}
   </main>;
 }

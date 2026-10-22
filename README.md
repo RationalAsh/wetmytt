@@ -52,7 +52,7 @@ Mark each slide container with `data-slide`, keep a closing `</body>` tag, and r
 
 ## AI: bring your own key
 
-Open **AI settings** and enter an OpenAI-compatible API base URL (including `/v1` if your provider requires it), a model ID, and an API key. The model must support Chat Completions function calling. HTTPS is required except for loopback endpoints, which support local models without a key.
+Open **AI settings**, choose **OpenRouter**, **OpenAI**, **Claude**, or **Ollama**, and enter a model ID that supports tools. Cloud connections require an API key; local Ollama does not. OpenAI, OpenRouter, and Ollama use Chat Completions; Claude uses the Anthropic Messages API. OpenRouter routing requires support for the requested parameters. The advanced base URL supports proxies using the selected API format, with HTTPS required except for loopback servers. Changing providers or endpoints does not reuse the saved key. Saving validates the configuration locally; model access and tool support are checked when you send a message.
 
 The built-in agent can list, read, and write text files in the open deck. A request grants it permission to edit that folder. Changes are applied directly and auto-reloaded; there is no undo or review workflow yet. Use version control for work you want to preserve. Image generation and binary uploads by the agent are outside this first pass; agents can reference dropped assets or write SVG.
 

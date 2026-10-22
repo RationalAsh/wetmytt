@@ -116,7 +116,7 @@ kbd { display: inline-flex; align-items: center; justify-content: center; border
 .asset-drop-overlay strong { font-size: 22px; font-weight: 500; }
 .asset-drop-overlay span { font-size: 13px; }
 .modal-backdrop { position: fixed; inset: 0; background: #20132f60; backdrop-filter: blur(4px); z-index: 10; display: flex; align-items: center; justify-content: center; padding: 20px; }
-.settings-modal { width: 460px; max-height: 90vh; overflow: auto; background: #fdfcff; border: 1px solid var(--line); border-radius: 15px; padding: 28px; box-shadow: 0 20px 80px #24163f30; }
+.settings-modal { width: 500px; max-height: 90vh; overflow: auto; background: #fdfcff; border: 1px solid var(--line); border-radius: 15px; padding: 28px; box-shadow: 0 20px 80px #24163f30; }
 .modal-heading { display: flex; align-items: center; gap: 10px; color: var(--accent); }
 .modal-heading h2 { margin: 0; font-weight: 700; letter-spacing: -.7px; font-size: 25px; color: var(--ink); }
 .modal-heading button { margin-left: auto; }
@@ -150,3 +150,17 @@ kbd { display: inline-flex; align-items: center; justify-content: center; border
   .top-actions { gap: 8px; }
   .brand strong { font-size: 18px; }
 }
+
+.connection-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.provider-label { font-size: 11px; color: #625276; padding: 0; margin-bottom: 9px; }
+.provider-picker { display: grid; grid-template-columns: repeat(4, 1fr); padding: 4px; gap: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--tint); }
+.provider-picker label { position: relative; display: block; margin: 0; text-align: center; border-radius: 6px; cursor: pointer; }
+.provider-picker input { position: absolute; opacity: 0; width: 1px; height: 1px; padding: 0; }
+.provider-picker span { display: block; padding: 10px 3px; border-radius: 6px; font-size: 11px; }
+.provider-picker .active { background: var(--paper); color: var(--accent); box-shadow: 0 1px 4px #24163f16; font-weight: 600; }
+.provider-picker input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+.provider-hint { color: var(--muted); font-size: 11px; line-height: 1.7; min-height: 37px; margin: 12px 0 18px; }
+.field-optional { color: var(--muted); font-size: 10px; margin-top: -3px; }
+.endpoint-settings { border-top: 1px solid var(--line); padding-top: 14px; margin-bottom: 20px; }
+.endpoint-settings summary { cursor: pointer; color: #625276; font-size: 11px; margin-bottom: 12px; }
+.settings-error { padding: 12px; border-radius: 6px; color: #885a39; background: #fff0e4; font-size: 12px; line-height: 1.6; margin-bottom: 16px; overflow-wrap: anywhere; }
