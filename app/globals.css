@@ -5,3 +5,8 @@
 .canvas-area{container-type:size}
 .slide-frame,.welcome-card{width:min(100cqw,calc(100cqh * 16 / 9));max-height:none;flex-shrink:0}
 .welcome-card{min-height:0}
+.asset-status{padding:10px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--light-green);color:var(--green);font-size:12px}
+.asset-status span{overflow-wrap:anywhere;max-height:60px;overflow:auto}.asset-status button{flex-shrink:0}
+.asset-drop-overlay{position:fixed;inset:8px;z-index:20;border:2px dashed var(--green);border-radius:12px;background:#edf0e7eb;display:flex;align-items:center;justify-content:center}
+.asset-drop-overlay>div{display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--green);pointer-events:none}
+.asset-drop-overlay strong{font-size:22px;font-weight:500}.asset-drop-overlay span{font-size:13px}

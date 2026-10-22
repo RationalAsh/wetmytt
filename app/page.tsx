@@ -32,6 +32,8 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [activity, setActivity] = useState('');
   const [error, setError] = useState('');
+  const [dragging, setDragging] = useState(false);
+  const [assetStatus, setAssetStatus] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>({ baseUrl: 'https://api.openai.com/v1', model: '', hasKey: false });
   const [key, setKey] = useState('');
@@ -41,6 +43,33 @@ export default function Home() {
   const deckRef = useRef<Deck>({});
   const session = useRef(0);
   const bottom = useRef<HTMLDivElement>(null);
+  const dragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearDrag = useCallback(() => {
+    if (dragTimer.current) clearTimeout(dragTimer.current);
+    setDragging(false);
+  }, []);
+  const showDrag = useCallback(() => {
+    if (!deckRef.current.root || !window.decklet) return;
+    setDragging(true);
+    if (dragTimer.current) clearTimeout(dragTimer.current);
+    dragTimer.current = setTimeout(() => setDragging(false), 800);
+  }, []);
+  const addAssets = useCallback(async (files: File[]) => {
+    clearDrag();
+    const root = deckRef.current.root;
+    if (!root || !window.decklet || !files.length) return;
+    const currentSession = session.current;
+    setAssetStatus('Adding assets…'); setError('');
+    try {
+      const result = await window.decklet.importAssets(root, files);
+      if (session.current !== currentSession) return;
+      setAssetStatus(result.imported.length ? `Added ${result.imported.join(', ')}` : '');
+      if (result.errors.length) setError(result.errors.join('\n'));
+    } catch (err) {
+      if (session.current === currentSession) { setAssetStatus(''); setError(String(err)); }
+    }
+  }, [clearDrag]);
 
   const navigate = useCallback((index: number) => {
     if (!deckRef.current.url) return;
@@ -55,9 +84,10 @@ export default function Home() {
       session.current++;
       slideRef.current = 0; setSlide(0); setCount(0); setMessages([]); setError('');
       setDraft(''); setBusy(false); setActivity('');
+      clearDrag(); setAssetStatus('');
     }
     deckRef.current = next; setDeck(next); setRevision(value => value + 1);
-  }, []);
+  }, [clearDrag]);
 
   useEffect(() => {
     const api = window.decklet;
@@ -74,6 +104,8 @@ export default function Home() {
         slideRef.current = event.data.index; setSlide(event.data.index); setCount(event.data.count);
       }
       if (event.data?.type === 'decklet:escape') void present(false);
+      if (event.data?.type === 'decklet:drag') showDrag();
+      if (event.data?.type === 'decklet:drop' && Array.isArray(event.data.files) && event.data.files.every((file: unknown) => file instanceof File)) void addAssets(event.data.files);
     }
     function onKey(event: KeyboardEvent) {
       if ((event.target as HTMLElement).closest('input, textarea, select, [contenteditable], dialog')) return;
@@ -82,7 +114,33 @@ export default function Home() {
     }
     window.addEventListener('message', onMessage); window.addEventListener('keydown', onKey);
     return () => { window.removeEventListener('message', onMessage); window.removeEventListener('keydown', onKey); };
-  }, [navigate, present]);
+  }, [navigate, present, showDrag, addAssets]);
+  useEffect(() => {
+    function onDrag(event: DragEvent) {
+      if (!event.dataTransfer?.types.includes('Files')) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = deckRef.current.root ? 'copy' : 'none';
+      showDrag();
+    }
+    function onDrop(event: DragEvent) {
+      if (!event.dataTransfer?.types.includes('Files')) return;
+      event.preventDefault();
+      void addAssets(Array.from(event.dataTransfer.files));
+    }
+    window.addEventListener('dragenter', onDrag, true);
+    window.addEventListener('dragover', onDrag, true);
+    window.addEventListener('drop', onDrop, true);
+    window.addEventListener('dragend', clearDrag);
+    window.addEventListener('blur', clearDrag);
+    return () => {
+      window.removeEventListener('dragenter', onDrag, true);
+      window.removeEventListener('dragover', onDrag, true);
+      window.removeEventListener('drop', onDrop, true);
+      window.removeEventListener('dragend', clearDrag);
+      window.removeEventListener('blur', clearDrag);
+      if (dragTimer.current) clearTimeout(dragTimer.current);
+    };
+  }, [showDrag, addAssets, clearDrag]);
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, activity]);
 
   async function choose(create: boolean) {
@@ -122,6 +180,8 @@ export default function Home() {
     </header>
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}
     {error && <div className="error" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><Icon name="close" size={15} /></button></div>}
+    {assetStatus && <div className="asset-status" role="status"><span>{assetStatus}</span><button aria-label="Dismiss asset notification" onClick={() => setAssetStatus('')}><Icon name="close" size={15} /></button></div>}
+    {dragging && deck.root && <div className="asset-drop-overlay"><div><Icon name="folder" size={32} /><strong>Drop files to add assets</strong><span>Copy to {deck.name}/assets/</span></div></div>}
     <div className="workspace">
       <section className="editor">
         <div className="deck-heading"><div><span className="eyebrow">YOUR PRESENTATION</span><h1>{deck.name || 'A little idea. A great deck.'}</h1></div>{deck.root && <button className="folder-path" title={deck.root} onClick={() => void window.decklet?.reveal()}><Icon name="folder" size={15} />Show files</button>}</div>

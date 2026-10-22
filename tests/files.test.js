@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { scopedPath, readFile, writeFile, listFiles } from '../electron/files.js';
+import { scopedPath, readFile, writeFile, listFiles, importAssets } from '../electron/files.js';
 import { serveFolder } from '../electron/server.js';
 import { chat } from '../electron/agent.js';
 
@@ -32,6 +32,51 @@ test('file tools block traversal, absolute paths, hidden files, and symlink esca
   for (const name of ['../secret.txt', '/etc/passwd', '.env', 'escape/secret.txt']) await assert.rejects(readFile(root, name));
   await assert.rejects(writeFile(root, 'escape/new/nested.txt', 'bad'));
   await assert.rejects(scopedPath(root, '../new', true));
+});
+
+test('asset imports copy binary files, create assets, and preserve originals and duplicate names', async t => {
+  const { directory, root } = await fixture(t);
+  const source = path.join(directory, 'photo.png');
+  const content = Buffer.alloc(1_100_000, 0xab);
+  await fs.writeFile(source, content);
+  assert.deepEqual(await importAssets(root, [source, source]), {
+    imported: ['assets/photo.png', 'assets/photo (1).png'], errors: [],
+  });
+  for (const file of [source, path.join(root, 'assets/photo.png'), path.join(root, 'assets/photo (1).png')]) {
+    assert.deepEqual(await fs.readFile(file), content);
+  }
+  assert.deepEqual(await importAssets(root, [path.join(root, 'assets/photo.png')]), {
+    imported: ['assets/photo (2).png'], errors: [],
+  });
+});
+
+test('asset imports report individual failures and continue importing valid files', async t => {
+  const { directory, root } = await fixture(t);
+  const hidden = path.join(directory, '.env');
+  await fs.writeFile(hidden, 'private');
+  const result = await importAssets(root, [directory, hidden, path.join(directory, 'missing.png'), path.join(directory, 'secret.txt')]);
+  assert.deepEqual(result.imported, ['assets/secret.txt']);
+  assert.equal(result.errors.length, 3);
+  assert.match(result.errors[0], /not folders/);
+  assert.deepEqual(await fs.readdir(path.join(root, 'assets')), ['secret.txt']);
+  await assert.rejects(importAssets(root, ['../secret.txt']));
+  await assert.rejects(importAssets(root, []));
+});
+
+test('asset imports reject an assets symlink outside the project and preserve destination symlinks', async t => {
+  const { directory, root } = await fixture(t);
+  const source = path.join(directory, 'secret.txt');
+  await fs.symlink(directory, path.join(root, 'assets'));
+  const result = await importAssets(root, [source]);
+  assert.deepEqual(result.imported, []);
+  assert.match(result.errors[0], /Symlinks cannot escape/);
+  assert.equal(await fs.readFile(source, 'utf8'), 'secret');
+  await fs.unlink(path.join(root, 'assets'));
+  await fs.mkdir(path.join(root, 'assets'));
+  await fs.writeFile(path.join(root, 'existing.txt'), 'keep');
+  await fs.symlink(path.join(root, 'existing.txt'), path.join(root, 'assets/secret.txt'));
+  assert.deepEqual(await importAssets(root, [source]), { imported: ['assets/secret (1).txt'], errors: [] });
+  assert.equal(await fs.readFile(path.join(root, 'existing.txt'), 'utf8'), 'keep');
 });
 
 test('preview serves local assets, injects navigation, rejects paths and disables caching', async t => {

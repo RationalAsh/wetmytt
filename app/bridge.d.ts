@@ -9,6 +9,7 @@ declare global {
       create(): Promise<Deck | null>;
       close(): Promise<Deck>;
       reveal(): Promise<void>;
+      importAssets(root: string, files: File[]): Promise<{ imported: string[]; errors: string[] }>;
       settings(): Promise<Settings>;
       saveSettings(value: { baseUrl: string; model: string; apiKey?: string }): Promise<{ persistedKey: boolean }>;
       chat(history: Message[]): Promise<string>;

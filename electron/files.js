@@ -1,5 +1,34 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { constants } from 'node:fs';
+
+export async function importAssets(root, sources) {
+  if (!Array.isArray(sources) || !sources.length || sources.some(source => typeof source !== 'string' || !path.isAbsolute(source))) {
+    throw new Error('Drop files from your computer to add assets.');
+  }
+  const imported = [], errors = [];
+  for (const source of sources) {
+    try {
+      if (!(await fs.stat(source)).isFile()) throw new Error('Drop files, not folders.');
+      const name = path.basename(source);
+      const { name: stem, ext } = path.parse(name);
+      const assets = await scopedPath(root, 'assets', true);
+      await fs.mkdir(assets, { recursive: true });
+      for (let suffix = 0; ; suffix++) {
+        const relative = `assets/${suffix ? `${stem} (${suffix})${ext}` : name}`;
+        const target = await scopedPath(root, relative, true);
+        try {
+          await fs.copyFile(source, target, constants.COPYFILE_EXCL);
+          imported.push(relative);
+          break;
+        } catch (error) {
+          if (error.code !== 'EEXIST') throw error;
+        }
+      }
+    } catch (error) { errors.push(`${path.basename(source)}: ${error.message}`); }
+  }
+  return { imported, errors };
+}
 
 export async function scopedPath(root, relative, writing = false) {
   if (typeof relative !== 'string' || !relative || path.isAbsolute(relative)) throw new Error('Use a relative deck path.');

@@ -38,6 +38,8 @@ my-presentation/
 
 The app watches the complete deck folder for changes, including images and nested assets, and reloads while retaining the current slide where possible. Hidden files and `node_modules` are ignored. A temporarily invalid JSON file displays an error in the slide area; saving valid JSON recovers automatically.
 
+With a project open, drag files anywhere onto the app (including the slide preview) to copy them into its `assets/` folder. Originals stay in place, and duplicate names get a numbered suffix instead of overwriting existing assets. Folders are not imported.
+
 Use the visible arrows or **← / →** to navigate. **Present** enters full screen with the shell hidden; **Esc** exits. A hidden exit button also appears on hover at the top right. Hide or show the chat sidebar with the top-right panel button. Navigation keys do not interfere with typing in chat.
 
 ### Custom slide HTML
@@ -48,7 +50,7 @@ Mark each slide container with `data-slide`, keep a closing `</body>` tag, and r
 
 Open **AI settings** and enter an OpenAI-compatible API base URL (including `/v1` if your provider requires it), a model ID, and an API key. The model must support Chat Completions function calling. HTTPS is required except for loopback endpoints, which support local models without a key.
 
-The built-in agent can list, read, and write text files in the open deck. A request grants it permission to edit that folder. Changes are applied directly and auto-reloaded; there is no undo or review workflow yet. Use version control for work you want to preserve. Image generation and binary uploads are outside this first pass; agents can reference existing assets or write SVG.
+The built-in agent can list, read, and write text files in the open deck. A request grants it permission to edit that folder. Changes are applied directly and auto-reloaded; there is no undo or review workflow yet. Use version control for work you want to preserve. Image generation and binary uploads by the agent are outside this first pass; agents can reference dropped assets or write SVG.
 
 Keys stay in Electron's main process and are encrypted at rest using Electron `safeStorage`. If OS encryption is unavailable, the key is kept in memory only. Provider settings are stored in Electron's user-data directory, never in the deck. Chat is in memory and resets when you switch decks. The model receives your chat and any deck files it reads through tools. Stop cancels the running request; completed writes remain. Each request is limited to 16 model turns and three minutes.
 

@@ -6,6 +6,7 @@ import chokidar from 'chokidar';
 import { serveFolder } from './server.js';
 import { chat } from './agent.js';
 import { createDeck } from './decks.js';
+import { importAssets } from './files.js';
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
@@ -45,6 +46,10 @@ try {
 } catch {}
 
 handle('deck:state', state);
+handle('deck:import-assets', (expectedRoot, sources) => {
+  if (!root || root !== expectedRoot) throw new Error('The open project changed. Drop the files again.');
+  return importAssets(root, sources);
+});
 handle('deck:close', async () => {
   pendingChat?.abort();
   await watcher?.close();

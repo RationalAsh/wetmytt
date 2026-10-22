@@ -23,6 +23,16 @@
     }
     if (event.key === 'Escape' && parentOrigin) parent.postMessage({ type: 'decklet:escape' }, parentOrigin);
   });
+  // File drags inside the cross-origin preview do not bubble to the shell.
+  for (const type of ['dragenter', 'dragover', 'drop']) addEventListener(type, event => {
+    if (!event.dataTransfer?.types.includes('Files')) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    if (parentOrigin) parent.postMessage({
+      type: type === 'drop' ? 'decklet:drop' : 'decklet:drag',
+      ...(type === 'drop' ? { files: [...event.dataTransfer.files] } : {}),
+    }, parentOrigin);
+  }, true);
   new MutationObserver(render).observe(document.body, { childList: true, subtree: true });
   render();
 })();
