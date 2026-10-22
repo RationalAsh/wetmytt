@@ -54,6 +54,7 @@ export default function Home() {
     if (deckRef.current.root !== next.root) {
       session.current++;
       slideRef.current = 0; setSlide(0); setCount(0); setMessages([]); setError('');
+      setDraft(''); setBusy(false); setActivity('');
     }
     deckRef.current = next; setDeck(next); setRevision(value => value + 1);
   }, []);
@@ -88,6 +89,10 @@ export default function Home() {
     try { await (create ? window.decklet?.create() : window.decklet?.open()); }
     catch (err) { setError(String(err)); }
   }
+  async function closeProject() {
+    try { await window.decklet?.close(); }
+    catch (err) { setError(String(err)); }
+  }
   async function send(text = draft) {
     if (!text.trim() || busy || !deck.root) return;
     if (!settings.model) { setSettingsOpen(true); return; }
@@ -98,7 +103,7 @@ export default function Home() {
       const content = await window.decklet!.chat(history);
       if (session.current === currentSession) setMessages([...history, { role: 'assistant', content }]);
     } catch (err) { if (session.current === currentSession) setError(String(err)); }
-    finally { setBusy(false); setActivity(''); }
+    finally { if (session.current === currentSession) { setBusy(false); setActivity(''); } }
   }
   async function saveSettings(event: React.FormEvent) {
     event.preventDefault();
@@ -112,7 +117,7 @@ export default function Home() {
   return <main className={presenting ? 'app presenting' : 'app'}>
     <header className="topbar">
       <div className="brand"><span className="brand-mark">d<span>·</span></span><strong>decklet</strong><span className="alpha">EARLY BUILD</span></div>
-      <div className="file-actions"><button onClick={() => void choose(false)} disabled={!desktop}><Icon name="folder" />Open folder</button><button onClick={() => void choose(true)} disabled={!desktop}><Icon name="plus" />New deck</button></div>
+      <div className="file-actions"><button onClick={() => void choose(false)} disabled={!desktop}><Icon name="folder" />Open folder</button><button onClick={() => void choose(true)} disabled={!desktop}><Icon name="plus" />New deck</button>{deck.root && <button onClick={() => void closeProject()} disabled={!desktop}><Icon name="close" />Close project</button>}</div>
       <div className="top-actions"><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle chat sidebar" aria-label="Toggle chat sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}

@@ -8,7 +8,7 @@ import { chat } from './agent.js';
 import { createDeck } from './decks.js';
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin;
+let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
 let settings = { baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
 const state = () => ({ root, url: deckServer?.url, name: root ? path.basename(root) : null });
 const notify = (name, data) => { if (window && !window.isDestroyed()) window.webContents.send(name, data); };
@@ -18,11 +18,11 @@ async function openDeck(folder) {
   const next = await serveFolder(folder, { deck: true });
   pendingChat?.abort();
   await watcher?.close();
+  clearTimeout(watchTimer);
   await deckServer?.close();
   root = folder; deckServer = next;
-  let timer;
   watcher = chokidar.watch(root, { ignored: /(^|[/\\])\.|node_modules/, ignoreInitial: true, awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 } });
-  watcher.on('all', () => { clearTimeout(timer); timer = setTimeout(() => notify('deck:changed', state()), 100); });
+  watcher.on('all', () => { clearTimeout(watchTimer); watchTimer = setTimeout(() => notify('deck:changed', state()), 100); });
   watcher.on('error', error => console.error('Deck watcher:', error.message));
   notify('deck:changed', state());
   return state();
@@ -45,6 +45,16 @@ try {
 } catch {}
 
 handle('deck:state', state);
+handle('deck:close', async () => {
+  pendingChat?.abort();
+  await watcher?.close();
+  clearTimeout(watchTimer);
+  await deckServer?.close();
+  watcher = undefined; deckServer = undefined; root = undefined;
+  window.setFullScreen(false);
+  notify('deck:changed', state());
+  return state();
+});
 handle('deck:open', async () => {
   const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'], title: 'Open presentation folder' });
   if (!result.canceled) return openDeck(result.filePaths[0]);

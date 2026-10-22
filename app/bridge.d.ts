@@ -7,6 +7,7 @@ declare global {
       state(): Promise<Deck>;
       open(): Promise<Deck | null>;
       create(): Promise<Deck | null>;
+      close(): Promise<Deck>;
       reveal(): Promise<void>;
       settings(): Promise<Settings>;
       saveSettings(value: { baseUrl: string; model: string; apiKey?: string }): Promise<{ persistedKey: boolean }>;
