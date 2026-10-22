@@ -4,27 +4,30 @@ import { useEffect, useRef, useState } from 'react';
 
 export function AgentConnection({ onClose }: { onClose(): void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [connection, setConnection] = useState<{ url?: string; config?: string; error?: string }>({});
-  const [copied, setCopied] = useState(false);
+  const started = useRef(false);
+  const [busy, setBusy] = useState(true);
+  const [opened, setOpened] = useState(false);
   const [error, setError] = useState('');
+  async function connect() {
+    setBusy(true); setError(''); setOpened(false);
+    try {
+      if (!window.wetmytt) throw new Error('Open the desktop app to connect to Codex.');
+      const result = await window.wetmytt.connectCodex();
+      setOpened(result.opened); setError(result.error || '');
+    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    finally { setBusy(false); }
+  }
   useEffect(() => {
     dialog.current?.showModal();
-    window.wetmytt?.mcpConnection().then(setConnection).catch(err => setError(String(err)));
+    if (!started.current) { started.current = true; void connect(); }
   }, []);
-  async function copy() {
-    try { await window.wetmytt!.copyMcpConfig(); setCopied(true); }
-    catch (err) { setError(String(err)); }
-  }
   return <dialog ref={dialog} className="settings-modal agent-modal" onCancel={onClose} onClick={event => { if (event.target === event.currentTarget) onClose(); }} aria-labelledby="agent-title">
     <div className="modal-heading"><h2 id="agent-title">Connect to Codex</h2><button className="icon-button" aria-label="Close connection settings" onClick={onClose}>×</button></div>
-    <p>Give Codex access to the open presentation’s files and slide screenshots. Keep this app running while you work.</p>
-    {connection.url && <>
-      <ol className="agent-steps"><li>Copy the connection settings below.</li><li>Add them to <code>~/.codex/config.toml</code> on this computer.</li><li>Open a presentation, then start a new Codex session.</li></ol>
-      <pre className="agent-config" aria-label="Codex MCP configuration">{connection.config}</pre>
-      <small>These settings include a private access token for this installation. Keep it out of shared presentation folders and version control.</small>
-      <p>If you switch presentations, reconnect MCP or start a new Codex session. Existing connections stay bound to the previous presentation and stop accepting file and screenshot requests.</p>
-    </>}
-    {(connection.error || error) && <div className="settings-error" role="alert">{connection.error || error}</div>}
-    <div className="settings-buttons"><span role="status">{copied ? 'Connection settings copied' : ''}</span><button onClick={onClose}>Close</button><button className="primary" disabled={!connection.config} onClick={() => void copy()}>Copy settings</button></div>
+    <p>Use the Welcome to My TED Talk plugin to edit your open presentation and capture slide screenshots.</p>
+    <p role="status">{busy ? 'Preparing your local plugin and opening Codex…' : opened ? 'Opened the plugin in Codex. Select Install there to finish connecting.' : 'Finish connecting in Codex Desktop.'}</p>
+    <ol className="agent-steps"><li>Install the plugin in Codex.</li><li>Open a presentation here and keep this app running.</li><li>Start a new Codex chat and use the plugin.</li></ol>
+    <p>If Codex doesn’t show the plugin yet, restart Codex and click “Open in Codex” below. After switching presentations, reconnect MCP or start a new Codex chat.</p>
+    {error && <div className="settings-error" role="alert">{error}</div>}
+    <div className="settings-buttons"><button onClick={onClose}>Close</button><button className="primary" disabled={busy} onClick={() => void connect()}>{busy ? 'Opening…' : 'Open in Codex'}</button></div>
   </dialog>;
 }

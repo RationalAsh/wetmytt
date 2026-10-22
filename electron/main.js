@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, Menu, safeStorage, clipboard } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell, Menu, safeStorage } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,12 +10,13 @@ import { createDeck } from './decks.js';
 import { importAssets } from './files.js';
 import { loadMcpToken, startMcpServer } from './mcp.js';
 import { screenshotSlide } from './screenshot.js';
+import { connectCodex } from './codex-plugin.js';
 
 app.setName('Welcome to My TED Talk');
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
-let mcp, mcpError, generation = 0;
+let mcp, mcpError, mcpToken, connectingCodex, generation = 0;
 let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
 const state = () => ({ root, url: deckServer?.url, name: root ? path.basename(root) : null });
 const notify = (name, data) => { if (window && !window.isDestroyed()) window.webContents.send(name, data); };
@@ -58,16 +59,17 @@ try {
 } catch {}
 
 try {
-  const token = await loadMcpToken(app.getPath('userData'));
-  mcp = await startMcpServer({ getDeck: () => ({ root, generation }), screenshotSlide, token });
+  mcpToken = await loadMcpToken(app.getPath('userData'));
+  mcp = await startMcpServer({ getDeck: () => ({ root, generation }), screenshotSlide, token: mcpToken });
 } catch (error) {
   mcpError = `Could not start the agent connection: ${error.message}`;
   console.error(mcpError);
 }
-handle('mcp:connection', () => ({ url: mcp?.url, config: mcp?.config, error: mcpError }));
-handle('mcp:copy', () => {
+handle('mcp:connect-codex', async () => {
   if (!mcp) throw new Error(mcpError || 'Agent connection unavailable.');
-  clipboard.writeText(mcp.config);
+  // Coalesce repeated clicks while the marketplace is being updated.
+  if (!connectingCodex) connectingCodex = connectCodex({ url: mcp.url, token: mcpToken, openExternal: link => shell.openExternal(link) }).finally(() => { connectingCodex = undefined; });
+  return connectingCodex;
 });
 handle('deck:state', state);
 handle('deck:import-assets', (expectedRoot, sources) => {

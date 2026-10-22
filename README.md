@@ -74,19 +74,18 @@ Welcome to My TED Talk does not need to launch or supervise the agent. Changes f
 The Electron app hosts a Streamable HTTP MCP endpoint at `http://127.0.0.1:43187/mcp` while it is running. No presentation contains server code, and clients do not need a path to this app's installation.
 
 1. Start the app and open a presentation.
-2. Click **Connect to Codex** in the toolbar, then **Copy settings**.
-3. Add the copied block to your local `~/.codex/config.toml`, replacing any previous `[mcp_servers.wetmytt]` entry.
-4. Start a new Codex session. Use `/mcp` to check the connection.
+2. Click **Connect to Codex** in the toolbar. The app prepares a private local plugin and opens its details in Codex Desktop.
+3. Select **Install** in Codex, then start a new Codex chat and use the **Welcome to My TED Talk** plugin.
 
-The copied configuration has this form (use the actual token from the app):
+No manual MCP configuration is needed. If the plugin doesn't appear immediately, restart Codex and click **Open in Codex** in the connection dialog. Codex remains responsible for the final installation and enablement; the app does not silently install the plugin or change tool approval settings.
 
-```toml
-[mcp_servers.wetmytt]
-url = "http://127.0.0.1:43187/mcp"
-http_headers = { Authorization = "Bearer <installation-token>" }
-```
+The app creates its plugin under `~/.agents/plugins/wetmytt/` and adds an entry to `~/.agents/plugins/marketplace.json`, preserving other entries and marketplace metadata. The plugin includes its name, icon, and the authenticated local MCP endpoint. The connection button opens a `codex://plugins/wetmytt?marketplacePath=...` link to that personal marketplace. Repeated use refreshes the same plugin source without adding duplicate entries. Existing installed copies may need to be refreshed or reinstalled through Codex after changing credentials.
 
-The token is generated once and stored with owner-only permissions in `mcp-token` in Electron's user data directory. It remains valid across app restarts. Treat the copied settings as a secret; keep them out of shared presentations and version control. To revoke the token, quit the app, remove that token file, restart, and copy the new settings. The endpoint binds only to `127.0.0.1`, checks Host and Origin headers, and requires the token on every request. Only one app instance runs at a time. If the fixed port is occupied, the app still opens and the connection dialog reports the error; free the port and restart the app.
+The access token is generated once and stored with owner-only permissions in `mcp-token` in Electron's user data directory. It remains valid across app restarts. The generated plugin folder is private to your user, and its `.mcp.json` is owner-readable/writable because it contains the token. Keep this generated package local; do not share or commit it. To revoke the token, quit the app, remove that token file, restart, click **Connect to Codex**, and reinstall the plugin in Codex to refresh its cached credentials.
+
+If you previously added `[mcp_servers.wetmytt]` to Codex's config manually, remove that old entry after installing the plugin to avoid duplicate connections. The app preserves your existing Codex configuration.
+
+The endpoint binds only to `127.0.0.1`, checks Host and Origin headers, and requires the token on every request. Only one app instance runs at a time. If the fixed port is occupied, the app still opens and the connection dialog reports the error; free the port and restart the app.
 
 Tools available through MCP:
 
@@ -108,6 +107,7 @@ The former standalone stdio command (`npm run mcp` / `node electron/mcp.js`) has
 - `electron/bridge.js`: injected deck navigation protocol.
 - `electron/files.js`: shared folder-scoped file tools, with traversal and symlink checks.
 - `electron/agent.js` and `mcp.js`: BYOK tool loop and app-hosted HTTP MCP server.
+- `electron/codex-plugin.js`: private local plugin generation, personal marketplace registration, and Codex deep link.
 
 ```sh
 npm test

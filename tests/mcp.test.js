@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { startMcpServer, loadMcpToken, codexMcpConfig } from '../electron/mcp.js';
+import { startMcpServer, loadMcpToken } from '../electron/mcp.js';
 
 async function fixture(t) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'wetmytt-mcp-'));
@@ -104,9 +104,8 @@ test('installation credentials persist and a closed MCP server releases its port
   const f = await fixture(t);
   assert.equal(await loadMcpToken(f.directory), f.token);
   if (process.platform !== 'win32') assert.equal((await fs.stat(path.join(f.directory, 'mcp-token'))).mode & 0o777, 0o600);
-  assert.equal(f.service.config, codexMcpConfig(f.service.url, f.token));
   await f.service.close();
   const restarted = await startMcpServer({ port: Number(new URL(f.service.url).port), token: f.token, getDeck: () => ({ generation: 0 }), screenshotSlide: async () => Buffer.alloc(0) });
-  assert.equal(restarted.config, f.service.config);
+  assert.equal(restarted.url, f.service.url);
   await restarted.close();
 });

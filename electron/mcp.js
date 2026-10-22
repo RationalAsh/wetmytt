@@ -22,10 +22,6 @@ export async function loadMcpToken(directory) {
   return token;
 }
 
-export function codexMcpConfig(url, token) {
-  return `[mcp_servers.wetmytt]\nurl = ${JSON.stringify(url)}\nhttp_headers = { Authorization = ${JSON.stringify(`Bearer ${token}`)} }\n`;
-}
-
 function presentationServer(getDeck, bound, screenshotSlide) {
   const server = new McpServer({ name: 'wetmytt', version: '0.1.0' }, {
     instructions: 'Tools operate on the presentation open when this MCP session connected. Call get_presentation to identify it. If the presentation changes, reconnect before making further edits.',
@@ -129,7 +125,6 @@ export async function startMcpServer({ getDeck, screenshotSlide, token, port = M
   sweep.unref();
   return {
     url: `${origin}/mcp`,
-    config: codexMcpConfig(`${origin}/mcp`, token),
     async close() {
       closing = true;
       clearInterval(sweep);
