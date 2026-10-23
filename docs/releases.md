@@ -83,6 +83,8 @@ Review the draft in [Releases](https://github.com/RationalAsh/wetmytt/releases),
 
 If a build fails, fix it and validate using Run workflow before publishing a new version. If the final draft-creation step fails, check whether a draft already exists before rerunning it; the workflow intentionally does not overwrite existing releases.
 
+If signing fails at `security set-key-partition-list` with `SecKeychainUnlock`, check the installed electron-builder version before changing secrets. Version 26.16.1 fixes a bug where the certificate export password was used to unlock a temporary keychain protected by a different password. Keep the lockfile on this version or a later patched release.
+
 For the next release, update `package.json` and `package-lock.json` together, add a matching `docs/release-notes/vX.Y.Z.md`, and push the corresponding tag.
 
 ## Repeat-release checklist
