@@ -9,6 +9,8 @@ declare global {
     wetmytt?: {
       connectCodex(): Promise<{ opened: boolean; error?: string }>;
       state(): Promise<Deck>;
+      readContent(root: string, generation: number): Promise<string>;
+      saveContent(root: string, generation: number, source: string, pointer: string, text: string): Promise<string>;
       open(): Promise<Deck | null>;
       create(): Promise<Deck | null>;
       close(): Promise<Deck>;

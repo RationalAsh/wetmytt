@@ -18,11 +18,12 @@ fetch('deck.json').then(response => {
       const element = document.createElement(tag);
       element.textContent = text;
       element.className = className;
+      element.dataset.jsonPath = `/slides/${index}/${className === 'title' ? 'title' : className}`;
       content.append(element);
     }
     if (slide.bullets?.length) {
       const list = document.createElement('ul');
-      slide.bullets.forEach(text => { const item = document.createElement('li'); item.textContent = text; list.append(item); });
+      slide.bullets.forEach((text, bulletIndex) => { const item = document.createElement('li'); item.textContent = text; item.dataset.jsonPath = `/slides/${index}/bullets/${bulletIndex}`; list.append(item); });
       content.append(list);
     }
     section.append(content);

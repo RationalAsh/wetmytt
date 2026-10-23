@@ -5,6 +5,7 @@ import type { ConversationSummary, Deck, Message, Settings } from './bridge';
 import { AISettings } from './ai-settings';
 import { AgentConnection } from './agent-connection';
 import { MarkdownMessage } from './markdown-message';
+import { ContentEditor, type TextField, type TextSelection } from './content-editor';
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const paths: Record<string, React.ReactNode> = {
@@ -28,6 +29,9 @@ export default function Home() {
   const [deck, setDeck] = useState<Deck>({});
   const [revision, setRevision] = useState(0);
   const [sidebar, setSidebar] = useState(true);
+  const [sidebarTab, setSidebarTab] = useState<'chat' | 'edit'>('chat');
+  const [fields, setFields] = useState<TextField[]>([]);
+  const [selection, setSelection] = useState<TextSelection | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState('');
   const [presenting, setPresenting] = useState(false);
@@ -92,6 +96,7 @@ export default function Home() {
   const receiveDeck = useCallback((next: Deck) => {
     if (deckRef.current.root !== next.root || deckRef.current.generation !== next.generation) {
       session.current++;
+      setFields([]); setSelection(null);
       const currentChat = ++chatSession.current;
       setConversationId(null); setConversations([]); setLoadingChat(Boolean(next.root));
       if (next.root && window.wetmytt) {
@@ -130,6 +135,10 @@ export default function Home() {
       if (!deckRef.current.url || event.source !== iframe.current?.contentWindow || event.origin !== new URL(deckRef.current.url).origin) return;
       if (event.data?.type === 'wetmytt:state' && Number.isInteger(event.data.index) && Number.isInteger(event.data.count)) {
         slideRef.current = event.data.index; setSlide(event.data.index); setCount(event.data.count);
+      }
+      if (event.data?.type === 'wetmytt:select' && (event.data.path === null || typeof event.data.path === 'string')) {
+        setSelection({ path: event.data.path, text: typeof event.data.text === 'string' ? event.data.text : '', token: Date.now() });
+        if (event.data.text || event.data.path !== null) { setSidebar(true); setSidebarTab('edit'); }
       }
       if (event.data?.type === 'wetmytt:escape') void present(false);
       if (event.data?.type === 'wetmytt:drag') showDrag();
@@ -170,6 +179,12 @@ export default function Home() {
     };
   }, [showDrag, addAssets, clearDrag]);
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, activity]);
+
+  const configurePreview = useCallback(() => {
+    if (!deck.url) return;
+    iframe.current?.contentWindow?.postMessage({ type: 'wetmytt:edit', enabled: !presenting, fields, path: selection?.path ?? null }, new URL(deck.url).origin);
+  }, [deck.url, presenting, fields, selection]);
+  useEffect(configurePreview, [configurePreview, revision]);
 
   async function choose(create: boolean) {
     try { await (create ? window.wetmytt?.create() : window.wetmytt?.open()); }
@@ -226,7 +241,7 @@ export default function Home() {
     <header className="topbar">
       <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="alpha">EARLY BUILD</span></div>
       <div className="file-actions"><button onClick={() => void choose(false)} disabled={!desktop}><Icon name="folder" />Open folder</button><button onClick={() => void choose(true)} disabled={!desktop}><Icon name="plus" />New deck</button>{deck.root && <button onClick={() => void closeProject()} disabled={!desktop}><Icon name="close" />Close project</button>}</div>
-      <div className="top-actions"><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><button className="agent-connect" disabled={!desktop} onClick={() => setAgentOpen(true)}><Icon name="terminal" />Connect to Codex</button><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle chat sidebar" aria-label="Toggle chat sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
+      <div className="top-actions"><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><button className="agent-connect" disabled={!desktop} onClick={() => setAgentOpen(true)}><Icon name="terminal" />Connect to Codex</button><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}
     {error && <div className="error" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><Icon name="close" size={15} /></button></div>}
@@ -237,7 +252,7 @@ export default function Home() {
       <section className="editor">
         <div className="deck-heading"><div><span className="eyebrow">YOUR PRESENTATION</span><h1>{deck.name || 'Got a point? Make it.'}</h1></div>{deck.root && <button className="folder-path" title={deck.root} onClick={() => void window.wetmytt?.reveal()}><Icon name="folder" size={15} />Show files</button>}</div>
         <div className="canvas-area">
-          {deck.url ? <div className="slide-frame"><iframe ref={iframe} title="Presentation slide" src={`${deck.url}index.html?revision=${revision}`} sandbox="allow-scripts allow-same-origin" onLoad={() => navigate(slideRef.current)} /></div> : <div className="welcome-card">
+          {deck.url ? <div className="slide-frame"><iframe ref={iframe} title="Presentation slide" src={`${deck.url}index.html?revision=${revision}`} sandbox="allow-scripts allow-same-origin" onLoad={() => { navigate(slideRef.current); configurePreview(); }} /></div> : <div className="welcome-card">
             <div className="welcome-spotlight" aria-hidden="true" /><span className="welcome-tag"><span />THE FLOOR IS YOURS</span>
             <h2>Okay,<br /><em>hear me out.</em></h2>
             <p>Big opinions. Questionable theories. Your next great idea.<br />Give them a few slides. Make your point.</p>
@@ -248,8 +263,14 @@ export default function Home() {
         <footer className="slide-controls"><span className="live-status"><span />{deck.root ? 'Watching your folder' : 'Everything lives in your folder'}</span><div className="pagination"><button className="icon-button" aria-label="Previous slide" disabled={!count || slide === 0} onClick={() => navigate(slide - 1)}><Icon name="left" size={17} /></button><span>{count ? String(slide + 1).padStart(2, '0') : '—'}<b>/</b>{count ? String(count).padStart(2, '0') : '—'}</span><button className="icon-button" aria-label="Next slide" disabled={!count || slide >= count - 1} onClick={() => navigate(slide + 1)}><Icon name="right" size={17} /></button></div><span className="key-hint"><kbd>←</kbd><kbd>→</kbd> to navigate</span></footer>
         <div className="local-note"><Icon name="terminal" size={14} /><span>Your editor, your agent, your files. Changes appear automatically.</span></div>
       </section>
-      {sidebar && <aside className="sidebar">
-        <div className="chat-header"><div><Icon name="spark" /><strong>Backstage</strong></div><div><button className="icon-button" title="New conversation (clear context)" aria-label="New conversation" disabled={!deck.root || busy || loadingChat} onClick={newConversation}><Icon name="plus" size={17} /></button><button className="icon-button" title="AI settings" aria-label="AI settings" onClick={() => setSettingsOpen(true)}><Icon name="settings" size={17} /></button><button className="icon-button" title="Hide chat" aria-label="Hide chat" onClick={() => setSidebar(false)}><Icon name="close" size={17} /></button></div></div>
+      <aside className="sidebar" style={sidebar ? undefined : { display: 'none' }}>
+        <div className="chat-header"><div><Icon name="spark" /><strong>Backstage</strong></div><div><button className="icon-button" title="New conversation (clear context)" aria-label="New conversation" disabled={!deck.root || busy || loadingChat} onClick={newConversation}><Icon name="plus" size={17} /></button><button className="icon-button" title="AI settings" aria-label="AI settings" onClick={() => setSettingsOpen(true)}><Icon name="settings" size={17} /></button><button className="icon-button" title="Hide sidebar" aria-label="Hide sidebar" onClick={() => setSidebar(false)}><Icon name="close" size={17} /></button></div></div>
+        <div className="sidebar-tabs" role="tablist" aria-label="Sidebar">
+          <button role="tab" id="chat-tab" aria-selected={sidebarTab === 'chat'} aria-controls="chat-panel" onClick={() => setSidebarTab('chat')}>Chat</button>
+          <button role="tab" id="edit-tab" aria-selected={sidebarTab === 'edit'} aria-controls="edit-panel" onClick={() => setSidebarTab('edit')}>Edit</button>
+        </div>
+        <ContentEditor key={`${deck.root}:${deck.generation}`} deck={deck} revision={revision} active={sidebarTab === 'edit' && sidebar} selection={selection} onFields={setFields} onSelect={path => setSelection(current => current?.path === path ? current : { path, token: Date.now() })} />
+        <div className="chat-panel" id="chat-panel" role="tabpanel" aria-labelledby="chat-tab" hidden={sidebarTab !== 'chat'}>
         <div className="conversation-controls">
           <select aria-label="Saved conversations" value={conversationId || ''} disabled={!deck.root || busy || loadingChat} onChange={event => void loadConversation(event.target.value)}>
             <option value="" disabled>{loadingChat ? 'Loading conversations…' : 'New conversation'}</option>
@@ -263,7 +284,8 @@ export default function Home() {
         </div>
         <form className="composer" onSubmit={event => { event.preventDefault(); void send(); }}><textarea aria-label="Message your creative partner" placeholder={deck.root ? 'What’s your big idea?' : 'Open a deck to start creating…'} value={draft} disabled={!deck.root || busy || loadingChat} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} /><div><button type="button" className="model-select" onClick={() => setSettingsOpen(true)}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}<span>⌄</span></button>{busy ? <button type="button" className="send-button" aria-label="Stop generation" onClick={() => void window.wetmytt?.cancel()}><Icon name="stop" size={16} /></button> : <button className="send-button" aria-label="Send message" disabled={!deck.root || loadingChat || !draft.trim()}><Icon name="send" size={18} /></button>}</div></form>
         <div className="chat-footnote">Your talk. Your files. Your call.</div>
-      </aside>}
+        </div>
+      </aside>
     </div>
     {presenting && <button className="exit-present" onClick={() => void present(false)}>Exit presentation <kbd>esc</kbd></button>}
     {agentOpen && <AgentConnection onClose={() => setAgentOpen(false)} />}

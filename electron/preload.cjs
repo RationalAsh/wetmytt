@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('wetmytt', {
   connectCodex: invoke('mcp:connect-codex'),
   exportPDF: invoke('deck:export-pdf'),
   state: invoke('deck:state'), open: invoke('deck:open'), create: invoke('deck:create'), close: invoke('deck:close'),
+  readContent: invoke('deck:read-content'), saveContent: invoke('deck:save-content'),
   reveal: invoke('deck:reveal'), settings: invoke('ai:settings'), saveSettings: invoke('ai:save'),
   chat: invoke('ai:chat'), cancel: invoke('ai:cancel'), present: invoke('deck:present'),
   chats: invoke('ai:chats'), loadChat: invoke('ai:load-chat'),

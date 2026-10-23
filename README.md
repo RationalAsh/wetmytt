@@ -33,6 +33,7 @@ This app. **New deck** creates the folder and a starter HTML presentation. The b
 
 - **HTML slides, as files.** Each deck is a folder: `index.html`, `deck.json`, `slides.js`, `styles.css`, and `assets/`. The same folder opens here, in an editor, or with any agent that can write files.
 - **AI-first editing.** The window is a slide preview plus a chat sidebar. Bring your own key for OpenAI, Claude, or OpenRouter, or point it at a local Ollama model. The agent reads and writes the deck, and can run commands when the work needs them.
+- **Click to edit text.** Select text on a slide to highlight it and open its JSON field in the sidebar's **Edit** tab. Keys become labels; values are editable text. Save each field to update the preview.
 - **A small set of controls.** Create or open a folder, move between slides, present, export, and show the files on disk.
 - **Local first.** The deck stays in the folder you chose. Provider settings stay in the app. Conversations are saved inside the deck at `.wetmytt/chats/`.
 - **Present.** Full screen, with the shell hidden. Arrow keys or the on-screen controls move between slides. Esc leaves presentation mode.
@@ -73,6 +74,10 @@ my-presentation/
 ```
 
 `deck.json` contains a title and slides with `title`, `eyebrow`, `body`, optional `bullets`, optional `image` / `imageAlt`, and `layout` (`cover`, `split`, `closing`). HTML, CSS, rendering code, and content are all yours to change. Use relative asset URLs. No resources are fetched from the internet by the deck preview.
+
+The **Edit** tab lists string values in `deck.json`, including nested objects and arrays. Clicking slide text opens and focuses the matching field. Starter decks bind text elements with `data-json-path="/slides/0/title"` (a JSON pointer). Custom renderers can use the same attribute; escape `~` as `~0` and `/` as `~1` within key names. Existing decks fall back to unique text matches, preferring the current slide. Repeated or transformed text needs an explicit binding. Text without a match can still be selected; choose its field in Edit. Decks without `deck.json` need a JSON source and bindings to use this editor.
+
+**Save text** writes the field to disk and refreshes the preview. Unsaved drafts stay while switching tabs or selecting other fields. If `deck.json` changes externally before saving, the editor preserves the draft and asks you to reload instead of overwriting those changes. **Discard edits & reload** loads the current file. Selection highlights are hidden during presentation and PDF export.
 
 The app watches the complete deck folder for changes, including images and nested assets, and reloads while retaining the current slide where possible. Hidden files and `node_modules` are ignored. A temporarily invalid JSON file displays an error in the slide area; saving valid JSON recovers automatically.
 
@@ -169,3 +174,5 @@ Export uses Chromium's `printToPDF` on each live slide and combines the resultin
 The export window uses the same 1280 × 720 presentation viewport as slide capture and the same local-only resource policy as the preview. It waits for the navigation bridge, images (including CSS backgrounds), and fonts; failed assets stop export instead of silently producing incomplete pages. Finite animations finish before printing; repeating animations pause. Keep `data-slide` on slide containers and the closing `</body>` tag for the navigation bridge. The preview and selected slide are unaffected. Videos and interactive content export their current static appearance.
 
 Run `npm run test:pdf` to test PDF export through the actual Electron app, including its UI, bridge, save dialog handling, and Chromium rendering.
+
+Run `npm run test:edit` after `npm run build` to test text selection, JSON field focus, saving, preview refresh, and external edit conflicts in the actual Electron app.

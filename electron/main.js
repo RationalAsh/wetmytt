@@ -13,6 +13,7 @@ import { screenshotSlide } from './screenshot.js';
 import { connectCodex } from './codex-plugin.js';
 import { exportDeckPDF } from './pdf.js';
 import { listChats, loadChat, runConversation } from './chats.js';
+import { readContent, saveContent } from './content.js';
 
 app.setName('Welcome to My TED Talk');
 
@@ -75,6 +76,12 @@ handle('mcp:connect-codex', async () => {
   return connectingCodex;
 });
 handle('deck:state', state);
+const contentRoot = (expectedRoot, expectedGeneration) => {
+  if (!root || root !== expectedRoot || generation !== expectedGeneration) throw new Error('The open project changed. Please try again.');
+  return root;
+};
+handle('deck:read-content', (folder, version) => readContent(contentRoot(folder, version)));
+handle('deck:save-content', (folder, version, source, pointer, text) => saveContent(contentRoot(folder, version), source, pointer, text));
 handle('deck:import-assets', (expectedRoot, sources) => {
   if (!root || root !== expectedRoot) throw new Error('The open project changed. Drop the files again.');
   return importAssets(root, sources);

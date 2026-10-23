@@ -202,3 +202,24 @@ kbd { display: inline-flex; align-items: center; justify-content: center; border
 .agent-modal .settings-buttons { align-items: center; }
 
 .agent-connect { font-size: 12px; white-space: nowrap; padding: 8px; }
+
+.sidebar-tabs { display: flex; padding: 8px 20px 0; gap: 20px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.sidebar-tabs button { border-radius: 0; padding: 10px 3px; font-size: 12px; color: var(--muted); border-bottom: 2px solid transparent; }
+.sidebar-tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.chat-panel { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.chat-panel[hidden], .content-editor[hidden] { display: none; }
+.content-editor { flex: 1; min-height: 0; overflow: auto; padding: 22px 20px; }
+.edit-intro strong { font-size: 15px; }
+.edit-intro p, .edit-empty, .edit-status { font-size: 11px; line-height: 1.7; color: var(--muted); }
+.edit-file { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.edit-file code { font-size: 11px; color: var(--accent); }
+.edit-file button { font-size: 10px; padding: 5px; color: var(--muted); }
+.edit-status { padding: 10px; background: var(--tint); border-radius: 6px; }
+.edit-field { padding: 12px; margin: 0 0 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
+.edit-field.active { border-color: #b39bdf; background: #f7f3ff; }
+.edit-field label { display: flex; flex-direction: column; gap: 10px; }
+.edit-field label > span { color: var(--accent); font-size: 11px; font-weight: 600; overflow-wrap: anywhere; line-height: 1.6; }
+.edit-field textarea { width: 100%; resize: vertical; border: 1px solid var(--line); border-radius: 5px; padding: 9px; color: var(--ink); background: var(--paper); font-size: 12px; line-height: 1.6; min-height: 60px; }
+.edit-field-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; }
+.edit-field-actions span { font-size: 9px; color: var(--muted); }
+.edit-field-actions button.primary { font-size: 10px; padding: 7px 10px; }
