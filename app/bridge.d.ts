@@ -10,6 +10,7 @@ declare global {
       open(): Promise<Deck | null>;
       create(): Promise<Deck | null>;
       close(): Promise<Deck>;
+      exportPDF(root: string): Promise<{ path: string; pages: number } | null>;
       reveal(): Promise<void>;
       importAssets(root: string, files: File[]): Promise<{ imported: string[]; errors: string[] }>;
       settings(): Promise<Settings>;

@@ -119,3 +119,13 @@ npm run test:screenshot
 The preview is sandboxed without Node integration, and IPC validates that calls come from the main application frame. File tools reject hidden paths and paths or symlinks outside the deck. This is a local desktop prototype; avoid opening untrusted folders or allowing concurrent untrusted processes to replace symlinks during writes.
 
 Presenter notes, a separate presenter view, and selecting slide elements for editing are intentionally deferred.
+
+## PDF export
+
+Open a presentation and choose **Export PDF** in the toolbar. Choose a destination in the save dialog; canceling leaves files unchanged. The app reports completion or an asset/rendering error, and prevents overlapping exports.
+
+Export uses Chromium's `printToPDF` on each live slide and combines the resulting PDF pages without rasterizing them. Text stays selectable, embedded fonts and SVG paths stay sharp, and slide backgrounds are included. Each page uses the app's widescreen 16:9 canvas (1280 × 720 CSS pixels, or 13⅓ × 7½ inches), with zero margins and no printer headers or footers. Existing raster images and canvas content retain their original resolution.
+
+The export window uses the same 1280 × 720 presentation viewport as slide capture and the same local-only resource policy as the preview. It waits for the navigation bridge, images (including CSS backgrounds), and fonts; failed assets stop export instead of silently producing incomplete pages. Finite animations finish before printing; repeating animations pause. Keep `data-slide` on slide containers and the closing `</body>` tag for the navigation bridge. The preview and selected slide are unaffected. Videos and interactive content export their current static appearance.
+
+Run `npm run test:pdf` to test PDF export through the actual Electron app, including its UI, bridge, save dialog handling, and Chromium rendering.

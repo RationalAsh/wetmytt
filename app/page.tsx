@@ -12,6 +12,7 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
     chat: <><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M15 4v16M6 9h5M6 13h5" /></>,
     folder: <path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />,
     play: <><rect x="3" y="3" width="18" height="14" rx="2" /><path d="m10 7 5 3-5 3ZM8 21h8M12 17v4" /></>,
+    download: <><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4" /></>,
     plus: <path d="M12 5v14M5 12h14" />,
     close: <path d="m6 6 12 12M6 18 18 6" />,
     send: <><path d="M12 19V5m-6 6 6-6 6 6" /></>,
@@ -27,6 +28,8 @@ export default function Home() {
   const [deck, setDeck] = useState<Deck>({});
   const [revision, setRevision] = useState(0);
   const [sidebar, setSidebar] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState('');
   const [presenting, setPresenting] = useState(false);
   const [slide, setSlide] = useState(0);
   const [count, setCount] = useState(0);
@@ -87,7 +90,7 @@ export default function Home() {
       session.current++;
       slideRef.current = 0; setSlide(0); setCount(0); setMessages([]); setError('');
       setDraft(''); setBusy(false); setActivity('');
-      clearDrag(); setAssetStatus('');
+      clearDrag(); setAssetStatus(''); setExportStatus('');
     }
     deckRef.current = next; setDeck(next); setRevision(value => value + 1);
   }, [clearDrag]);
@@ -150,6 +153,16 @@ export default function Home() {
     try { await (create ? window.wetmytt?.create() : window.wetmytt?.open()); }
     catch (err) { setError(String(err)); }
   }
+  async function exportPDF() {
+    if (!deck.root || !window.wetmytt || exporting) return;
+    const currentSession = session.current;
+    setExporting(true); setExportStatus(''); setError('');
+    try {
+      const result = await window.wetmytt.exportPDF(deck.root);
+      if (result && session.current === currentSession) setExportStatus(`Exported ${result.pages} ${result.pages === 1 ? 'slide' : 'slides'} to ${result.path}`);
+    } catch (err) { if (session.current === currentSession) setError(String(err)); }
+    finally { setExporting(false); }
+  }
   async function closeProject() {
     try { await window.wetmytt?.close(); }
     catch (err) { setError(String(err)); }
@@ -171,10 +184,11 @@ export default function Home() {
     <header className="topbar">
       <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="alpha">EARLY BUILD</span></div>
       <div className="file-actions"><button onClick={() => void choose(false)} disabled={!desktop}><Icon name="folder" />Open folder</button><button onClick={() => void choose(true)} disabled={!desktop}><Icon name="plus" />New deck</button>{deck.root && <button onClick={() => void closeProject()} disabled={!desktop}><Icon name="close" />Close project</button>}</div>
-      <div className="top-actions"><button className="agent-connect" disabled={!desktop} onClick={() => setAgentOpen(true)}><Icon name="terminal" />Connect to Codex</button><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle chat sidebar" aria-label="Toggle chat sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
+      <div className="top-actions"><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><button className="agent-connect" disabled={!desktop} onClick={() => setAgentOpen(true)}><Icon name="terminal" />Connect to Codex</button><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle chat sidebar" aria-label="Toggle chat sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}
     {error && <div className="error" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><Icon name="close" size={15} /></button></div>}
+    {exportStatus && <div className="asset-status" role="status"><span>{exportStatus}</span><button aria-label="Dismiss export notification" onClick={() => setExportStatus('')}><Icon name="close" size={15} /></button></div>}
     {assetStatus && <div className="asset-status" role="status"><span>{assetStatus}</span><button aria-label="Dismiss asset notification" onClick={() => setAssetStatus('')}><Icon name="close" size={15} /></button></div>}
     {dragging && deck.root && <div className="asset-drop-overlay"><div><Icon name="folder" size={32} /><strong>Drop files to add assets</strong><span>Copy to {deck.name}/assets/</span></div></div>}
     <div className="workspace">

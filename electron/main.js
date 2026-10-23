@@ -11,11 +11,13 @@ import { importAssets } from './files.js';
 import { loadMcpToken, startMcpServer } from './mcp.js';
 import { screenshotSlide } from './screenshot.js';
 import { connectCodex } from './codex-plugin.js';
+import { exportDeckPDF } from './pdf.js';
 
 app.setName('Welcome to My TED Talk');
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
+let exportingPDF = false;
 let mcp, mcpError, mcpToken, connectingCodex, generation = 0;
 let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
 const state = () => ({ root, url: deckServer?.url, name: root ? path.basename(root) : null });
@@ -96,6 +98,34 @@ handle('deck:create', async () => {
   if (result.canceled || !result.filePath) return null;
   await createDeck(result.filePath);
   return openDeck(result.filePath);
+});
+handle('deck:export-pdf', async expectedRoot => {
+  if (!root || root !== expectedRoot) throw new Error('The open project changed. Please export again.');
+  if (exportingPDF) throw new Error('A PDF export is already running.');
+  exportingPDF = true;
+  const folder = root, deckGeneration = generation;
+  let temporary;
+  try {
+    const result = await dialog.showSaveDialog(window, {
+      title: 'Export presentation to PDF', buttonLabel: 'Export PDF',
+      defaultPath: path.join(app.getPath('documents'), `${path.basename(folder)}.pdf`),
+      filters: [{ name: 'PDF document', extensions: ['pdf'] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+    if (generation !== deckGeneration) throw new Error('The open project changed. Please export again.');
+    const target = /\.pdf$/i.test(result.filePath) ? result.filePath : `${result.filePath}.pdf`;
+    const { bytes, pages } = await exportDeckPDF(folder);
+    if (generation !== deckGeneration) throw new Error('The open project changed. Please export again.');
+    // Save beside the destination first, so rendering/write errors never leave
+    // a partial PDF or truncate a previously exported presentation.
+    temporary = path.join(path.dirname(target), `.wetmytt-${Date.now()}-${process.pid}.pdf.tmp`);
+    await fs.writeFile(temporary, bytes, { flag: 'wx' });
+    await fs.rename(temporary, target);
+    return { path: target, pages };
+  } finally {
+    if (temporary) await fs.unlink(temporary).catch(() => {});
+    exportingPDF = false;
+  }
 });
 handle('deck:reveal', () => root ? shell.openPath(root) : undefined);
 handle('deck:present', value => { window.setFullScreen(Boolean(value)); });

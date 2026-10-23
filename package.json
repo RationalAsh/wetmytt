@@ -12,12 +12,14 @@
     "start": "electron .",
     "test": "node --test tests/*.test.js",
     "test:screenshot": "node --test tests/screenshot.integration.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:pdf": "node --test tests/pdf.integration.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "chokidar": "^4.0.3",
     "next": "^16.0.0",
+    "pdf-lib": "^1.17.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
