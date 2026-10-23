@@ -12,6 +12,7 @@ import { loadMcpToken, startMcpServer } from './mcp.js';
 import { screenshotSlide } from './screenshot.js';
 import { connectCodex } from './codex-plugin.js';
 import { exportDeckPDF } from './pdf.js';
+import { listChats, loadChat, runConversation } from './chats.js';
 
 app.setName('Welcome to My TED Talk');
 
@@ -20,7 +21,7 @@ let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, wa
 let exportingPDF = false;
 let mcp, mcpError, mcpToken, connectingCodex, generation = 0;
 let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
-const state = () => ({ root, url: deckServer?.url, name: root ? path.basename(root) : null });
+const state = () => ({ root, generation, url: deckServer?.url, name: root ? path.basename(root) : null });
 const notify = (name, data) => { if (window && !window.isDestroyed()) window.webContents.send(name, data); };
 
 async function openDeck(folder) {
@@ -138,13 +139,19 @@ handle('ai:save', async value => {
   return { persistedKey: !settings.apiKey || safeStorage.isEncryptionAvailable() };
 });
 handle('ai:cancel', () => pendingChat?.abort());
-handle('ai:chat', async history => {
-  if (!root) throw new Error('Open a presentation first.');
+const chatRoot = expectedRoot => {
+  if (!root || root !== expectedRoot) throw new Error('The open project changed. Please try again.');
+  return root;
+};
+handle('ai:chats', expectedRoot => listChats(chatRoot(expectedRoot)));
+handle('ai:load-chat', (expectedRoot, id) => loadChat(chatRoot(expectedRoot), id));
+handle('ai:chat', async (expectedRoot, id, text) => {
+  const folder = chatRoot(expectedRoot);
   if (pendingChat) throw new Error('A request is already running.');
-  if (!Array.isArray(history) || history.length > 100 || history.some(m => !['user', 'assistant'].includes(m.role) || typeof m.content !== 'string' || m.content.length > 50000)) throw new Error('Invalid or oversized chat history.');
+  const connection = normalizeSettings({ ...settings });
   pendingChat = new AbortController();
   const signal = pendingChat.signal;
-  try { return await chat({ root, settings: { ...settings }, history, signal, onActivity: text => notify('ai:activity', text) }); }
+  try { return await runConversation({ root: folder, id, text, settings: connection, signal, chat, onActivity: text => { if (root === folder && !signal.aborted) notify('ai:activity', text); } }); }
   finally { pendingChat = undefined; }
 });
 

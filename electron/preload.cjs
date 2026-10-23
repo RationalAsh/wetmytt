@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('wetmytt', {
   state: invoke('deck:state'), open: invoke('deck:open'), create: invoke('deck:create'), close: invoke('deck:close'),
   reveal: invoke('deck:reveal'), settings: invoke('ai:settings'), saveSettings: invoke('ai:save'),
   chat: invoke('ai:chat'), cancel: invoke('ai:cancel'), present: invoke('deck:present'),
+  chats: invoke('ai:chats'), loadChat: invoke('ai:load-chat'),
   importAssets: (root, files) => ipcRenderer.invoke('deck:import-assets', root, files.map(file => webUtils.getPathForFile(file))),
   on: (name, callback) => {
     if (!['deck:changed', 'ai:activity', 'deck:fullscreen'].includes(name)) return () => {};

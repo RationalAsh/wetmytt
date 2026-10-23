@@ -75,6 +75,9 @@ kbd { display: inline-flex; align-items: center; justify-content: center; border
 .chat-header > div { display: flex; align-items: center; gap: 9px; }
 .chat-header strong { font-size: 12px; font-weight: 600; }
 .chat-header svg { color: var(--accent); }
+.conversation-controls { padding: 12px 20px; border-bottom: 1px solid var(--line); display: grid; gap: 7px; }
+.conversation-controls select { width: 100%; min-width: 0; appearance: none; padding: 8px 34px 8px 8px; border: 1px solid var(--line); border-radius: 7px; background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23746e81' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center; color: var(--ink); font: inherit; font-size: 11px; text-overflow: ellipsis; }
+.conversation-controls > span { color: var(--muted); font-size: 9px; }
 .chat-messages { flex: 1; overflow: auto; padding: 30px 24px 20px; }
 .chat-intro { padding-top: 15px; }
 .spark-tile { width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: var(--tint); color: var(--accent); }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Deck, Message, Settings } from './bridge';
+import type { ConversationSummary, Deck, Message, Settings } from './bridge';
 import { AISettings } from './ai-settings';
 import { AgentConnection } from './agent-connection';
 import { MarkdownMessage } from './markdown-message';
@@ -34,6 +34,9 @@ export default function Home() {
   const [slide, setSlide] = useState(0);
   const [count, setCount] = useState(0);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [loadingChat, setLoadingChat] = useState(false);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [activity, setActivity] = useState('');
@@ -48,6 +51,7 @@ export default function Home() {
   const slideRef = useRef(0);
   const deckRef = useRef<Deck>({});
   const session = useRef(0);
+  const chatSession = useRef(0);
   const bottom = useRef<HTMLDivElement>(null);
   const dragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -86,8 +90,26 @@ export default function Home() {
     catch (err) { setError(String(err)); }
   }, []);
   const receiveDeck = useCallback((next: Deck) => {
-    if (deckRef.current.root !== next.root) {
+    if (deckRef.current.root !== next.root || deckRef.current.generation !== next.generation) {
       session.current++;
+      const currentChat = ++chatSession.current;
+      setConversationId(null); setConversations([]); setLoadingChat(Boolean(next.root));
+      if (next.root && window.wetmytt) {
+        const api = window.wetmytt, folder = next.root;
+        void (async () => {
+          try {
+            const saved = await api.chats(folder);
+            if (chatSession.current !== currentChat) return;
+            setConversations(saved);
+            if (saved.length) {
+              const latest = await api.loadChat(folder, saved[0].id);
+              if (chatSession.current !== currentChat) return;
+              setConversationId(latest.id); setMessages(latest.messages);
+            }
+          } catch (err) { if (chatSession.current === currentChat) setError(String(err)); }
+          finally { if (chatSession.current === currentChat) setLoadingChat(false); }
+        })();
+      }
       slideRef.current = 0; setSlide(0); setCount(0); setMessages([]); setError('');
       setDraft(''); setBusy(false); setActivity('');
       clearDrag(); setAssetStatus(''); setExportStatus('');
@@ -167,15 +189,35 @@ export default function Home() {
     try { await window.wetmytt?.close(); }
     catch (err) { setError(String(err)); }
   }
+  function newConversation() {
+    if (busy || loadingChat) return;
+    chatSession.current++;
+    setConversationId(null); setMessages([]); setDraft(''); setError(''); setActivity('');
+  }
+  async function loadConversation(id: string) {
+    if (!id || busy || loadingChat || !deck.root || !window.wetmytt) return;
+    const currentChat = ++chatSession.current;
+    setLoadingChat(true); setError('');
+    try {
+      const saved = await window.wetmytt.loadChat(deck.root, id);
+      if (chatSession.current !== currentChat) return;
+      setConversationId(saved.id); setMessages(saved.messages); setDraft('');
+    } catch (err) { if (chatSession.current === currentChat) setError(String(err)); }
+    finally { if (chatSession.current === currentChat) setLoadingChat(false); }
+  }
   async function send(text = draft) {
-    if (!text.trim() || busy || !deck.root) return;
+    if (!text.trim() || busy || loadingChat || !deck.root) return;
     if (!settings.model) { setSettingsOpen(true); return; }
     const history: Message[] = [...messages, { role: 'user', content: text.trim() }];
     const currentSession = session.current;
     setMessages(history); setDraft(''); setBusy(true); setActivity('Thinking…'); setError('');
     try {
-      const content = await window.wetmytt!.chat(history);
-      if (session.current === currentSession) setMessages([...history, { role: 'assistant', content }]);
+      const result = await window.wetmytt!.chat(deck.root, conversationId, text.trim());
+      if (session.current !== currentSession) return;
+      setConversationId(result.conversation.id); setMessages(result.conversation.messages);
+      if (result.error) setError(result.error);
+      const saved = await window.wetmytt!.chats(deck.root);
+      if (session.current === currentSession) setConversations(saved);
     } catch (err) { if (session.current === currentSession) setError(String(err)); }
     finally { if (session.current === currentSession) { setBusy(false); setActivity(''); } }
   }
@@ -207,12 +249,19 @@ export default function Home() {
         <div className="local-note"><Icon name="terminal" size={14} /><span>Your editor, your agent, your files. Changes appear automatically.</span></div>
       </section>
       {sidebar && <aside className="sidebar">
-        <div className="chat-header"><div><Icon name="spark" /><strong>Backstage</strong></div><div><button className="icon-button" title="AI settings" aria-label="AI settings" onClick={() => setSettingsOpen(true)}><Icon name="settings" size={17} /></button><button className="icon-button" title="Hide chat" aria-label="Hide chat" onClick={() => setSidebar(false)}><Icon name="close" size={17} /></button></div></div>
+        <div className="chat-header"><div><Icon name="spark" /><strong>Backstage</strong></div><div><button className="icon-button" title="New conversation (clear context)" aria-label="New conversation" disabled={!deck.root || busy || loadingChat} onClick={newConversation}><Icon name="plus" size={17} /></button><button className="icon-button" title="AI settings" aria-label="AI settings" onClick={() => setSettingsOpen(true)}><Icon name="settings" size={17} /></button><button className="icon-button" title="Hide chat" aria-label="Hide chat" onClick={() => setSidebar(false)}><Icon name="close" size={17} /></button></div></div>
+        <div className="conversation-controls">
+          <select aria-label="Saved conversations" value={conversationId || ''} disabled={!deck.root || busy || loadingChat} onChange={event => void loadConversation(event.target.value)}>
+            <option value="" disabled>{loadingChat ? 'Loading conversations…' : 'New conversation'}</option>
+            {conversations.map(saved => <option key={saved.id} value={saved.id}>{saved.title} · {new Date(saved.updatedAt).toLocaleDateString()} · {saved.provider}/{saved.model}</option>)}
+          </select>
+          <span title="Saved in this project's .wetmytt/chats/ folder. Resuming uses the model selected below.">{deck.root ? 'Auto-saved to .wetmytt/chats/' : 'Open a deck to save conversations'}</span>
+        </div>
         <div className="chat-messages">
-          {messages.length === 0 ? <div className="chat-intro"><span className="spark-tile"><Icon name="spark" size={25} /></span><h2>You bring the idea.<br />We’ll bring the slides.</h2><p>Find your opening. Cut the waffle. Land the ending. Tell your AI what you’re thinking.</p><div className="suggestions">{['Give this deck a stronger opening', 'Make the slides more concise', 'Give this deck a bold stage presence'].map((text, i) => <button key={text} disabled={!deck.root || busy} onClick={() => void send(text)}><span>{['↗', '≋', '◐'][i]}</span>{text}<span>↗</span></button>)}</div><div className="agent-note"><Icon name="terminal" size={17} /><p>Already have an agent?<br /><span>Run it in your deck folder. We’ll keep up.</span></p></div></div> : messages.map((message, index) => <div key={index} className={`message ${message.role}`}><span>{message.role === 'user' ? 'YOU' : 'WETMYTT'}</span>{message.role === 'assistant' ? <MarkdownMessage>{message.content}</MarkdownMessage> : <p>{message.content}</p>}</div>)}
+          {messages.length === 0 ? <div className="chat-intro"><span className="spark-tile"><Icon name="spark" size={25} /></span><h2>You bring the idea.<br />We’ll bring the slides.</h2><p>Find your opening. Cut the waffle. Land the ending. Tell your AI what you’re thinking.</p><div className="suggestions">{['Give this deck a stronger opening', 'Make the slides more concise', 'Give this deck a bold stage presence'].map((text, i) => <button key={text} disabled={!deck.root || busy || loadingChat} onClick={() => void send(text)}><span>{['↗', '≋', '◐'][i]}</span>{text}<span>↗</span></button>)}</div><div className="agent-note"><Icon name="terminal" size={17} /><p>Already have an agent?<br /><span>Run it in your deck folder. We’ll keep up.</span></p></div></div> : messages.map((message, index) => <div key={index} className={`message ${message.role}`}><span>{message.role === 'user' ? 'YOU' : 'WETMYTT'}</span>{message.role === 'assistant' ? <MarkdownMessage>{message.content}</MarkdownMessage> : <p>{message.content}</p>}</div>)}
           {busy && <div className="activity" role="status"><span />{activity}</div>}<div ref={bottom} />
         </div>
-        <form className="composer" onSubmit={event => { event.preventDefault(); void send(); }}><textarea aria-label="Message your creative partner" placeholder={deck.root ? 'What’s your big idea?' : 'Open a deck to start creating…'} value={draft} disabled={!deck.root || busy} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} /><div><button type="button" className="model-select" onClick={() => setSettingsOpen(true)}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}<span>⌄</span></button>{busy ? <button type="button" className="send-button" aria-label="Stop generation" onClick={() => void window.wetmytt?.cancel()}><Icon name="stop" size={16} /></button> : <button className="send-button" aria-label="Send message" disabled={!deck.root || !draft.trim()}><Icon name="send" size={18} /></button>}</div></form>
+        <form className="composer" onSubmit={event => { event.preventDefault(); void send(); }}><textarea aria-label="Message your creative partner" placeholder={deck.root ? 'What’s your big idea?' : 'Open a deck to start creating…'} value={draft} disabled={!deck.root || busy || loadingChat} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} /><div><button type="button" className="model-select" onClick={() => setSettingsOpen(true)}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}<span>⌄</span></button>{busy ? <button type="button" className="send-button" aria-label="Stop generation" onClick={() => void window.wetmytt?.cancel()}><Icon name="stop" size={16} /></button> : <button className="send-button" aria-label="Send message" disabled={!deck.root || loadingChat || !draft.trim()}><Icon name="send" size={18} /></button>}</div></form>
         <div className="chat-footnote">Your talk. Your files. Your call.</div>
       </aside>}
     </div>
