@@ -2,9 +2,43 @@
 
 **Got a point? Make it.**
 
-`wetmytt` for short. A playful nod to the familiar “welcome to my TED talk” sign-off, with its own violet-and-lime stage identity. An independent project, not affiliated with TED.
+`wetmytt` for short. A playful nod to the familiar “welcome to my TED talk” sign-off, with its own violet-and-lime stage identity. An independent project, not affiliated with TED. This is an early build.
 
-A minimal AI-first presentation app built with Electron, Next.js, and React. A presentation is an ordinary folder. There is no database, custom document format, or compilation step for slides.
+![Welcome screen with options to create a presentation or open a deck folder, alongside the Backstage AI sidebar.](docs/screenshots/welcome.jpg)
+
+## What it does
+
+Welcome to My TED Talk is a local desktop app for HTML slide decks. A deck is a folder of files. You describe the talk, an AI edits those files, and you present from the same window or export a PDF to share.
+
+## The problem
+
+I need HTML slides without the usual project ritual:
+
+- creating a new project folder by hand
+- opening an IDE inside it
+- adding that folder to Codex
+- opening a terminal there to run Codex CLI
+
+The slides have to be HTML. The interface only needs a minimal way to work with them, because most of the editing is done by AI. It has to be local first, easy to present from, and easy to export to PDF when I want to share a copy. And it has to stay simple.
+
+## The solution
+
+This app. **New deck** creates the folder and a starter HTML presentation. The built-in chat, or **Connect to Codex**, does the editing against that folder. **Present** puts the slides on screen. **Export PDF** writes a file you can send.
+
+![A starter deck open in the desktop app, with a live slide preview, navigation, Backstage chat, and controls for PDF export and presenting.](docs/screenshots/workspace.jpg)
+
+*The workspace: your slides on the left, your creative partner on the right.*
+
+## Features
+
+- **HTML slides, as files.** Each deck is a folder: `index.html`, `deck.json`, `slides.js`, `styles.css`, and `assets/`. The same folder opens here, in an editor, or with any agent that can write files.
+- **AI-first editing.** The window is a slide preview plus a chat sidebar. Bring your own key for OpenAI, Claude, or OpenRouter, or point it at a local Ollama model. The agent reads and writes the deck, and can run commands when the work needs them.
+- **A small set of controls.** Create or open a folder, move between slides, present, export, and show the files on disk.
+- **Local first.** The deck stays in the folder you chose. Provider settings stay in the app. Conversations are saved inside the deck at `.wetmytt/chats/`.
+- **Present.** Full screen, with the shell hidden. Arrow keys or the on-screen controls move between slides. Esc leaves presentation mode.
+- **PDF export.** **Export PDF** prints each live slide to a 16:9 page. Text stays selectable, and fonts, SVG, and backgrounds come along.
+- **Codex from the toolbar.** **Connect to Codex** points Codex at the deck already open in the app, through a local plugin. The deck folder is the working folder.
+- **Caught up with every edit.** The app watches the deck folder and reloads when files change, including edits from another agent or editor. Drop images onto the window to copy them into `assets/`.
 
 ## Run
 
@@ -45,6 +79,10 @@ The app watches the complete deck folder for changes, including images and neste
 With a project open, drag files anywhere onto the app (including the slide preview) to copy them into its `assets/` folder. Originals stay in place, and duplicate names get a numbered suffix instead of overwriting existing assets. Folders are not imported.
 
 Use the visible arrows or **← / →** to navigate. **Present** enters full screen with the shell hidden; **Esc** exits. A hidden exit button also appears on hover at the top right. Hide or show the chat sidebar with the top-right panel button. Navigation keys do not interfere with typing in chat.
+
+![The starter deck’s illustrated second slide in full-screen presentation mode, with the app toolbar and chat hidden.](docs/screenshots/presentation.jpg)
+
+*Presentation mode gives the slide the stage.*
 
 ### Custom slide HTML
 
