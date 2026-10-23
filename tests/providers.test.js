@@ -100,3 +100,62 @@ test('provider errors and invalid responses produce actionable errors', async t 
   controller.abort(new DOMException('Timed out', 'TimeoutError'));
   await assert.rejects(requestMessage(connection(), messages, toolDefinitions, controller.signal), /timed out/);
 });
+
+test('OpenRouter retries incomplete responses and temporary gateway failures once', async t => {
+  for (const failure of [
+    () => new Response('{"choices":['),
+    () => new Response(''),
+    () => new Response('Bad gateway', { status: 502 }),
+    () => ({ ok: true, text: async () => { throw new TypeError('terminated'); } }),
+  ]) {
+    let calls = 0;
+    mockFetch(t, async () => ++calls === 1 ? failure() : Response.json({ choices: [{ message: { content: 'Recovered.' } }] }));
+    assert.equal((await requestMessage(connection('openrouter'), messages, toolDefinitions, signal())).content, 'Recovered.');
+    assert.equal(calls, 2);
+  }
+  let calls = 0;
+  mockFetch(t, async () => { calls++; return new Response('{'); });
+  await assert.rejects(requestMessage(connection('openrouter'), messages, toolDefinitions, signal()), /OpenRouter returned invalid JSON.*incomplete/);
+  assert.equal(calls, 2);
+});
+
+test('timeouts and cancellation during response download are not reported as invalid JSON or retried', async t => {
+  for (const [reason, expected] of [
+    [new DOMException('Timed out', 'TimeoutError'), /timed out/],
+    [new DOMException('Stopped', 'AbortError'), /request stopped/],
+  ]) {
+    const controller = new AbortController();
+    let calls = 0;
+    mockFetch(t, async () => {
+      calls++;
+      return { ok: true, text: async () => { controller.abort(reason); throw reason; } };
+    });
+    await assert.rejects(requestMessage(connection('openrouter'), messages, toolDefinitions, controller.signal), expected);
+    assert.equal(calls, 1);
+  }
+});
+
+test('each model call gets a fresh timeout and authentication errors are not retried', async t => {
+  const deadlines = [];
+  t.mock.method(AbortSignal, 'timeout', ms => {
+    assert.equal(ms, 180000);
+    const controller = new AbortController();
+    deadlines.push(controller);
+    return controller.signal;
+  });
+  const session = signal();
+  mockFetch(t, async () => Response.json({ choices: [{ message: { content: 'Done.' } }] }));
+  await requestMessage(connection('openrouter'), messages, toolDefinitions, session);
+  deadlines[0].abort(new DOMException('Timed out', 'TimeoutError'));
+  await requestMessage(connection('openrouter'), messages, toolDefinitions, session);
+  assert.equal(deadlines.length, 2);
+  let calls = 0;
+  mockFetch(t, async () => { calls++; return new Response('', { status: 401 }); });
+  await assert.rejects(requestMessage(connection('openrouter'), messages, toolDefinitions, session), /API key/);
+  assert.equal(calls, 1);
+});
+
+test('partial provider failures cannot be returned as successful edits', async t => {
+  mockFetch(t, async () => Response.json({ choices: [{ finish_reason: 'error', error: { code: 502 }, message: { content: 'Partial reply', tool_calls: [{ id: 'partial', function: { name: 'write_file', arguments: '{' } }] } }] }));
+  await assert.rejects(requestMessage(connection('openrouter'), messages, toolDefinitions, signal()), /failed while generating/);
+});

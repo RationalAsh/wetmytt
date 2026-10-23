@@ -1,7 +1,60 @@
 import { providers } from '../shared/ai.js';
 
+function checkAborted(signal) {
+  if (signal.aborted) throw new Error(signal.reason?.name === 'TimeoutError'
+    ? 'The AI request timed out. Try a smaller request or a faster model.' : 'AI request stopped.');
+}
+
+async function fetchCompletion(settings, body, signal) {
+  const name = providers[settings.provider].name;
+  // Retry only this model request, before any returned tools are executed.
+  const attempts = settings.provider === 'openrouter' ? 2 : 1;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    checkAborted(signal);
+    let response;
+    try {
+      response = await fetch(`${settings.baseUrl}/${settings.provider === 'claude' ? 'messages' : 'chat/completions'}`, {
+        method: 'POST', signal, redirect: 'error',
+        headers: { 'Content-Type': 'application/json', ...(settings.provider === 'claude' ? { 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01' } : settings.apiKey ? { Authorization: `Bearer ${settings.apiKey}` } : {}) },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      checkAborted(signal);
+      if (attempt + 1 < attempts) continue;
+      throw new Error(`Could not reach ${name}. Check the base URL${settings.provider === 'ollama' ? ' and that Ollama is running' : ' and your internet connection'}.`);
+    }
+    if (!response.ok) {
+      const advice = {
+        400: 'Check the model ID and that the model supports tool calling.',
+        401: 'Check your API key.', 403: 'Your key does not have access to this model.',
+        404: 'Check the API base URL and model ID.', 402: 'Check your provider credits.',
+        408: 'The provider timed out. Try a smaller request or a faster model.',
+        429: 'Rate limit or quota reached. Check your usage and try again later.',
+      }[response.status] || 'The provider is unavailable. Try again later.';
+      await response.body?.cancel().catch(() => {});
+      if ([502, 503, 504].includes(response.status) && attempt + 1 < attempts) continue;
+      throw new Error(`${name} returned ${response.status}. ${advice}`);
+    }
+    let text;
+    try { text = await response.text(); }
+    catch {
+      checkAborted(signal);
+      if (attempt + 1 < attempts) continue;
+      throw new Error(`${name}'s response was interrupted while downloading. Try again.`);
+    }
+    checkAborted(signal);
+    try { return JSON.parse(text); }
+    catch {
+      if (attempt + 1 < attempts) continue;
+      throw new Error(`${name} returned invalid JSON (an empty, incomplete, or non-JSON response). Try again; if this persists, check provider status and the API base URL.`);
+    }
+  }
+}
+
 // Keep provider wire formats here; the agent works with one tool-call format.
 export async function requestMessage(settings, messages, tools, signal) {
+  // File-editing sessions can need several model calls; each gets its own deadline.
+  signal = AbortSignal.any([signal, AbortSignal.timeout(180000)]);
   const claude = settings.provider === 'claude';
   const body = claude ? {
     model: settings.model, max_tokens: 8192, system: messages[0].content,
@@ -18,28 +71,7 @@ export async function requestMessage(settings, messages, tools, signal) {
     model: settings.model, messages, tools: tools.map(fn => ({ type: 'function', function: fn })),
     ...(settings.provider === 'openrouter' ? { provider: { require_parameters: true } } : {}),
   };
-  let response;
-  try {
-    response = await fetch(`${settings.baseUrl}/${claude ? 'messages' : 'chat/completions'}`, {
-      method: 'POST', signal, redirect: 'error',
-      headers: { 'Content-Type': 'application/json', ...(claude ? { 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01' } : settings.apiKey ? { Authorization: `Bearer ${settings.apiKey}` } : {}) },
-      body: JSON.stringify(body),
-    });
-  } catch (error) {
-    if (signal.aborted) throw new Error(signal.reason?.name === 'TimeoutError' ? 'The AI request timed out. Try a smaller request or a faster model.' : 'AI request stopped.');
-    throw new Error(`Could not reach ${providers[settings.provider].name}. Check the base URL${settings.provider === 'ollama' ? ' and that Ollama is running' : ' and your internet connection'}.`);
-  }
-  if (!response.ok) {
-    const advice = {
-      400: 'Check the model ID and that the model supports tool calling.',
-      401: 'Check your API key.', 403: 'Your key does not have access to this model.',
-      404: 'Check the API base URL and model ID.', 402: 'Check your provider credits.',
-      429: 'Rate limit or quota reached. Check your usage and try again later.',
-    }[response.status] || 'The provider is unavailable. Try again later.';
-    throw new Error(`${providers[settings.provider].name} returned ${response.status}. ${advice}`);
-  }
-  let data;
-  try { data = await response.json(); } catch { throw new Error('The provider returned invalid JSON. Check the API base URL.'); }
+  const data = await fetchCompletion(settings, body, signal);
   if (!data || typeof data !== 'object') throw new Error('The provider returned an unsupported response. Check the API base URL.');
   if (data.error) throw new Error('The provider could not complete the request. Check model access, tool support, and provider usage.');
   let message;
@@ -50,6 +82,7 @@ export async function requestMessage(settings, messages, tools, signal) {
       tool_calls: data.content.filter(block => block.type === 'tool_use').map(block => ({ id: block.id, type: 'function', function: { name: block.name, arguments: JSON.stringify(block.input) } })) };
   } else {
     const choice = data.choices?.[0];
+    if (choice?.error || choice?.finish_reason === 'error') throw new Error('The provider failed while generating the response. Try again or choose another model.');
     if (choice?.finish_reason === 'length') throw new Error('The model reached its output limit. Try a smaller edit.');
     message = choice?.message;
   }

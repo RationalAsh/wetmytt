@@ -113,7 +113,7 @@ handle('ai:chat', async history => {
   if (pendingChat) throw new Error('A request is already running.');
   if (!Array.isArray(history) || history.length > 100 || history.some(m => !['user', 'assistant'].includes(m.role) || typeof m.content !== 'string' || m.content.length > 50000)) throw new Error('Invalid or oversized chat history.');
   pendingChat = new AbortController();
-  const signal = AbortSignal.any([pendingChat.signal, AbortSignal.timeout(180000)]);
+  const signal = pendingChat.signal;
   try { return await chat({ root, settings: { ...settings }, history, signal, onActivity: text => notify('ai:activity', text) }); }
   finally { pendingChat = undefined; }
 });
@@ -123,7 +123,13 @@ async function createWindow() {
   const url = process.env.WETMYTT_DEV_URL || shellServer.url;
   shellOrigin = new URL(url).origin;
   window = new BrowserWindow({ width: 1440, height: 940, minWidth: 900, minHeight: 620, backgroundColor: '#f4f2f8', title: 'Welcome to My TED Talk', webPreferences: { preload: path.join(project, 'electron/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  window.webContents.setWindowOpenHandler(({ url: target, referrer }) => {
+    // Chat links open in the browser; slide content cannot launch external apps.
+    if (referrer.url && new URL(referrer.url).origin === shellOrigin && /^https?:\/\//i.test(target)) {
+      void shell.openExternal(target).catch(error => console.error('Could not open link:', error.message));
+    }
+    return { action: 'deny' };
+  });
   window.webContents.on('before-input-event', (_event, input) => {
     // Exit even when keyboard focus is inside custom slide HTML.
     if (input.type === 'keyDown' && input.key === 'Escape') {

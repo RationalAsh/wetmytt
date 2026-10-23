@@ -100,7 +100,35 @@ kbd { display: inline-flex; align-items: center; justify-content: center; border
 .chat-footnote { text-align: center; font-size: 9px; letter-spacing: .1px; color: var(--muted); padding: 12px 0 18px; }
 .message { margin-bottom: 22px; }
 .message > span { font-size: 8px; font-weight: 600; letter-spacing: 1.2px; color: var(--accent); }
-.message p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.8; margin: 8px 0 0; }
+.message > p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.8; margin: 8px 0 0; }
+.message { min-width: 0; }
+.markdown-body { margin-top: 8px; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.markdown-body > :first-child { margin-top: 0; }
+.markdown-body > :last-child { margin-bottom: 0; }
+.markdown-body p, .markdown-body ul, .markdown-body ol, .markdown-body blockquote, .markdown-body pre, .markdown-body .markdown-table { margin: 10px 0; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 { line-height: 1.4; margin: 18px 0 8px; font-weight: 700; }
+.markdown-body h1 { font-size: 18px; }
+.markdown-body h2 { font-size: 16px; }
+.markdown-body h3 { font-size: 14px; }
+.markdown-body h4, .markdown-body h5, .markdown-body h6 { font-size: 12px; }
+.markdown-body ul, .markdown-body ol { padding-left: 22px; }
+.markdown-body li { margin: 4px 0; }
+.markdown-body li > ul, .markdown-body li > ol { margin: 4px 0; }
+.markdown-body li > p { margin: 6px 0; }
+.markdown-body .contains-task-list { padding-left: 0; list-style: none; }
+.markdown-body input[type="checkbox"] { margin: 0 6px 0 0; accent-color: var(--accent); }
+.markdown-body a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.markdown-body a:focus-visible, .markdown-table:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.markdown-body blockquote { border-left: 3px solid var(--line); padding-left: 12px; color: var(--muted); }
+.markdown-body code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; background: var(--tint); padding: 2px 4px; border-radius: 4px; }
+.markdown-body pre { max-width: 100%; overflow-x: auto; padding: 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); line-height: 1.6; }
+.markdown-body pre code { padding: 0; background: transparent; white-space: pre; overflow-wrap: normal; }
+.markdown-table { max-width: 100%; overflow-x: auto; }
+.markdown-body table { border-collapse: collapse; font-size: 11px; width: 100%; }
+.markdown-body th, .markdown-body td { border: 1px solid var(--line); padding: 6px 8px; min-width: 80px; }
+.markdown-body th { background: var(--tint); font-weight: 600; }
+.markdown-body hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+.markdown-body img { max-width: 100%; height: auto; border-radius: 5px; }
 .message.user { background: var(--tint); border-radius: 9px; padding: 14px; }
 .activity { font-size: 11px; color: var(--accent); display: flex; gap: 7px; align-items: center; overflow-wrap: anywhere; }
 .activity > span { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 1s infinite; }

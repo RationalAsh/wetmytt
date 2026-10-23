@@ -110,3 +110,25 @@ test('chat executes tool calls and sends their results back to the provider', as
   assert.equal(await readFile(root, 'deck.json'), '{"title":"Updated"}');
   assert.equal(requests, 2);
 });
+
+test('recovering an OpenRouter reply after an edit does not repeat the file write', async t => {
+  const { root } = await fixture(t);
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  let requests = 0;
+  const activity = [], continuations = [];
+  globalThis.fetch = async (_url, options) => {
+    requests++;
+    if (requests === 1) return Response.json({ choices: [{ message: { content: null, tool_calls: [{ id: 'edit', type: 'function', function: { name: 'write_file', arguments: JSON.stringify({ path: 'deck.json', content: '{"title":"Recovered"}' }) } }] } }] });
+    continuations.push(JSON.parse(options.body).messages);
+    if (requests === 2) return new Response('{"choices":');
+    return Response.json({ choices: [{ message: { content: 'Updated the title.' } }] });
+  };
+  const result = await chat({ root, settings: { provider: 'openrouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'test', apiKey: 'test-key' }, history: [{ role: 'user', content: 'Update the title.' }], signal: new AbortController().signal, onActivity: text => activity.push(text) });
+  assert.equal(result, 'Updated the title.');
+  assert.equal(await readFile(root, 'deck.json'), '{"title":"Recovered"}');
+  assert.equal(requests, 3);
+  assert.deepEqual(activity, ['write file · deck.json']);
+  assert.deepEqual(continuations[0], continuations[1]);
+  assert.equal(continuations[1].at(-1).content, 'Saved deck.json');
+});
