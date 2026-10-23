@@ -9,6 +9,14 @@ The initial release is **0.1.0**, tagged **v0.1.0**. Both downloads belong to th
 
 The app includes Electron and the built interface. Users do not need Node.js or npm. Drag the app from the DMG into Applications before launching it. Auto-update is not configured; install later releases manually.
 
+Both macOS builds use the Codex plugin artwork for the app's Finder and Dock icon. The source is `electron/assets/icon.svg`; electron-builder converts the committed 1024×1024 `build/icon.png` into the app bundle's macOS icon before signing. After changing the SVG, regenerate the PNG with ImageMagick before committing:
+
+```sh
+magick -background none -density 1536 electron/assets/icon.svg -resize 1024x1024 build/icon.png
+```
+
+GitHub builds use the committed PNG and do not require ImageMagick.
+
 ## 1. Create a Developer ID Application certificate
 
 An Apple Developer membership enables signing, but you also need a certificate and its private key. For downloads outside the App Store, choose **Developer ID Application**. A Developer ID Installer certificate is for `.pkg` installers and is not needed for these DMGs.

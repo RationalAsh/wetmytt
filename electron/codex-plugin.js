@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 
 const pluginName = 'wetmytt';
 const sourcePath = './.agents/plugins/wetmytt';
-const icon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#5b38b8"/><path d="M13 13h38v9H37v27H27V22H13z" fill="white"/><ellipse cx="32" cy="53" rx="18" ry="4" fill="#ddf875"/></svg>`;
+const iconPath = new URL('./assets/icon.svg', import.meta.url);
 
 async function atomicWrite(filename, value) {
   const temporary = `${filename}.${randomUUID()}.tmp`;
@@ -64,7 +64,7 @@ export async function prepareCodexPlugin({ url, token, homeDirectory = os.homedi
     await atomicWrite(ownerFile, '1\n');
     await atomicWrite(path.join(pluginDirectory, '.codex-plugin', 'plugin.json'), json(manifest));
     await atomicWrite(path.join(pluginDirectory, '.mcp.json'), json({ mcpServers: { wetmytt: { url, http_headers: { Authorization: `Bearer ${token}` } } } }));
-    await atomicWrite(path.join(pluginDirectory, 'assets', 'icon.svg'), icon);
+    await atomicWrite(path.join(pluginDirectory, 'assets', 'icon.svg'), await fs.readFile(iconPath));
     const entry = { ...previous, name: pluginName, source: { source: 'local', path: sourcePath }, category: 'Productivity', policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL', ...previous?.policy } };
     marketplace.plugins = previous ? marketplace.plugins.map(item => item === previous ? entry : item) : [...marketplace.plugins, entry];
     await atomicWrite(marketplacePath, json(marketplace));
