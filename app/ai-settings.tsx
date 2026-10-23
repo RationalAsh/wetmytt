@@ -57,7 +57,7 @@ export function AISettings({ saved, desktop, onClose, onSaved }: { saved: Settin
       }
     }}>
       <div className="modal-heading"><h2 id="settings-title">Bring your own AI</h2><button className="icon-button" aria-label="Close settings" disabled={saving} onClick={onClose}>×</button></div>
-      <p>Choose your provider and a model with tool calling. Your AI can read and edit files in this deck.</p>
+      <p>Choose your provider and a model with tool calling. Your AI can edit the deck, research the web using curl, and run terminal commands with your user permissions, including access outside the deck folder.</p>
       <form onSubmit={save}>
         <fieldset disabled={saving} className="connection-fields">
           <legend className="provider-label">Provider</legend>
