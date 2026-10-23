@@ -57,7 +57,7 @@ npm run build
 npm start
 ```
 
-`npm run dev:web` previews the UI in a browser; folder access and AI require Electron. `npm start` uses the existing `out/` build. Distribution installers and code signing are not configured yet.
+`npm run dev:web` previews the UI in a browser; folder access and AI require Electron. `npm start` uses the existing `out/` build. For signed Apple Silicon and Intel DMGs, see [Building and releasing macOS installers](docs/releases.md).
 
 ## Make a deck
 

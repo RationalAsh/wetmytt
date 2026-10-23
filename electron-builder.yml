@@ -1,0 +1,24 @@
+appId: io.github.rationalash.wetmytt
+productName: Welcome to My TED Talk
+asar: true
+forceCodeSigning: true
+directories:
+  output: dist
+files:
+  - electron/**/*
+  - shared/**/*
+  - templates/**/*
+  - out/**/*
+  - package.json
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  artifactName: wetmytt-${version}-mac-${arch}.${ext}
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
+dmg:
+  sign: true
