@@ -46,7 +46,7 @@ export function RecentFolders({ folders, onOpen, onRemove, onClear, menu = false
   </div>;
 }
 
-export function FileMenu({ desktop, hasDeck, folders, onOpen, onRemove, onClear, onNew, onChoose, onAssets, onClose }: RecentProps & { desktop: boolean; hasDeck: boolean; onNew(): void; onChoose(): void; onAssets(): void; onClose(): void }) {
+export function FileMenu({ desktop, hasDeck, folders, onOpen, onRemove, onClear, onNew, onChoose, onAssets, onReveal, onClose }: RecentProps & { desktop: boolean; hasDeck: boolean; onNew(): void; onChoose(): void; onAssets(): void; onReveal(): void; onClose(): void }) {
   const [recent, setRecent] = useState(false);
   return <Dropdown label="File" disabled={!desktop}>
     <button role="menuitem" onClick={onNew}>New deck…</button>
@@ -55,6 +55,7 @@ export function FileMenu({ desktop, hasDeck, folders, onOpen, onRemove, onClear,
     {recent && <RecentFolders menu folders={folders} onOpen={onOpen} onRemove={onRemove} onClear={onClear} />}
     <div role="separator" className="menu-separator" />
     <button role="menuitem" disabled={!hasDeck} onClick={onAssets}>Add assets…</button>
+    <button role="menuitem" disabled={!hasDeck} onClick={onReveal}>Show files</button>
     <button role="menuitem" disabled={!hasDeck} onClick={onClose}>Close project</button>
   </Dropdown>;
 }

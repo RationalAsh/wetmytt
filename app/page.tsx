@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SlideThumbnails } from './slide-thumbnails';
 import { FileMenu, ConnectMenu, RecentFolders } from './project-menus';
 import { version } from '../package.json';
 import type { ConversationSummary, Deck, Message, Settings } from './bridge';
@@ -147,6 +148,9 @@ export default function Home() {
       setDraft(''); setBusy(false); setActivity('');
       clearDrag(); setAssetStatus(''); setExportStatus('');
     }
+    // Wait for the reloaded preview's slide count before requesting thumbnails;
+    // the previous count can include slides that were just removed.
+    setCount(0);
     deckRef.current = next; setDeck(next); setRevision(value => value + 1);
   }, [clearDrag]);
 
@@ -174,7 +178,7 @@ export default function Home() {
       if (event.data?.type === 'wetmytt:drop' && Array.isArray(event.data.files) && event.data.files.every((file: unknown) => file instanceof File)) void addAssets(event.data.files);
     }
     function onKey(event: KeyboardEvent) {
-      if ((event.target as HTMLElement).closest('input, textarea, select, [contenteditable], dialog, [role="menu"]')) return;
+      if ((event.target as HTMLElement).closest('input, textarea, select, [contenteditable], dialog, [role="menu"], [data-slide-thumbnails]')) return;
       if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); navigate(slideRef.current + (event.key === 'ArrowRight' ? 1 : -1)); }
       if (event.key === 'Escape') void present(false);
     }
@@ -269,7 +273,7 @@ export default function Home() {
   return <main className={presenting ? 'app presenting' : 'app'}>
     <header className="topbar">
       <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="release-badge" aria-label={`App version ${version}`}>v{version}</span></div>
-      <div className="file-actions"><FileMenu desktop={desktop} hasDeck={Boolean(deck.root)} {...recentProps} onNew={() => void choose(true)} onChoose={() => void choose(false)} onAssets={() => void chooseAssets()} onClose={() => void closeProject()} /></div>
+      <div className="file-actions"><FileMenu desktop={desktop} hasDeck={Boolean(deck.root)} {...recentProps} onNew={() => void choose(true)} onChoose={() => void choose(false)} onAssets={() => void chooseAssets()} onReveal={() => { void window.wetmytt?.reveal().catch(err => setError(String(err))); }} onClose={() => void closeProject()} /></div>
       <div className="top-actions"><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><ConnectMenu desktop={desktop} onConnect={setAgentOpen} /><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}
@@ -279,7 +283,7 @@ export default function Home() {
     {dragging && deck.root && <div className="asset-drop-overlay"><div><Icon name="folder" size={32} /><strong>Drop files to add assets</strong><span>Copy to {deck.name}/assets/</span></div></div>}
     <div className="workspace">
       <section className="editor">
-        <div className="deck-heading"><div><span className="eyebrow">YOUR PRESENTATION</span><h1>{deck.name || 'Got a point? Make it.'}</h1></div>{deck.root && <button className="folder-path" title={deck.root} onClick={() => void window.wetmytt?.reveal()}><Icon name="folder" size={15} />Show files</button>}</div>
+        <div className={deck.root ? "deck-heading has-thumbnails" : "deck-heading"}><div className="deck-title"><span className="eyebrow">YOUR PRESENTATION</span><h1 title={deck.name || undefined}>{deck.name || 'Got a point? Make it.'}</h1></div>{deck.root && <SlideThumbnails key={`${deck.root}:${deck.generation}:${revision}`} deck={deck} count={count} slide={slide} onNavigate={navigate} />}</div>
         <div className="canvas-area">
           {deck.url ? <div className="slide-frame"><iframe ref={iframe} title="Presentation slide" src={`${deck.url}index.html?revision=${revision}`} sandbox="allow-scripts allow-same-origin" onLoad={() => { navigate(slideRef.current); configurePreview(); }} /></div> : <div className="welcome-card">
             <div className="welcome-spotlight" aria-hidden="true" /><span className="welcome-tag"><span />THE FLOOR IS YOURS</span>

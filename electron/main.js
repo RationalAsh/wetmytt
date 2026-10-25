@@ -9,7 +9,7 @@ import { inferProvider, normalizeSettings } from '../shared/ai.js';
 import { createDeck } from './decks.js';
 import { runTool } from './tools.js';
 import { loadMcpToken, startMcpServer } from './mcp.js';
-import { screenshotSlide } from './screenshot.js';
+import { screenshotSlide, screenshotSlides } from './screenshot.js';
 import { connectCodex } from './codex-plugin.js';
 import { connectClaude } from './claude-extension.js';
 import { exportDeckPDF } from './pdf.js';
@@ -23,6 +23,8 @@ app.setName('Welcome to My TED Talk');
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
 let exportingPDF = false;
+let thumbnailOperations = new AbortController();
+let thumbnailQueue = Promise.resolve();
 let openingDeck = Promise.resolve();
 let recentFolders, refreshRecentFolders;
 let projectOperations = new AbortController();
@@ -34,6 +36,8 @@ const state = async () => {
 };
 const notify = (name, data) => { if (window && !window.isDestroyed()) window.webContents.send(name, data); };
 async function notifyDeck() {
+  thumbnailOperations.abort();
+  thumbnailOperations = new AbortController();
   const snapshot = await state();
   if (snapshot.generation === generation) notify('deck:changed', snapshot);
 }
@@ -107,7 +111,9 @@ try {
     return fs.readFile(path.join(app.getPath('appData'), 'decklet', 'ai-settings.json'), 'utf8');
   });
   const saved = JSON.parse(savedText);
-  settings = normalizeSettings({ provider: saved.provider ?? inferProvider(saved.baseUrl), baseUrl: saved.baseUrl, model: saved.model, apiKey: saved.encryptedKey && safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(Buffer.from(saved.encryptedKey, 'base64')) : '' }, {}, { requireKey: false });
+  const apiKey = saved.encryptedKey && await safeStorage.isAsyncEncryptionAvailable()
+    ? (await safeStorage.decryptStringAsync(Buffer.from(saved.encryptedKey, 'base64'))).result : '';
+  settings = normalizeSettings({ provider: saved.provider ?? inferProvider(saved.baseUrl), baseUrl: saved.baseUrl, model: saved.model, apiKey }, {}, { requireKey: false });
 } catch {}
 
 try {
@@ -133,6 +139,26 @@ const contentRoot = (expectedRoot, expectedGeneration) => {
   if (!root || root !== expectedRoot || generation !== expectedGeneration) throw new Error('The open project changed. Please try again.');
   return root;
 };
+handle('deck:thumbnails', (folder, version, indices) => {
+  contentRoot(folder, version);
+  if (!Array.isArray(indices) || !indices.length || indices.length > 6 || indices.some(index => !Number.isSafeInteger(index) || index < 0)) throw new Error('Request up to six slide thumbnails at a time.');
+  const signal = thumbnailOperations.signal;
+  const operation = thumbnailQueue.then(async () => {
+    signal.throwIfAborted();
+    contentRoot(folder, version);
+    const images = await screenshotSlides(folder, indices.map(index => index + 1), { width: 320, signal });
+    signal.throwIfAborted();
+    contentRoot(folder, version);
+    return images.map((image, i) => ({ index: indices[i], url: `data:image/png;base64,${image.toString('base64')}` }));
+  });
+  thumbnailQueue = operation.catch(() => {});
+  // Refreshes deliberately cancel old captures. Resolve normally so Electron
+  // does not log an expected cancellation as an IPC handler error.
+  return operation.catch(error => {
+    if (signal.aborted) return null;
+    throw error;
+  });
+});
 handle('deck:read-content', (folder, version) => readContent(contentRoot(folder, version)));
 handle('deck:save-content', (folder, version, source, pointer, text) => saveContent(contentRoot(folder, version), source, pointer, text));
 handle('deck:import-assets', (expectedRoot, sources) => {
@@ -203,9 +229,11 @@ handle('ai:settings', () => ({ provider: settings.provider, baseUrl: settings.ba
 handle('ai:save', async value => {
   // An explicit empty key is the "Remove saved key" action.
   const next = normalizeSettings(value, settings, { requireKey: value.apiKey !== '' });
-  await fs.writeFile(settingsPath, JSON.stringify({ provider: next.provider, baseUrl: next.baseUrl, model: next.model, encryptedKey: next.apiKey && safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(next.apiKey).toString('base64') : null }), { mode: 0o600 });
+  const persistedKey = !next.apiKey || await safeStorage.isAsyncEncryptionAvailable();
+  const encryptedKey = next.apiKey && persistedKey ? (await safeStorage.encryptStringAsync(next.apiKey)).toString('base64') : null;
+  await fs.writeFile(settingsPath, JSON.stringify({ provider: next.provider, baseUrl: next.baseUrl, model: next.model, encryptedKey }), { mode: 0o600 });
   settings = next;
-  return { persistedKey: !settings.apiKey || safeStorage.isEncryptionAvailable() };
+  return { persistedKey };
 });
 handle('ai:cancel', () => pendingChat?.abort());
 const chatRoot = expectedRoot => {
@@ -272,7 +300,7 @@ let quitting = false;
 app.on('before-quit', event => {
   if (quitting) return;
   event.preventDefault(); quitting = true;
-  pendingChat?.abort(); generation++;
+  pendingChat?.abort(); generation++; thumbnailOperations.abort();
   projectOperations.abort();
   Promise.allSettled([mcp?.close(), watcher?.close(), deckServer?.close(), shellServer?.close()]).finally(() => app.quit());
 });

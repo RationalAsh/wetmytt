@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('wetmytt', {
   recentFolders: invoke('recent:list'), openRecent: invoke('recent:open'),
   removeRecent: invoke('recent:remove'), clearRecent: invoke('recent:clear'),
   state: invoke('deck:state'), open: invoke('deck:open'), create: invoke('deck:create'), close: invoke('deck:close'),
+  thumbnails: invoke('deck:thumbnails'),
   readContent: invoke('deck:read-content'), saveContent: invoke('deck:save-content'),
   reveal: invoke('deck:reveal'), settings: invoke('ai:settings'), saveSettings: invoke('ai:save'),
   chat: invoke('ai:chat'), cancel: invoke('ai:cancel'), present: invoke('deck:present'),

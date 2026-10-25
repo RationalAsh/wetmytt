@@ -14,6 +14,7 @@ declare global {
       removeRecent(folder: string): Promise<void>;
       clearRecent(): Promise<void>;
       state(): Promise<Deck>;
+      thumbnails(root: string, generation: number, indices: number[]): Promise<{ index: number; url: string }[] | null>;
       readContent(root: string, generation: number): Promise<string>;
       saveContent(root: string, generation: number, source: string, pointer: string, text: string): Promise<string>;
       open(): Promise<Deck | null>;
