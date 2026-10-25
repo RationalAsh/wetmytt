@@ -1,4 +1,4 @@
-export type Deck = { root?: string; generation?: number; url?: string; name?: string | null };
+export type Deck = { root?: string; generation?: number; url?: string; name?: string | null; branch?: string | null };
 export type Provider = 'openrouter' | 'openai' | 'claude' | 'ollama';
 export type Settings = { provider: Provider; baseUrl: string; model: string; hasKey: boolean };
 export type Message = { role: 'user' | 'assistant'; content: string };

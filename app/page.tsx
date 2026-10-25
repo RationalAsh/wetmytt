@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { version } from '../package.json';
 import type { ConversationSummary, Deck, Message, Settings } from './bridge';
 import { AISettings } from './ai-settings';
 import { AgentConnection } from './agent-connection';
@@ -252,7 +253,7 @@ export default function Home() {
 
   return <main className={presenting ? 'app presenting' : 'app'}>
     <header className="topbar">
-      <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="alpha">EARLY BUILD</span></div>
+      <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="release-badge" aria-label={`App version ${version}`}>v{version}</span></div>
       <div className="file-actions"><button onClick={() => void choose(false)} disabled={!desktop}><Icon name="folder" />Open folder</button><button onClick={() => void choose(true)} disabled={!desktop}><Icon name="plus" />New deck</button>{deck.root && <><button onClick={() => void chooseAssets()} disabled={!desktop}><Icon name="plus" />Add assets</button><button onClick={() => void closeProject()} disabled={!desktop}><Icon name="close" />Close project</button></>}</div>
       <div className="top-actions"><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><button className="agent-connect" disabled={!desktop} onClick={() => setAgentOpen('Codex')}><Icon name="terminal" />Connect to Codex</button><button className="agent-connect" disabled={!desktop} onClick={() => setAgentOpen('Claude')}><Icon name="terminal" />Connect to Claude</button><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
@@ -273,7 +274,7 @@ export default function Home() {
             <div className="stage-card" aria-hidden="true"><span>01 / A VERY IMPORTANT TALK</span><strong>I made<br />slides<span>about it.</span></strong><div className="stage-line" /><small>WETMYTT / PRESS PLAY ↗</small></div>
           </div>}
         </div>
-        <footer className="slide-controls"><span className="live-status"><span />{deck.root ? 'Watching your folder' : 'Everything lives in your folder'}</span><div className="pagination"><button className="icon-button" aria-label="Previous slide" disabled={!count || slide === 0} onClick={() => navigate(slide - 1)}><Icon name="left" size={17} /></button><span>{count ? String(slide + 1).padStart(2, '0') : '—'}<b>/</b>{count ? String(count).padStart(2, '0') : '—'}</span><button className="icon-button" aria-label="Next slide" disabled={!count || slide >= count - 1} onClick={() => navigate(slide + 1)}><Icon name="right" size={17} /></button></div><span className="key-hint"><kbd>←</kbd><kbd>→</kbd> to navigate</span></footer>
+        <footer className="slide-controls"><div className="folder-status"><span className="live-status"><span />{deck.root ? 'Watching your folder' : 'Everything lives in your folder'}</span>{deck.root && deck.branch && <span className="version-chip" tabIndex={0} aria-describedby="version-detail"><span className="version-label">Version:</span><span className="version-name">{deck.branch}</span><span className="version-tooltip" role="tooltip" id="version-detail">This presentation uses Git internally for version history. {deck.branch === 'Detached HEAD' ? 'You are viewing a commit without an active branch (detached HEAD).' : <>The current branch is <strong>{deck.branch}</strong>.</>}</span></span>}</div><div className="pagination"><button className="icon-button" aria-label="Previous slide" disabled={!count || slide === 0} onClick={() => navigate(slide - 1)}><Icon name="left" size={17} /></button><span>{count ? String(slide + 1).padStart(2, '0') : '—'}<b>/</b>{count ? String(count).padStart(2, '0') : '—'}</span><button className="icon-button" aria-label="Next slide" disabled={!count || slide >= count - 1} onClick={() => navigate(slide + 1)}><Icon name="right" size={17} /></button></div><span className="key-hint"><kbd>←</kbd><kbd>→</kbd> to navigate</span></footer>
         <div className="local-note"><Icon name="terminal" size={14} /><span>Your editor, your agent, your files. Changes appear automatically.</span></div>
       </section>
       <aside className="sidebar" style={sidebar ? undefined : { display: 'none' }}>

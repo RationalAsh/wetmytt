@@ -15,6 +15,7 @@ import { connectClaude } from './claude-extension.js';
 import { exportDeckPDF } from './pdf.js';
 import { listChats, loadChat, runConversation } from './chats.js';
 import { readContent, saveContent } from './content.js';
+import { currentBranch } from './git.js';
 
 app.setName('Welcome to My TED Talk');
 
@@ -24,8 +25,15 @@ let exportingPDF = false;
 let projectOperations = new AbortController();
 let mcp, mcpError, mcpToken, connectingCodex, connectingClaude, generation = 0;
 let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
-const state = () => ({ root, generation, url: deckServer?.url, name: root ? path.basename(root) : null });
+const state = async () => {
+  const snapshot = { root, generation, url: deckServer?.url, name: root ? path.basename(root) : null };
+  return { ...snapshot, branch: snapshot.root ? await currentBranch(snapshot.root) : null };
+};
 const notify = (name, data) => { if (window && !window.isDestroyed()) window.webContents.send(name, data); };
+async function notifyDeck() {
+  const snapshot = await state();
+  if (snapshot.generation === generation) notify('deck:changed', snapshot);
+}
 
 async function openDeck(folder) {
   await fs.access(path.join(folder, 'index.html'));
@@ -37,10 +45,17 @@ async function openDeck(folder) {
   root = folder; deckServer = next; generation++;
   projectOperations.abort(); projectOperations = new AbortController();
   mcp?.cancelStaleSessions();
-  watcher = chokidar.watch(root, { ignored: /(^|[/\\])\.|node_modules/, ignoreInitial: true, awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 } });
-  watcher.on('all', () => { clearTimeout(watchTimer); watchTimer = setTimeout(() => notify('deck:changed', state()), 100); });
+  watcher = chokidar.watch(root, {
+    ignored: filename => {
+      const relative = path.relative(root, filename);
+      if (relative === '.git' || relative === path.join('.git', 'HEAD')) return false;
+      return /(^|[/\\])\.|(^|[/\\])node_modules([/\\]|$)/.test(relative);
+    },
+    ignoreInitial: true, awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 },
+  });
+  watcher.on('all', () => { clearTimeout(watchTimer); watchTimer = setTimeout(() => { void notifyDeck(); }, 100); });
   watcher.on('error', error => console.error('Deck watcher:', error.message));
-  notify('deck:changed', state());
+  await notifyDeck();
   return state();
 }
 
@@ -111,7 +126,7 @@ handle('deck:close', async () => {
   projectOperations.abort(); projectOperations = new AbortController();
   mcp?.cancelStaleSessions();
   window.setFullScreen(false);
-  notify('deck:changed', state());
+  await notifyDeck();
   return state();
 });
 handle('deck:open', async () => {

@@ -9,6 +9,7 @@ import { resolveGitBinary } from 'dugite';
 import { runTool, toolDefinitions } from '../electron/tools.js';
 import { createDeck } from '../electron/decks.js';
 import { chat } from '../electron/agent.js';
+import { currentBranch } from '../electron/git.js';
 
 async function fixture(t, create = false) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'wetmytt-tools-'));
@@ -18,6 +19,19 @@ async function fixture(t, create = false) {
   return { root, directory, tool: (name, args = {}, signal) => runTool(root, name, args, signal) };
 }
 const rawGit = (root, args) => promisify(execFile)(resolveGitBinary(), args, { cwd: root });
+
+test('version label follows branches, supports unborn and detached HEAD, and tolerates missing Git', async t => {
+  const { root, tool } = await fixture(t);
+  assert.equal(await currentBranch(root), null);
+  await tool('git_init');
+  assert.equal(await currentBranch(root), 'main');
+  const fresh = await fixture(t, true);
+  await fresh.tool('git_branch', { name: 'draft/slides' });
+  await fresh.tool('git_switch', { name: 'draft/slides' });
+  assert.equal(await currentBranch(fresh.root), 'draft/slides');
+  await rawGit(fresh.root, ['checkout', '--detach']);
+  assert.equal(await currentBranch(fresh.root), 'Detached HEAD');
+});
 
 test('new decks have a clean main branch and initial commit; existing decks require explicit initialization', async t => {
   const fresh = await fixture(t, true);

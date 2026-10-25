@@ -67,6 +67,16 @@ async function paths(root, values) {
   return values;
 }
 
+export async function currentBranch(root, signal) {
+  try {
+    root = await repository(root, signal);
+    const branch = (await command(root, ['branch', '--show-current'], signal)).trim();
+    return branch || 'Detached HEAD';
+  } catch {
+    return null;
+  }
+}
+
 export async function gitInit(root, signal, initialCommit = false) {
   signal?.throwIfAborted();
   const metadata = await fs.lstat(path.join(root, '.git')).catch(() => null);
