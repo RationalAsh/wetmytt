@@ -1,6 +1,6 @@
 export type Deck = { root?: string; generation?: number; url?: string; name?: string | null; branch?: string | null };
 export type Provider = 'openrouter' | 'openai' | 'claude' | 'ollama';
-export type Settings = { provider: Provider; baseUrl: string; model: string; hasKey: boolean };
+export type Settings = { provider: Provider; baseUrl: string; model: string; hasKey: boolean; maxTurns: number };
 export type Message = { role: 'user' | 'assistant'; content: string };
 export type TokenUsage = { inputTokens: number; outputTokens: number };
 export type ConversationSummary = { id: string; title: string; updatedAt: string; provider?: Provider; model?: string };
@@ -26,6 +26,7 @@ declare global {
       importAssets(root: string, files: File[]): Promise<{ imported: string[]; errors: string[] }>;
       chooseAssets(root: string, generation: number): Promise<{ imported: string[]; errors: string[] } | null>;
       settings(): Promise<Settings>;
+      savePreferences(value: { maxTurns: number }): Promise<{ persistedKey: boolean }>;
       saveSettings(value: { provider: Provider; baseUrl: string; model: string; apiKey?: string }): Promise<{ persistedKey: boolean }>;
       chats(root: string): Promise<ConversationSummary[]>;
       loadChat(root: string, id: string): Promise<Conversation>;

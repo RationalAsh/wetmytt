@@ -6,7 +6,7 @@ import chokidar from 'chokidar';
 import { serveFolder } from './server.js';
 import { chat } from './agent.js';
 import { contextLimit } from './providers.js';
-import { inferProvider, normalizeSettings } from '../shared/ai.js';
+import { DEFAULT_MAX_TURNS, inferProvider, normalizeMaxTurns, normalizeSettings } from '../shared/ai.js';
 import { createDeck } from './decks.js';
 import { runTool } from './tools.js';
 import { loadMcpToken, startMcpServer } from './mcp.js';
@@ -30,7 +30,7 @@ let openingDeck = Promise.resolve();
 let recentFolders, refreshRecentFolders;
 let projectOperations = new AbortController();
 let mcp, mcpError, mcpToken, connectingCodex, connectingClaude, generation = 0;
-let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
+let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '', maxTurns: DEFAULT_MAX_TURNS };
 const state = async () => {
   const snapshot = { root, generation, url: deckServer?.url, name: root ? path.basename(root) : null };
   return { ...snapshot, branch: snapshot.root ? await currentBranch(snapshot.root) : null };
@@ -112,9 +112,10 @@ try {
     return fs.readFile(path.join(app.getPath('appData'), 'decklet', 'ai-settings.json'), 'utf8');
   });
   const saved = JSON.parse(savedText);
+  settings.maxTurns = normalizeMaxTurns(saved.maxTurns);
   const apiKey = saved.encryptedKey && await safeStorage.isAsyncEncryptionAvailable()
     ? (await safeStorage.decryptStringAsync(Buffer.from(saved.encryptedKey, 'base64'))).result : '';
-  settings = normalizeSettings({ provider: saved.provider ?? inferProvider(saved.baseUrl), baseUrl: saved.baseUrl, model: saved.model, apiKey }, {}, { requireKey: false });
+  settings = normalizeSettings({ provider: saved.provider ?? inferProvider(saved.baseUrl), baseUrl: saved.baseUrl, model: saved.model, apiKey, maxTurns: settings.maxTurns }, {}, { requireKey: false });
 } catch {}
 
 try {
@@ -226,16 +227,20 @@ handle('deck:export-pdf', async expectedRoot => {
 });
 handle('deck:reveal', () => root ? shell.openPath(root) : undefined);
 handle('deck:present', value => { window.setFullScreen(Boolean(value)); });
-handle('ai:settings', () => ({ provider: settings.provider, baseUrl: settings.baseUrl, model: settings.model, hasKey: Boolean(settings.apiKey) }));
+handle('ai:settings', () => ({ provider: settings.provider, baseUrl: settings.baseUrl, model: settings.model, hasKey: Boolean(settings.apiKey), maxTurns: settings.maxTurns }));
 handle('ai:context', () => settings.model ? contextLimit(settings) : null);
+async function persistSettings(next) {
+  const persistedKey = !next.apiKey || await safeStorage.isAsyncEncryptionAvailable();
+  const encryptedKey = next.apiKey && persistedKey ? (await safeStorage.encryptStringAsync(next.apiKey)).toString('base64') : null;
+  await fs.writeFile(settingsPath, JSON.stringify({ provider: next.provider, baseUrl: next.baseUrl, model: next.model, maxTurns: next.maxTurns, encryptedKey }), { mode: 0o600 });
+  settings = next;
+  return { persistedKey };
+}
+handle('ai:preferences', value => persistSettings({ ...settings, maxTurns: normalizeMaxTurns(value.maxTurns) }));
 handle('ai:save', async value => {
   // An explicit empty key is the "Remove saved key" action.
   const next = normalizeSettings(value, settings, { requireKey: value.apiKey !== '' });
-  const persistedKey = !next.apiKey || await safeStorage.isAsyncEncryptionAvailable();
-  const encryptedKey = next.apiKey && persistedKey ? (await safeStorage.encryptStringAsync(next.apiKey)).toString('base64') : null;
-  await fs.writeFile(settingsPath, JSON.stringify({ provider: next.provider, baseUrl: next.baseUrl, model: next.model, encryptedKey }), { mode: 0o600 });
-  settings = next;
-  return { persistedKey };
+  return persistSettings(next);
 });
 handle('ai:cancel', () => pendingChat?.abort());
 const chatRoot = expectedRoot => {

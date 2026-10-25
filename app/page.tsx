@@ -6,6 +6,7 @@ import { FileMenu, ConnectMenu, RecentFolders } from './project-menus';
 import { version } from '../package.json';
 import type { ConversationSummary, Deck, Message, Settings } from './bridge';
 import { AISettings } from './ai-settings';
+import { DEFAULT_MAX_TURNS } from '../shared/ai.js';
 import { AgentConnection } from './agent-connection';
 import { MarkdownMessage } from './markdown-message';
 import { ContentEditor, type TextField, type TextSelection } from './content-editor';
@@ -70,7 +71,10 @@ export default function Home() {
   const [assetStatus, setAssetStatus] = useState('');
   const [agentOpen, setAgentOpen] = useState<'Codex' | 'Claude' | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState<Settings>({ provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', hasKey: false });
+  const [settingsSection, setSettingsSection] = useState<'chat' | 'connection'>('chat');
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  function openSettings(section: 'chat' | 'connection') { if (settingsLoaded) { setSettingsSection(section); setSettingsOpen(true); } }
+  const [settings, setSettings] = useState<Settings>({ provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', hasKey: false, maxTurns: DEFAULT_MAX_TURNS });
   const [contextUsed, setContextUsed] = useState(0);
   const [contextLimit, setContextLimit] = useState<number | null>(null);
   const [desktop, setDesktop] = useState(true);
@@ -176,10 +180,10 @@ export default function Home() {
 
   useEffect(() => {
     const api = window.wetmytt;
-    if (!api) { setDesktop(false); return; }
+    if (!api) { setDesktop(false); setSettingsLoaded(true); return; }
     api.state().then(receiveDeck).catch(err => setError(String(err)));
     api.recentFolders().then(setRecentFolders).catch(err => setError(String(err)));
-    api.settings().then(setSettings).catch(err => setError(String(err)));
+    api.settings().then(setSettings).catch(err => setError(String(err))).finally(() => setSettingsLoaded(true));
     const unsubscribers = [api.on('recent:changed', setRecentFolders), api.on('recent:error', setError), api.on('deck:changed', receiveDeck), api.on('ai:activity', setActivity), api.on('deck:fullscreen', setPresenting)];
     return () => unsubscribers.forEach(unsubscribe => unsubscribe());
   }, [receiveDeck]);
@@ -285,7 +289,7 @@ export default function Home() {
   }
   async function send(text = draft) {
     if (!text.trim() || busy || loadingChat || !deck.root) return;
-    if (!settings.model) { setSettingsOpen(true); return; }
+    if (!settings.model) { openSettings('connection'); return; }
     const history: Message[] = [...messages, { role: 'user', content: text.trim() }];
     const currentSession = session.current;
     setMessages(history); setDraft(''); setBusy(true); setActivity('Thinking…'); setError('');
@@ -304,7 +308,7 @@ export default function Home() {
     <header className="topbar">
       <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="release-badge" aria-label={`App version ${version}`}>v{version}</span></div>
       <div className="file-actions"><FileMenu desktop={desktop} hasDeck={Boolean(deck.root)} {...recentProps} onNew={() => void choose(true)} onChoose={() => void choose(false)} onAssets={() => void chooseAssets()} onReveal={() => { void window.wetmytt?.reveal().catch(err => setError(String(err))); }} onClose={() => void closeProject()} /></div>
-      <div className="top-actions"><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><ConnectMenu desktop={desktop} onConnect={setAgentOpen} /><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
+      <div className="top-actions"><button className="icon-button" title="Settings" aria-label="Settings" disabled={!settingsLoaded} onClick={() => openSettings('chat')}><Icon name="settings" size={18} /></button><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><ConnectMenu desktop={desktop} onConnect={setAgentOpen} /><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}
     {error && <div className="error" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><Icon name="close" size={15} /></button></div>}
@@ -328,7 +332,7 @@ export default function Home() {
         <div className="local-note"><Icon name="terminal" size={14} /><span>Your editor, your agent, your files. Changes appear automatically.</span></div>
       </section>
       <aside className="sidebar" style={sidebar ? undefined : { display: 'none' }}>
-        <div className="chat-header"><div><Icon name="spark" /><strong>Backstage</strong></div><div><button className="icon-button" title="New conversation (clear context)" aria-label="New conversation" disabled={!deck.root || busy || loadingChat} onClick={newConversation}><Icon name="plus" size={17} /></button><button className="icon-button" title="AI settings" aria-label="AI settings" onClick={() => setSettingsOpen(true)}><Icon name="settings" size={17} /></button><button className="icon-button" title="Hide sidebar" aria-label="Hide sidebar" onClick={() => setSidebar(false)}><Icon name="close" size={17} /></button></div></div>
+        <div className="chat-header"><div><Icon name="spark" /><strong>Backstage</strong></div><div><button className="icon-button" title="New conversation (clear context)" aria-label="New conversation" disabled={!deck.root || busy || loadingChat} onClick={newConversation}><Icon name="plus" size={17} /></button><button className="icon-button" title="Settings" aria-label="Settings" disabled={!settingsLoaded} onClick={() => openSettings('chat')}><Icon name="settings" size={17} /></button><button className="icon-button" title="Hide sidebar" aria-label="Hide sidebar" onClick={() => setSidebar(false)}><Icon name="close" size={17} /></button></div></div>
         <div className="sidebar-tabs" role="tablist" aria-label="Sidebar">
           <button role="tab" id="chat-tab" aria-selected={sidebarTab === 'chat'} aria-controls="chat-panel" onClick={() => setSidebarTab('chat')}>Chat</button>
           <button role="tab" id="edit-tab" aria-selected={sidebarTab === 'edit'} aria-controls="edit-panel" onClick={() => setSidebarTab('edit')}>Edit</button>
@@ -346,14 +350,14 @@ export default function Home() {
           {messages.length === 0 ? <div className="chat-intro"><span className="spark-tile"><Icon name="spark" size={25} /></span><h2>You bring the idea.<br />We’ll bring the slides.</h2><p>Find your opening. Cut the waffle. Land the ending. Tell your AI what you’re thinking.</p><div className="suggestions">{['Give this deck a stronger opening', 'Make the slides more concise', 'Give this deck a bold stage presence'].map((text, i) => <button key={text} disabled={!deck.root || busy || loadingChat} onClick={() => void send(text)}><span>{['↗', '≋', '◐'][i]}</span>{text}<span>↗</span></button>)}</div><div className="agent-note"><Icon name="terminal" size={17} /><p>Already have an agent?<br /><span>Run it in your deck folder. We’ll keep up.</span></p></div></div> : messages.map((message, index) => <div key={index} className={`message ${message.role}`}><span>{message.role === 'user' ? 'YOU' : 'WETMYTT'}</span>{message.role === 'assistant' ? <MarkdownMessage>{message.content}</MarkdownMessage> : <p>{message.content}</p>}</div>)}
           {busy && <div className="activity" role="status"><span />{activity}</div>}<div ref={bottom} />
         </div>
-        <form className="composer" onSubmit={event => { event.preventDefault(); void send(); }}><textarea aria-label="Message your creative partner" placeholder={deck.root ? 'What’s your big idea?' : 'Open a deck to start creating…'} value={draft} disabled={!deck.root || busy || loadingChat} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} /><div><button type="button" className="model-select" onClick={() => setSettingsOpen(true)}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}<span>⌄</span></button><div className="composer-actions"><ContextMeter used={contextUsed} limit={contextLimit} connected={Boolean(settings.model)} />{busy ? <button type="button" className="send-button" aria-label="Stop generation" onClick={() => void window.wetmytt?.cancel()}><Icon name="stop" size={16} /></button> : <button className="send-button" aria-label="Send message" disabled={!deck.root || loadingChat || !draft.trim()}><Icon name="send" size={18} /></button>}</div></div></form>
+        <form className="composer" onSubmit={event => { event.preventDefault(); void send(); }}><textarea aria-label="Message your creative partner" placeholder={deck.root ? 'What’s your big idea?' : 'Open a deck to start creating…'} value={draft} disabled={!deck.root || busy || loadingChat} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} /><div><button type="button" className="model-select" disabled={!settingsLoaded} onClick={() => openSettings('connection')}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}<span>⌄</span></button><div className="composer-actions"><ContextMeter used={contextUsed} limit={contextLimit} connected={Boolean(settings.model)} />{busy ? <button type="button" className="send-button" aria-label="Stop generation" onClick={() => void window.wetmytt?.cancel()}><Icon name="stop" size={16} /></button> : <button className="send-button" aria-label="Send message" disabled={!deck.root || loadingChat || !draft.trim()}><Icon name="send" size={18} /></button>}</div></div></form>
         <div className="chat-footnote">Your talk. Your files. Your call.</div>
         </div>
       </aside>
     </div>
     {presenting && <button className="exit-present" onClick={() => void present(false)}>Exit presentation <kbd>esc</kbd></button>}
     {agentOpen && <AgentConnection key={agentOpen} agent={agentOpen} onClose={() => setAgentOpen(null)} />}
-    {settingsOpen && <AISettings saved={settings} desktop={desktop} onClose={() => setSettingsOpen(false)} onSaved={(next, persistedKey) => {
+    {settingsOpen && <AISettings saved={settings} desktop={desktop} initialSection={settingsSection} onClose={() => setSettingsOpen(false)} onSaved={(next, persistedKey) => {
       setSettings(next); setSettingsOpen(false);
       if (!persistedKey) setError('OS encryption is unavailable. Your API key is kept only for this session.');
     }} />}

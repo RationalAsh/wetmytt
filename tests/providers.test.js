@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { conversationTokens, knownContextWindow, normalizeSettings, inferProvider, providers } from '../shared/ai.js';
+import { conversationTokens, knownContextWindow, normalizeMaxTurns, normalizeSettings, inferProvider, providers } from '../shared/ai.js';
 import { contextLimit, requestMessage } from '../electron/providers.js';
 import { toolDefinitions } from '../electron/agent.js';
 
@@ -8,6 +8,15 @@ const connection = (provider = 'openai') => ({ provider, baseUrl: providers[prov
 const messages = [{ role: 'system', content: 'Edit the deck.' }, { role: 'user', content: 'List files.' }];
 const signal = () => new AbortController().signal;
 const mocked = new WeakSet();
+test('turn limits default to 48, survive connection changes, and reject invalid values', () => {
+  assert.equal(normalizeSettings(connection()).maxTurns, 48);
+  assert.equal(normalizeSettings(connection('claude'), { ...connection(), maxTurns: 72 }).maxTurns, 72);
+  assert.equal(normalizeSettings({ ...connection(), maxTurns: 1 }).maxTurns, 1);
+  assert.equal(normalizeMaxTurns(256), 256);
+  for (const maxTurns of [0, -1, 257, 1.5, '48', null, NaN, Infinity]) {
+    assert.throws(() => normalizeMaxTurns(maxTurns), /whole number of turns/);
+  }
+});
 function mockFetch(t, callback) {
   if (!mocked.has(t)) {
     mocked.add(t);
