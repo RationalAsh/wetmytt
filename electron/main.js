@@ -23,6 +23,7 @@ app.setName('Welcome to My TED Talk');
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
 let exportingPDF = false;
+let openingDeck = Promise.resolve();
 let recentFolders, refreshRecentFolders;
 let projectOperations = new AbortController();
 let mcp, mcpError, mcpToken, connectingCodex, connectingClaude, generation = 0;
@@ -37,8 +38,18 @@ async function notifyDeck() {
   if (snapshot.generation === generation) notify('deck:changed', snapshot);
 }
 
-async function openDeck(folder) {
-  await fs.access(path.join(folder, 'index.html'));
+function openDeck(folder, signal) {
+  const operation = openingDeck.then(() => {
+    signal?.throwIfAborted();
+    return performOpenDeck(folder);
+  });
+  openingDeck = operation.catch(() => {});
+  return operation;
+}
+
+async function performOpenDeck(folder) {
+  folder = await fs.realpath(folder);
+  if (!(await fs.stat(path.join(folder, 'index.html'))).isFile()) throw new Error('The presentation must contain an index.html file.');
   const next = await serveFolder(folder, { deck: true });
   pendingChat?.abort();
   await watcher?.close();
@@ -101,7 +112,7 @@ try {
 
 try {
   mcpToken = await loadMcpToken(app.getPath('userData'));
-  mcp = await startMcpServer({ getDeck: () => ({ root, generation }), screenshotSlide, token: mcpToken });
+  mcp = await startMcpServer({ getDeck: () => ({ root, generation }), screenshotSlide, listRecentPresentations: () => recentFolders.list(), openPresentation: openDeck, token: mcpToken });
 } catch (error) {
   mcpError = `Could not start the agent connection: ${error.message}`;
   console.error(mcpError);

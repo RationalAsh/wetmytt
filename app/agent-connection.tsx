@@ -34,7 +34,7 @@ export function AgentConnection({ agent, onClose }: { agent: 'Codex' | 'Claude';
     </> : <>
     <p role="status">{busy ? 'Preparing your local plugin and opening Codex…' : opened ? 'Opened the plugin in Codex. Select Install there to finish connecting.' : 'Finish connecting in Codex Desktop.'}</p>
     <ol className="agent-steps"><li>Install the plugin in Codex.</li><li>Open a presentation here and keep this app running.</li><li>Start a new Codex chat and use the plugin.</li></ol>
-    <p>If Codex doesn’t show the plugin yet, restart Codex and click “Open in Codex” below. After switching presentations, reconnect MCP or start a new Codex chat.</p>
+    <p>If Codex doesn’t show the plugin yet, restart Codex and click “Open in Codex” below. Use list_recent_presentations and open_presentation to choose a deck. After switching in the app, call get_presentation to refresh the selection.</p>
     </>}
     {error && <div className="settings-error" role="alert">{error}</div>}
     <div className="settings-buttons"><button onClick={onClose}>Close</button><button className="primary" disabled={busy} onClick={() => void connect()}>{busy ? 'Opening…' : `Open in ${agent}`}</button></div>

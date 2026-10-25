@@ -67,7 +67,7 @@ test('packaged stdio bridge edits and captures through the authenticated app ser
   const service = await startMcpServer({ port: 0, token: options.token, getDeck: () => ({ root, generation }), screenshotSlide: async () => Buffer.from('PNG') });
   t.after(() => service.close());
   const client = await packagedClient(t, { ...options, url: service.url });
-  assert.equal((await client.listTools()).tools.length, toolDefinitions.length + 2);
+  assert.equal((await client.listTools()).tools.length, toolDefinitions.length + 4);
   assert.equal(JSON.parse((await client.callTool({ name: 'get_presentation' })).content[0].text).root, null);
   root = options.directory;
   generation++;
@@ -93,7 +93,7 @@ test('Claude bridge restores expired sessions and app restarts without replaying
   await fs.writeFile(path.join(original, 'index.html'), 'Original');
   await fs.writeFile(path.join(next, 'index.html'), 'Next');
   let root = original;
-  const start = port => startMcpServer({ port, token: options.token, getDeck: () => ({ root, generation: 1 }), screenshotSlide: async () => Buffer.from('PNG') });
+  const start = port => startMcpServer({ port, token: options.token, getDeck: () => ({ root, generation: 1 }), listRecentPresentations: () => [original, next], openPresentation: async folder => { root = folder; service.cancelStaleSessions(); }, screenshotSlide: async () => Buffer.from('PNG') });
   let service = await start(0);
   t.after(() => service.close());
   const port = Number(new URL(service.url).port);
@@ -114,12 +114,21 @@ test('Claude bridge restores expired sessions and app restarts without replaying
   assert.match(rejected.content[0].text, /Call get_presentation/);
   // Discovery must not bypass the requirement to select the new deck.
   assert.ok((await client.listTools()).tools.length);
+  const recent = await client.callTool({ name: 'list_recent_presentations' });
+  assert.ok(!recent.isError);
+  assert.equal(JSON.parse(recent.content[0].text)[0].root, original);
   assert.equal((await client.callTool(edit)).isError, true);
   assert.equal(await fs.readFile(path.join(original, 'index.html'), 'utf8'), 'Original');
   assert.equal(await fs.readFile(path.join(next, 'index.html'), 'utf8'), 'Next');
   await client.callTool({ name: 'get_presentation' });
   assert.ok(!(await client.callTool(edit)).isError);
   assert.equal(await fs.readFile(path.join(original, 'index.html'), 'utf8'), 'Unexpected edit');
+  await service.close();
+  service = await start(port);
+  const opened = await client.callTool({ name: 'open_presentation', arguments: { path: next } });
+  assert.ok(!opened.isError);
+  assert.equal(JSON.parse(opened.content[0].text).root, next);
+  assert.equal((await client.callTool({ name: 'read_file', arguments: { path: 'index.html' } })).content[0].text, 'Next');
 });
 
 test('Claude bridge returns readable tool errors when the app is offline or credentials change', async t => {

@@ -2,6 +2,10 @@ import { app, BrowserWindow, dialog, Menu } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { MCP_PORT } from '../../electron/mcp.js';
+import { Server } from 'node:net';
 
 const [directory] = process.argv.slice(2);
 app.setPath('userData', path.join(directory, 'profile'));
@@ -18,6 +22,16 @@ app.whenReady().then(async () => {
       if (Date.now() > deadline) throw new Error('Recent-folders UI did not reach the expected state.');
       await new Promise(resolve => setTimeout(resolve, 50));
     }
+  };
+  // Keep this isolated app test independent of an already running desktop app.
+  let mcpPort;
+  const listen = Server.prototype.listen;
+  Server.prototype.listen = function (port, ...args) {
+    if (port === MCP_PORT) {
+      port = 0;
+      this.once('listening', () => { mcpPort = this.address().port; });
+    }
+    return listen.call(this, port, ...args);
   };
   try {
     await import('../../electron/main.js');
@@ -65,6 +79,29 @@ app.whenReady().then(async () => {
     assert.equal(Menu.getApplicationMenu().items.find(item => item.label === 'File').submenu.items.some(item => item.label === 'Open recent'), true);
     await js(`document.querySelector('.top-actions .menu-trigger').click()`);
     assert.equal(await js(`document.querySelector('[role=menu]').textContent.includes('Connect to Codex') && document.querySelector('[role=menu]').textContent.includes('Connect to Claude')`), true);
+    const token = (await fs.readFile(path.join(directory, 'profile/mcp-token'), 'utf8')).trim();
+    const client = new Client({ name: 'recent-ui-test', version: '1.0.0' });
+    assert.ok(mcpPort, 'The test app must start its own MCP server.');
+    Server.prototype.listen = listen;
+    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${mcpPort}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${token}` } } });
+    await client.connect(transport);
+    try {
+      const call = (name, args) => client.callTool({ name, arguments: args });
+      assert.deepEqual(JSON.parse((await call('list_recent_presentations')).content[0].text), []);
+      const opened = await call('open_presentation', { path: first });
+      assert.ok(!opened.isError, JSON.stringify(opened));
+      assert.equal(JSON.parse(opened.content[0].text).root, await fs.realpath(first));
+      await waitFor(() => js(`document.querySelector('h1').textContent === 'First deck'`));
+      assert.ok(!(await call('read_file', { path: 'index.html' })).isError);
+      assert.deepEqual(JSON.parse((await call('list_recent_presentations')).content[0].text), [{ root: await fs.realpath(first), name: 'First deck', current: true }]);
+      const failed = await call('open_presentation', { path: second });
+      assert.equal(failed.isError, true);
+      assert.equal(JSON.parse((await call('get_presentation')).content[0].text).root, await fs.realpath(first));
+      assert.equal(await js(`document.querySelector('h1').textContent`), 'First deck');
+    } finally {
+      await transport.terminateSession();
+      await client.close();
+    }
     console.log('Recent-folders integration passed: switching, missing folder, welcome list, removal, clearing, native menu, keyboard access, 900×620 layout, Connect menu.');
     app.exit(0);
   } catch (error) { console.error(error); app.exit(1); }

@@ -148,6 +148,8 @@ The package lives in the app's user data directory under `claude-extension/wetmy
 
 Tools available through MCP (Codex and Claude), with the same editing, research, asset, and Git tools in built-in chat:
 
+- `list_recent_presentations`: lists up to ten recently opened presentations, newest first, as `{ root, name, current }` entries. Works with no presentation open.
+- `open_presentation`: accepts `{ "path": "/absolute/path/to/presentation" }` to open an existing folder and select it for subsequent tools in the calling session. Uses the same validation, live preview, and recent history as opening through the app. The folder must contain an `index.html` file.
 - `get_presentation`: selects and identifies the currently open presentation for subsequent tool calls.
 - `list_files`, `read_file`, `write_file`, `apply_patch`: edit text within the presentation folder, with path and symlink restrictions.
 - `search_web`, `fetch_url`: search DuckDuckGo without an API key and retrieve readable public pages.
@@ -155,7 +157,9 @@ Tools available through MCP (Codex and Claude), with the same editing, research,
 - `git_init`, `git_status`, `git_diff`, `git_log`, `git_stage`, `git_unstage`, `git_commit`, `git_branch`, `git_switch`, `git_restore`: manage local project history using bundled Git.
 - `screenshot_slide`: accepts `{ "slide": 2 }` and returns a 1280×720 PNG of the second slide directly to the model.
 
-Each session initially selects the presentation open at initialization. After opening, switching, closing, or reopening a presentation, call `get_presentation` to select the current deck in the same session. This also works for connections made before a deck was opened. Other presentation tools return a reminder to call `get_presentation` until the selection is refreshed. Switching or closing projects cancels pending network/Git operations. Completed writes remain in their original folder; operations never redirect into a new presentation.
+Use `list_recent_presentations` and `open_presentation` to choose a deck without using the app’s folder picker. Recent entries may be unavailable; a failed open keeps the current deck selected. Opening a deck through MCP selects it for the calling session. Other sessions must refresh their selection.
+
+Each session initially selects the presentation open at initialization. After opening, switching, closing, or reopening a presentation outside the calling MCP session, call `get_presentation` to select the current deck in the same session. This also works for connections made before a deck was opened. Other presentation tools return a reminder to call `get_presentation` until the selection is refreshed. Switching or closing projects cancels pending network/Git operations. Completed writes remain in their original folder; operations never redirect into a new presentation.
 
 Screenshots use isolated hidden windows inside the running Electron app. They wait for slide containers, images, and fonts, report invalid slide numbers or rendering timeouts, and leave the visible preview and presentation folder untouched. Sessions expire after 30 minutes without requests; reconnect if needed. Quitting the app stops MCP. Neither MCP nor built-in chat exposes terminal execution.
 

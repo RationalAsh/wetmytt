@@ -36,15 +36,16 @@ async function forward(line) {
     if (message.method === 'initialize') initialization = message;
     if (!session && initialization && message.method !== 'initialize') await reconnect();
     const isTool = message.method === 'tools/call';
-    const selectsPresentation = isTool && message.params?.name === 'get_presentation';
-    if (isTool && needsPresentation && !selectsPresentation) throw new Error('The app connection was restored. Call get_presentation to select the open presentation, then retry.');
+    const selectsPresentation = isTool && ['get_presentation', 'open_presentation'].includes(message.params?.name);
+    const canRestore = selectsPresentation || (isTool && message.params?.name === 'list_recent_presentations');
+    if (isTool && needsPresentation && !canRestore) throw new Error('The app connection was restored. Call get_presentation to select the open presentation, then retry.');
     let response = await send(message);
     if (response.status === 404 && session && initialization && message.method !== 'initialize') {
       // A 404 means the request was rejected before execution. Never retry
       // connection failures or other statuses: an edit may already have run.
       await response.arrayBuffer();
       await reconnect();
-      if (isTool && !selectsPresentation) throw new Error('The app connection was restored. Call get_presentation to select the open presentation, then retry.');
+      if (isTool && !canRestore) throw new Error('The app connection was restored. Call get_presentation to select the open presentation, then retry.');
       response = await send(message);
     }
     const result = await readResponse(response);

@@ -23,9 +23,9 @@ export async function loadMcpToken(directory) {
   return token;
 }
 
-function presentationServer(getDeck, binding, screenshotSlide, sessionSignal) {
+function presentationServer(getDeck, binding, screenshotSlide, sessionSignal, listRecentPresentations, openPresentation) {
   const server = new McpServer({ name: 'wetmytt', version: '0.1.0' }, {
-    instructions: `${agentLongDescription}\n\nCall get_presentation before working to select and identify the open presentation. If the presentation changes, call get_presentation again before making further edits; no reconnect is needed.`,
+    instructions: `${agentLongDescription}\n\nCall get_presentation before working to select and identify the open presentation, or use list_recent_presentations and open_presentation to choose one. If the presentation changes outside this session, call get_presentation again before making further edits; no reconnect is needed.`,
   });
   const currentRoot = (bound) => {
     const current = getDeck();
@@ -37,7 +37,7 @@ function presentationServer(getDeck, binding, screenshotSlide, sessionSignal) {
     try { return await callback(args, AbortSignal.any([sessionSignal, extra.signal])); }
     catch (error) { return { isError: true, content: [{ type: 'text', text: error.message }] }; }
   });
-  tool('get_presentation', 'Select and identify the currently open presentation for subsequent tool calls. Call again after opening or switching presentations.', {}, async () => {
+  const selectPresentation = () => {
     const current = getDeck();
     if (current.generation !== binding.deck.generation || current.root !== binding.deck.root) {
       binding.controller.abort(new Error('The open presentation changed. Call get_presentation, then retry.'));
@@ -45,6 +45,19 @@ function presentationServer(getDeck, binding, screenshotSlide, sessionSignal) {
       binding.controller = new AbortController();
     }
     return { content: [{ type: 'text', text: JSON.stringify({ root: current.root ?? null, name: current.root ? path.basename(current.root) : null, current: true }) }] };
+  };
+  tool('get_presentation', 'Select and identify the currently open presentation for subsequent tool calls. Call again after opening or switching presentations.', {}, selectPresentation);
+  tool('list_recent_presentations', 'List up to ten recently opened presentations, newest first, with absolute folder paths. Works even when no presentation is open; entries may have moved or become unavailable.', {}, async () => {
+    const current = getDeck();
+    const folders = await listRecentPresentations();
+    return { content: [{ type: 'text', text: JSON.stringify(folders.map(root => ({ root, name: path.basename(root), current: root === current.root }))) }] };
+  });
+  tool('open_presentation', 'Open an existing presentation folder in the app and select it for subsequent tools in this session. Accepts an absolute folder path from recent presentations or the user. Switches the visible presentation and cancels pending operations on the previous one.', {
+    path: z.string().min(1).refine(value => path.isAbsolute(value), 'Expected an absolute presentation folder path.'),
+  }, async ({ path: folder }, signal) => {
+    signal.throwIfAborted();
+    await openPresentation(folder, signal);
+    return selectPresentation();
   });
   const presentationTool = (name, description, schema, callback) => tool(name, description, schema, async (args, sessionSignal) => {
     // Capture this binding for the whole call. Selecting another presentation
@@ -72,7 +85,7 @@ function presentationServer(getDeck, binding, screenshotSlide, sessionSignal) {
   return server;
 }
 
-export async function startMcpServer({ getDeck, screenshotSlide, token, port = MCP_PORT }) {
+export async function startMcpServer({ getDeck, screenshotSlide, listRecentPresentations = () => [], openPresentation = async () => { throw new Error('Opening presentations is unavailable.'); }, token, port = MCP_PORT }) {
   if (!token) throw new Error('MCP requires an access token.');
   const sessions = new Map();
   const controllers = new Set();
@@ -115,7 +128,7 @@ export async function startMcpServer({ getDeck, screenshotSlide, token, port = M
       const controller = new AbortController();
       controllers.add(controller);
       const binding = { deck: { ...getDeck() }, controller: new AbortController() };
-      const server = presentationServer(getDeck, binding, screenshotSlide, controller.signal);
+      const server = presentationServer(getDeck, binding, screenshotSlide, controller.signal, listRecentPresentations, openPresentation);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(), enableJsonResponse: true,
         onsessioninitialized: id => sessions.set(id, { transport, server, binding, controller, lastActive: Date.now() }),
