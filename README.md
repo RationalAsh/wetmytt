@@ -101,6 +101,8 @@ Each slide can have its own HTML, CSS, JavaScript, animations, SVG, canvas, and 
 
 These authoring capabilities and requirements are supplied to built-in chat, MCP initialization and presentation-selection responses, and generated Codex/Claude connector descriptions. New decks also receive them in `AGENTS.md`; existing decks' instructions are left intact. Agents are instructed to inspect files and read `AGENTS.md` if present before editing. Regenerate and refresh/reinstall existing connector packages to update their displayed descriptions; the running MCP server supplies current guidance after an app restart.
 
+Agents are instructed to start each logical change with a clean Git working tree and index, saving reviewed existing edits in a separate checkpoint commit first. After making and validating a change, they review and commit it with a descriptive message and confirm status is clean. These are agent instructions; the tools do not automatically create commits or enforce this workflow.
+
 ## AI: bring your own key
 
 Open **AI settings**, choose **OpenRouter**, **OpenAI**, **Claude**, or **Ollama**, and enter a model ID that supports tools. Cloud connections require an API key; local Ollama does not. OpenAI, OpenRouter, and Ollama use Chat Completions; Claude uses the Anthropic Messages API. OpenRouter routing requires support for the requested parameters. The advanced base URL supports proxies using the selected API format, with HTTPS required except for loopback servers. Changing providers or endpoints does not reuse the saved key. Saving validates the configuration locally; model access and tool support are checked when you send a message.

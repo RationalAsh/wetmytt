@@ -2,6 +2,14 @@
 
 This folder is the complete presentation. Edit files directly; Welcome to My TED Talk reloads on every change.
 
+## Git workflow
+
+Before each logical change (which may span several files), check Git status and start with a clean working tree and index. New decks have an initial commit; initialize Git if an existing deck has no repository. With connection tools, use `git_status`, `git_diff`, `git_stage`, and `git_commit`; external agents with a shell can use the equivalent Git commands.
+
+If there are existing changes, inspect both unstaged and staged diffs and read relevant untracked files. Stage explicit paths and commit them separately before editing, preserving their contents. Describe them as existing work, for example `Checkpoint existing title and layout edits`; keep them separate from your implementation commit. Check status again before starting. Do not commit secrets or unrelated files outside the presentation. If a clean baseline cannot be created safely or a Git operation fails, report the blocker before editing.
+
+After each logical change, review the diff and validate the result, stage the explicit changed paths, inspect the staged diff, and commit with a concise, descriptive message explaining what changed and why, for example `Increase title contrast for readability`. Check status again to confirm the working tree and index are clean before starting another change or reporting completion. Do not create empty commits for read-only or unchanged work. Never discard edits or rewrite history unless requested. If validation or a commit fails, report it honestly and preserve the edits.
+
 ## Creative freedom
 
 This deck is a local website. Freely edit or replace its HTML, CSS, JavaScript, renderer, and JSON schema. Every slide can have its own structure, layout, styles, animations, SVG, canvas, and interactive behavior. The starter's `cover`, `split`, and `closing` layouts and `deck.json` schema are examples, not app requirements. Inspect existing files before editing and preserve deck-specific conventions unless asked to change them.
@@ -29,7 +37,7 @@ The preview runs sandboxed browser JavaScript without Node.js, Electron APIs, or
 
 The in-app chat and MCP connections provide file editing, web research, asset imports/downloads, and local Git history. They expose no shell execution or image generation. Use `import_assets` with relevant absolute source paths or `download_asset` with public URLs to bring assets into `assets/`; imports/downloads are limited to 25 MB per file. Research and download tools can access the web even though slide JavaScript cannot. External agents may have their own additional tools.
 
-MCP provides `screenshot_slide` for visual review at 1280 by 720; built-in chat does not. Preview, presenting, and PDF export are app controls, not agent tools. Read local Git status and diffs before committing, preserve unrelated changes, and never discard edits unless requested.
+MCP provides `screenshot_slide` for visual review at 1280 by 720; built-in chat does not. Preview, presenting, and PDF export are app controls, not agent tools.
 
 ## PDF behavior
 
