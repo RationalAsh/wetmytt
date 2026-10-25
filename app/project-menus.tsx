@@ -26,7 +26,7 @@ function Dropdown({ label, disabled, children }: { label: string; disabled: bool
       buttons[next]?.focus();
     }
   }}>
-    <button ref={trigger} className="menu-trigger" aria-haspopup="menu" aria-expanded={open} disabled={disabled} onClick={() => setOpen(!open)}>{label}<span aria-hidden="true">⌄</span></button>
+    <button ref={trigger} className="menu-trigger" aria-haspopup="menu" aria-expanded={open} disabled={disabled} onClick={() => setOpen(!open)}>{label}<svg className="menu-chevron" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg></button>
     {open && <div className="dropdown-panel" role="menu" aria-label={label} onClick={event => {
       const button = (event.target as HTMLElement).closest('button');
       if (button && !button.disabled && !button.hasAttribute('data-keep-open')) { setOpen(false); trigger.current?.focus(); }
