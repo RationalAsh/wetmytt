@@ -62,6 +62,19 @@ jobs:
           xcrun stapler validate "$app"
           spctl --assess --type execute --verbose=2 "$app"
           codesign --verify --verbose=2 dist/*.dmg
+      - name: Verify bundled Git
+        run: |
+          app=$(find dist -maxdepth 2 -name '*.app' -print -quit)
+          git_binary="$app/Contents/Resources/git/bin/git"
+          expected_arch='${{ matrix.arch }}'
+          if [ "$expected_arch" = x64 ]; then expected_arch=x86_64; fi
+          test "$(lipo -archs "$git_binary")" = "$expected_arch"
+          codesign --verify --strict --verbose=2 "$git_binary"
+          test -f "$app/Contents/Resources/git/distribution.json"
+          test -f "$app/Contents/Resources/git-notices.md"
+          if [ "$(node -p process.arch)" = '${{ matrix.arch }}' ]; then
+            WETMYTT_PACKAGED_APP="$app" npm run test:package
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: mac-${{ matrix.arch }}

@@ -18,6 +18,7 @@ declare global {
       exportPDF(root: string): Promise<{ path: string; pages: number } | null>;
       reveal(): Promise<void>;
       importAssets(root: string, files: File[]): Promise<{ imported: string[]; errors: string[] }>;
+      chooseAssets(root: string, generation: number): Promise<{ imported: string[]; errors: string[] } | null>;
       settings(): Promise<Settings>;
       saveSettings(value: { provider: Provider; baseUrl: string; model: string; apiKey?: string }): Promise<{ persistedKey: boolean }>;
       chats(root: string): Promise<ConversationSummary[]>;

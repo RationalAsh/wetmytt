@@ -8,6 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { prepareClaudeExtension, connectClaude } from '../electron/claude-extension.js';
 import { startMcpServer } from '../electron/mcp.js';
+import { toolDefinitions } from '../electron/tools.js';
 
 async function fixture(t) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'wetmytt-claude-'));
@@ -61,7 +62,7 @@ test('packaged stdio bridge edits and captures through the authenticated app ser
   const client = new Client({ name: 'claude-test', version: '1.0.0' });
   t.after(() => client.close());
   await client.connect(transport);
-  assert.equal((await client.listTools()).tools.length, 5);
+  assert.equal((await client.listTools()).tools.length, toolDefinitions.length + 2);
   assert.match((await client.callTool({ name: 'read_file', arguments: { path: 'index.html' } })).content[0].text, /Slide/);
   assert.ok(!(await client.callTool({ name: 'write_file', arguments: { path: 'deck.json', content: '{"title":"Claude"}' } })).isError);
   assert.equal(await fs.readFile(path.join(options.directory, 'deck.json'), 'utf8'), '{"title":"Claude"}');

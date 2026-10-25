@@ -85,6 +85,19 @@ export default function Home() {
     }
   }, [clearDrag]);
 
+  async function chooseAssets() {
+    const { root, generation } = deckRef.current;
+    if (!root || generation === undefined || !window.wetmytt) return;
+    const currentSession = session.current;
+    setError('');
+    try {
+      const result = await window.wetmytt.chooseAssets(root, generation);
+      if (!result || session.current !== currentSession) return;
+      setAssetStatus(result.imported.length ? `Added ${result.imported.join(', ')}` : '');
+      if (result.errors.length) setError(result.errors.join('\n'));
+    } catch (err) { if (session.current === currentSession) setError(String(err)); }
+  }
+
   const navigate = useCallback((index: number) => {
     if (!deckRef.current.url) return;
     iframe.current?.contentWindow?.postMessage({ type: 'wetmytt:navigate', index }, new URL(deckRef.current.url).origin);
@@ -240,7 +253,7 @@ export default function Home() {
   return <main className={presenting ? 'app presenting' : 'app'}>
     <header className="topbar">
       <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="alpha">EARLY BUILD</span></div>
-      <div className="file-actions"><button onClick={() => void choose(false)} disabled={!desktop}><Icon name="folder" />Open folder</button><button onClick={() => void choose(true)} disabled={!desktop}><Icon name="plus" />New deck</button>{deck.root && <button onClick={() => void closeProject()} disabled={!desktop}><Icon name="close" />Close project</button>}</div>
+      <div className="file-actions"><button onClick={() => void choose(false)} disabled={!desktop}><Icon name="folder" />Open folder</button><button onClick={() => void choose(true)} disabled={!desktop}><Icon name="plus" />New deck</button>{deck.root && <><button onClick={() => void chooseAssets()} disabled={!desktop}><Icon name="plus" />Add assets</button><button onClick={() => void closeProject()} disabled={!desktop}><Icon name="close" />Close project</button></>}</div>
       <div className="top-actions"><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><button className="agent-connect" disabled={!desktop} onClick={() => setAgentOpen('Codex')}><Icon name="terminal" />Connect to Codex</button><button className="agent-connect" disabled={!desktop} onClick={() => setAgentOpen('Claude')}><Icon name="terminal" />Connect to Claude</button><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}

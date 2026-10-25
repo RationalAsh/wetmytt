@@ -9,6 +9,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { spawn } from 'node:child_process';
 import electron from 'electron';
+import { toolDefinitions } from '../electron/tools.js';
 
 // Read the first pixel of Electron's RGB/RGBA PNG without another image dependency.
 function inspectPNG(data) {
@@ -63,7 +64,7 @@ test('MCP screenshot tool captures requested slides, fresh edits, and the starte
   t.after(() => transport.terminateSession().catch(() => {}).finally(() => client.close()));
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map(tool => tool.name).sort(), ['get_presentation', 'list_files', 'read_file', 'screenshot_slide', 'write_file']);
+  assert.deepEqual(tools.map(tool => tool.name).sort(), ['get_presentation', 'screenshot_slide', ...toolDefinitions.map(tool => tool.name)].sort());
   for (const [slide, dominantChannel] of [[2, 1], [1, 0]]) {
     const result = await client.callTool({ name: 'screenshot_slide', arguments: { slide } });
     assert.ok(!result.isError, JSON.stringify(result));

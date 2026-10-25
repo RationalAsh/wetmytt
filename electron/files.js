@@ -2,19 +2,23 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { constants } from 'node:fs';
 
-export async function importAssets(root, sources) {
+export async function importAssets(root, sources, signal) {
   if (!Array.isArray(sources) || !sources.length || sources.some(source => typeof source !== 'string' || !path.isAbsolute(source))) {
     throw new Error('Drop files from your computer to add assets.');
   }
   const imported = [], errors = [];
   for (const source of sources) {
+    signal?.throwIfAborted();
     try {
-      if (!(await fs.stat(source)).isFile()) throw new Error('Drop files, not folders.');
+      const stat = await fs.stat(source);
+      if (!stat.isFile()) throw new Error('Drop files, not folders.');
+      if (stat.size > 25_000_000) throw new Error('Asset exceeds 25 MB.');
       const name = path.basename(source);
       const { name: stem, ext } = path.parse(name);
       const assets = await scopedPath(root, 'assets', true);
       await fs.mkdir(assets, { recursive: true });
       for (let suffix = 0; ; suffix++) {
+        signal?.throwIfAborted();
         const relative = `assets/${suffix ? `${stem} (${suffix})${ext}` : name}`;
         const target = await scopedPath(root, relative, true);
         try {
@@ -28,6 +32,23 @@ export async function importAssets(root, sources) {
     } catch (error) { errors.push(`${path.basename(source)}: ${error.message}`); }
   }
   return { imported, errors };
+}
+
+export async function saveAsset(root, name, bytes, signal) {
+  if (!name || name.startsWith('.') || /[/\\\x00-\x1f]/.test(name) || path.basename(name) !== name) throw new Error('Use a plain asset filename without directories or hidden prefixes.');
+  if (bytes.length > 25_000_000) throw new Error('Asset exceeds 25 MB.');
+  const assets = await scopedPath(root, 'assets', true);
+  await fs.mkdir(assets, { recursive: true });
+  const { name: stem, ext } = path.parse(name);
+  for (let suffix = 0; ; suffix++) {
+    signal?.throwIfAborted();
+    const relative = `assets/${stem}${suffix ? ` (${suffix})` : ''}${ext}`;
+    const target = await scopedPath(root, relative, true);
+    try {
+      await fs.writeFile(target, bytes, { flag: 'wx' });
+      return { path: relative, bytes: bytes.length };
+    } catch (error) { if (error.code !== 'EEXIST') throw error; }
+  }
 }
 
 export async function scopedPath(root, relative, writing = false) {

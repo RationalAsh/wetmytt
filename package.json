@@ -18,11 +18,15 @@
     "test:screenshot": "node --test tests/screenshot.integration.js",
     "test:edit": "node --test tests/content.integration.js",
     "typecheck": "tsc --noEmit",
-    "test:pdf": "node --test tests/pdf.integration.js"
+    "test:pdf": "node --test tests/pdf.integration.js",
+    "test:package": "node --test tests/packaged-tools.integration.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
+    "cheerio": "^1.2.0",
     "chokidar": "^4.0.3",
+    "diff": "^9.0.0",
+    "dugite": "^3.3.1",
     "fflate": "^0.8.3",
     "next": "^16.0.0",
     "pdf-lib": "^1.17.1",
@@ -30,7 +34,9 @@
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "zod": "^3.25.0"
+    "undici": "^7.30.1",
+    "zod": "^3.25.0",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
@@ -41,6 +47,7 @@
     "typescript": "^5.9.0"
   },
   "allowScripts": {
-    "electron@45.0.0": true
+    "electron@45.0.0": true,
+    "dugite@3.3.1": true
   }
 }

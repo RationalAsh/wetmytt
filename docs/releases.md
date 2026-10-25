@@ -120,3 +120,26 @@ Once the certificate and secrets are configured, future releases use the same wo
 8. Publish the draft in GitHub Releases. Share the release page so users can choose their Mac's download.
 
 Use a new version for subsequent changes after publishing. Reuse the existing signing setup until credentials expire or are revoked; if notarization authentication fails, update the app-specific-password secret. Renew the Developer ID certificate before it expires, export the new certificate with its private key, and replace the two `MAC_CSC_*` secrets.
+
+## Bundled Git
+
+`dugite` installs a checksum-verified host Git distribution for development and
+tests. If install scripts were skipped, run `npm rebuild dugite`. Packaged builds
+use `scripts/before-pack.cjs` to download and verify the distribution for each
+target architecture into ignored `build/git/<arch>/` folders. Electron Builder
+copies that target's distribution outside ASAR to `Contents/Resources/git/`.
+The host development binary is not replaced when building x64 on arm64. Build
+on the target operating system. Release builds require network access on the
+first download; subsequent builds use Dugite's verified archive cache.
+
+Both Mac architectures must include `Resources/git/bin/git` and
+`Resources/git-notices.md`. `Resources/git/distribution.json` records the exact
+binary URL and checksum used. Verify the embedded Git's architecture and version,
+and exercise a new deck and Git status/log in the packaged app in addition to
+the existing deep signature, Gatekeeper, and notarization checks.
+The bundled binary sources and licenses are described in [git-notices.md](git-notices.md).
+
+Run `npm run test:package` after packaging on the matching architecture. It loads
+the shared tools from the actual ASAR and creates an initial commit with system
+Git removed from `PATH`. Set `WETMYTT_PACKAGED_APP` to the `.app` path when testing
+an app outside `dist/mac-arm64/` or `dist/mac/`.

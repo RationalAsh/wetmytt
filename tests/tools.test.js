@@ -1,0 +1,139 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { resolveGitBinary } from 'dugite';
+import { runTool, toolDefinitions } from '../electron/tools.js';
+import { createDeck } from '../electron/decks.js';
+import { chat } from '../electron/agent.js';
+
+async function fixture(t, create = false) {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'wetmytt-tools-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const root = path.join(directory, 'deck');
+  if (create) await createDeck(root); else await fs.mkdir(root);
+  return { root, directory, tool: (name, args = {}, signal) => runTool(root, name, args, signal) };
+}
+const rawGit = (root, args) => promisify(execFile)(resolveGitBinary(), args, { cwd: root });
+
+test('new decks have a clean main branch and initial commit; existing decks require explicit initialization', async t => {
+  const fresh = await fixture(t, true);
+  assert.equal((await fresh.tool('git_status')).trim(), '## main');
+  assert.match(await fresh.tool('git_log'), /Create presentation/);
+  const existing = await fixture(t);
+  await fs.writeFile(path.join(existing.root, 'slide.txt'), 'original');
+  await assert.rejects(existing.tool('git_status'), /git_init/);
+  await existing.tool('git_init');
+  await fs.mkdir(path.join(existing.root, '.wetmytt'));
+  await fs.writeFile(path.join(existing.root, '.wetmytt/chat.json'), 'private');
+  assert.ok(!(await existing.tool('git_status')).includes('wetmytt'));
+  assert.match(await existing.tool('git_status'), /slide.txt/);
+  await assert.rejects(existing.tool('git_log'), /does not have any commits/);
+  assert.match(await existing.tool('git_init'), /already initialized/);
+});
+
+test('local Git stages, commits, diffs, unstages, restores, and switches branches without a system Git', async t => {
+  const { root, tool } = await fixture(t, true);
+  await fs.writeFile(path.join(root, 'slide.txt'), 'one\n');
+  await tool('git_stage', { paths: ['slide.txt'] });
+  assert.match(await tool('git_diff', { staged: true }), /\+one/);
+  await tool('git_commit', { message: 'Add a slide' });
+  await fs.writeFile(path.join(root, 'slide.txt'), 'two\n');
+  assert.match(await tool('git_diff'), /\+two/);
+  await tool('git_stage', { paths: ['slide.txt'] });
+  await tool('git_unstage', { paths: ['slide.txt'] });
+  assert.equal(await tool('git_diff', { staged: true }), '');
+  await tool('git_restore', { paths: ['slide.txt'] });
+  assert.equal(await fs.readFile(path.join(root, 'slide.txt'), 'utf8'), 'one\n');
+  await tool('git_branch', { name: 'revision' });
+  await tool('git_switch', { name: 'revision' });
+  assert.match(await tool('git_status'), /revision/);
+  await assert.rejects(tool('git_switch', { name: '--detach' }));
+  await assert.rejects(tool('git_stage', { paths: ['.wetmytt/chat.json'] }));
+  await assert.rejects(tool('git_stage', { paths: ['../outside'] }));
+  await assert.rejects(tool('git_stage', { paths: ['assets'] }));
+  await assert.rejects(tool('run_command', { command: 'echo bad' }), /Unknown tool/);
+  await fs.unlink(path.join(root, 'slide.txt'));
+  await tool('git_stage', { paths: ['slide.txt'] });
+  assert.match(await tool('git_diff', { staged: true }), /deleted file/);
+});
+
+test('Git uses configured identity, falls back without changing config, and never executes hooks or filters', async t => {
+  const { root, directory, tool } = await fixture(t, true);
+  for (const [key, value] of [['user.name', 'Test Person'], ['user.email', 'test@example.com'], ['filter.evil.clean', `touch ${directory}/filter-ran`], ['filter.evil.smudge', `touch ${directory}/smudge-ran`], ['filter.evil.process', `touch ${directory}/process-ran`], ['filter.evil.required', 'true'], ['core.fsmonitor', `touch ${directory}/monitor-ran`]]) await rawGit(root, ['config', key, value]);
+  await fs.writeFile(path.join(root, '.gitattributes'), '*.txt filter=evil\n');
+  await fs.mkdir(path.join(root, '.git/hooks'), { recursive: true });
+  await fs.writeFile(path.join(root, '.git/hooks/pre-commit'), `#!/bin/sh\ntouch '${directory}/hook-ran'\n`, { mode: 0o755 });
+  await fs.writeFile(path.join(root, 'slide.txt'), 'safe\n');
+  await tool('git_stage', { paths: ['slide.txt'] });
+  await tool('git_commit', { message: 'Configured identity' });
+  const { stdout } = await rawGit(root, ['log', '-1', '--format=%an <%ae>']);
+  assert.equal(stdout.trim(), 'Test Person <test@example.com>');
+  await rawGit(root, ['config', 'user.name', '']);
+  await rawGit(root, ['config', 'user.email', '']);
+  await fs.writeFile(path.join(root, 'slide.txt'), 'next\n');
+  await tool('git_stage', { paths: ['slide.txt'] });
+  await tool('git_commit', { message: 'Fallback identity' });
+  assert.match((await rawGit(root, ['log', '-1', '--format=%an <%ae>'])).stdout, /Welcome to My TED Talk <wetmytt@users.noreply.local>/);
+  assert.equal((await rawGit(root, ['config', 'user.name'])).stdout.trim(), '');
+  await fs.writeFile(path.join(root, 'slide.txt'), 'discard\n');
+  await tool('git_restore', { paths: ['slide.txt'] });
+  for (const file of ['hook-ran', 'filter-ran', 'smudge-ran', 'process-ran', 'monitor-ran']) await assert.rejects(fs.access(path.join(directory, file)));
+});
+
+test('Git rejects parent repositories, redirected metadata, and external worktrees', async t => {
+  const { root, directory, tool } = await fixture(t);
+  await rawGit(directory, ['init']);
+  await assert.rejects(tool('git_status'), /git_init/);
+  await fs.writeFile(path.join(root, '.git'), `gitdir: ${directory}/.git`);
+  await assert.rejects(tool('git_status'), /linked worktrees/);
+  await fs.unlink(path.join(root, '.git'));
+  await fs.symlink(path.join(directory, '.git'), path.join(root, '.git'));
+  await assert.rejects(tool('git_init'), /linked worktrees/);
+});
+
+test('patch edits, creates, renames, and deletes without Git; validates all files before writing', async t => {
+  const { root, tool } = await fixture(t);
+  await fs.writeFile(path.join(root, 'one.txt'), 'before\n');
+  await tool('apply_patch', { patch: '--- a/one.txt\n+++ b/renamed.txt\n@@ -1 +1 @@\n-before\n+after\n--- /dev/null\n+++ b/new.txt\n@@ -0,0 +1 @@\n+new\n' });
+  assert.equal(await fs.readFile(path.join(root, 'renamed.txt'), 'utf8'), 'after\n');
+  await assert.rejects(fs.access(path.join(root, 'one.txt')));
+  await assert.rejects(tool('apply_patch', { patch: '--- a/renamed.txt\n+++ b/renamed.txt\n@@ -1 +1 @@\n-after\n+wrong\n--- a/new.txt\n+++ b/new.txt\n@@ -1 +1 @@\n-stale\n+wrong\n' }), /conflict/);
+  assert.equal(await fs.readFile(path.join(root, 'renamed.txt'), 'utf8'), 'after\n');
+  await tool('apply_patch', { patch: '--- a/new.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-new\n' });
+  await assert.rejects(fs.access(path.join(root, 'new.txt')));
+  for (const name of ['../outside', '.env']) await assert.rejects(tool('apply_patch', { patch: `--- /dev/null\n+++ b/${name}\n@@ -0,0 +1 @@\n+bad\n` }));
+  await assert.rejects(tool('apply_patch', { patch: '--- /dev/null\n+++ b/invalid.json\n@@ -0,0 +1 @@\n+{broken\n' }));
+  await assert.rejects(fs.access(path.join(root, 'invalid.json')));
+  await fs.symlink('renamed.txt', path.join(root, 'link.txt'));
+  await assert.rejects(tool('apply_patch', { patch: '--- a/link.txt\n+++ b/link.txt\n@@ -1 +1 @@\n-after\n+bad\n' }), /regular files/);
+});
+
+test('dedicated tools validate inputs and respect cancellation before mutations', async t => {
+  const { root, tool } = await fixture(t);
+  const controller = new AbortController(); controller.abort();
+  await assert.rejects(tool('write_file', { path: 'cancelled.txt', content: 'bad' }, controller.signal));
+  await assert.rejects(fs.access(path.join(root, 'cancelled.txt')));
+  for (const [name, args] of [['search_web', { query: '' }], ['search_web', { query: 'test', count: 99 }], ['git_stage', { paths: [] }], ['git_commit', { message: '' }], ['write_file', { path: 'x', content: 'a', command: 'bad' }]]) await assert.rejects(tool(name, args));
+});
+
+test('built-in chat advertises dedicated tools, executes patches, and returns their results', async t => {
+  const { root } = await fixture(t);
+  const previous = globalThis.fetch;
+  t.after(() => { globalThis.fetch = previous; });
+  let calls = 0;
+  globalThis.fetch = async (_url, options) => {
+    const body = JSON.parse(options.body);
+    assert.ok(!body.tools.some(tool => tool.function.name === 'run_command'));
+    assert.deepEqual(body.tools.map(tool => tool.function.name).sort(), toolDefinitions.map(tool => tool.name).sort());
+    if (calls++ === 0) return Response.json({ choices: [{ message: { role: 'assistant', content: null, tool_calls: [{ id: 'patch1', type: 'function', function: { name: 'apply_patch', arguments: JSON.stringify({ patch: '--- /dev/null\n+++ b/slide.txt\n@@ -0,0 +1 @@\n+edited\n' }) } }] } }] });
+    assert.equal(body.messages.at(-1).tool_call_id, 'patch1');
+    assert.equal(JSON.parse(body.messages.at(-1).content).changed[0].to, 'slide.txt');
+    return Response.json({ choices: [{ message: { role: 'assistant', content: 'Edited.' } }] });
+  };
+  assert.equal(await chat({ root, settings: { provider: 'openrouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'test', apiKey: 'test' }, history: [{ role: 'user', content: 'Edit.' }], signal: new AbortController().signal, onActivity() {} }), 'Edited.');
+  assert.equal(await fs.readFile(path.join(root, 'slide.txt'), 'utf8'), 'edited\n');
+});

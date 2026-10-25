@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { gitInit } from './git.js';
 
 const starter = fileURLToPath(new URL('../templates/starter/', import.meta.url));
 
@@ -16,4 +17,5 @@ export async function createDeck(folder) {
   for (const entry of await fs.readdir(starter)) {
     await fs.cp(path.join(starter, entry), path.join(folder, entry), { recursive: true, force: false, errorOnExist: true });
   }
+  await gitInit(folder, undefined, true);
 }

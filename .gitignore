@@ -9,3 +9,4 @@ dist/
 *.p8
 *.cer
 *.certSigningRequest
+build/git/

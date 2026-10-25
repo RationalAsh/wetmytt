@@ -6,7 +6,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { runTool } from './agent.js';
+import { runTool, presentationTools } from './tools.js';
 import { agentLongDescription } from './agent-metadata.js';
 
 export const MCP_PORT = 43187;
@@ -23,7 +23,7 @@ export async function loadMcpToken(directory) {
   return token;
 }
 
-function presentationServer(getDeck, bound, screenshotSlide) {
+function presentationServer(getDeck, bound, screenshotSlide, sessionSignal) {
   const server = new McpServer({ name: 'wetmytt', version: '0.1.0' }, {
     instructions: `${agentLongDescription}\n\nTools operate on the presentation open when this MCP session connected. Call get_presentation to identify it. If the presentation changes, reconnect before making further edits.`,
   });
@@ -33,18 +33,21 @@ function presentationServer(getDeck, bound, screenshotSlide) {
     if (!bound.root) throw new Error('Open a presentation in the app, then reconnect MCP.');
     return bound.root;
   };
-  const tool = (name, description, inputSchema, callback) => server.registerTool(name, { description, inputSchema }, async args => {
-    try { return await callback(args); }
+  const tool = (name, description, inputSchema, callback) => server.registerTool(name, { description, inputSchema }, async (args, extra) => {
+    try { return await callback(args, AbortSignal.any([sessionSignal, extra.signal])); }
     catch (error) { return { isError: true, content: [{ type: 'text', text: error.message }] }; }
   });
   tool('get_presentation', 'Identify this session’s presentation and whether it is still open.', {}, async () => ({
     content: [{ type: 'text', text: JSON.stringify({ root: bound.root ?? null, name: bound.root ? path.basename(bound.root) : null, current: getDeck().generation === bound.generation && getDeck().root === bound.root }) }],
   }));
-  for (const [name, description, schema] of [
-    ['list_files', 'List files in this session’s presentation.', {}],
-    ['read_file', 'Read a presentation text file.', { path: z.string() }],
-    ['write_file', 'Create or replace a presentation text file. Read before writing.', { path: z.string(), content: z.string() }],
-  ]) tool(name, description, schema, async args => ({ content: [{ type: 'text', text: await runTool(currentRoot(), name, args) }] }));
+  for (const { name, description, schema } of presentationTools) {
+    tool(name, description, schema.shape, async (args, signal) => {
+      const root = currentRoot();
+      const result = await runTool(root, name, args, signal);
+      currentRoot();
+      return { content: [{ type: 'text', text: result }] };
+    });
+  }
   tool('screenshot_slide', 'Get a 1280×720 PNG of a slide without changing the visible preview. Slide numbers start at 1.', {
     slide: z.number().int().min(1),
   }, async ({ slide }) => {
@@ -58,6 +61,7 @@ function presentationServer(getDeck, bound, screenshotSlide) {
 export async function startMcpServer({ getDeck, screenshotSlide, token, port = MCP_PORT }) {
   if (!token) throw new Error('MCP requires an access token.');
   const sessions = new Map();
+  const controllers = new Set();
   let origin, closing = false;
   const reject = (res, status, message) => {
     res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -94,17 +98,20 @@ export async function startMcpServer({ getDeck, screenshotSlide, token, port = M
       catch { return reject(res, 400, 'Invalid JSON.'); }
       if (!isInitializeRequest(body)) return reject(res, 400, 'Initialize an MCP session first.');
       if (sessions.size >= 32) return reject(res, 503, 'Too many MCP sessions. Disconnect unused clients.');
-      const server = presentationServer(getDeck, { ...getDeck() }, screenshotSlide);
+      const controller = new AbortController();
+      controllers.add(controller);
+      const bound = { ...getDeck() };
+      const server = presentationServer(getDeck, bound, screenshotSlide, controller.signal);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(), enableJsonResponse: true,
-        onsessioninitialized: id => sessions.set(id, { transport, server, lastActive: Date.now() }),
+        onsessioninitialized: id => sessions.set(id, { transport, server, bound, controller, lastActive: Date.now() }),
       });
       await server.connect(transport);
       // Preserve the SDK's cleanup callback installed by connect().
       const onclose = transport.onclose;
-      transport.onclose = () => { sessions.delete(transport.sessionId); onclose?.(); };
+      transport.onclose = () => { controller.abort(); controllers.delete(controller); sessions.delete(transport.sessionId); onclose?.(); };
       try { await transport.handleRequest(req, res, body); }
-      finally { if (!transport.sessionId) await server.close(); }
+      finally { if (!transport.sessionId) { controller.abort(); controllers.delete(controller); await server.close(); } }
     } catch (error) {
       console.error('MCP request failed:', error.message);
       if (!res.headersSent) reject(res, 500, 'MCP request failed.');
@@ -126,8 +133,15 @@ export async function startMcpServer({ getDeck, screenshotSlide, token, port = M
   sweep.unref();
   return {
     url: `${origin}/mcp`,
+    cancelStaleSessions() {
+      const current = getDeck();
+      for (const { bound, controller } of sessions.values()) {
+        if (bound.root !== current.root || bound.generation !== current.generation) controller.abort(new Error('The open presentation changed. Reconnect MCP.'));
+      }
+    },
     async close() {
       closing = true;
+      for (const controller of controllers) controller.abort();
       clearInterval(sweep);
       await Promise.all([...sessions.values()].map(({ server }) => server.close()));
       const done = new Promise(resolve => httpServer.close(resolve));

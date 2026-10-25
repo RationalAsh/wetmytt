@@ -1,6 +1,15 @@
 appId: io.github.rationalash.wetmytt
 productName: Welcome to My TED Talk
 asar: true
+beforePack: scripts/before-pack.cjs
+extraResources:
+  - from: build/git/${arch}
+    to: git
+    filter: ['**/*']
+  - from: docs/git-notices.md
+    to: git-notices.md
+  - from: docs/licenses/git-COPYING
+    to: git/COPYING
 forceCodeSigning: true
 directories:
   output: dist
@@ -10,6 +19,7 @@ files:
   - templates/**/*
   - out/**/*
   - package.json
+  - '!node_modules/dugite/git/**/*'
 mac:
   icon: build/icon.png
   category: public.app-category.productivity

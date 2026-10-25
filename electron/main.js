@@ -7,7 +7,7 @@ import { serveFolder } from './server.js';
 import { chat } from './agent.js';
 import { inferProvider, normalizeSettings } from '../shared/ai.js';
 import { createDeck } from './decks.js';
-import { importAssets } from './files.js';
+import { runTool } from './tools.js';
 import { loadMcpToken, startMcpServer } from './mcp.js';
 import { screenshotSlide } from './screenshot.js';
 import { connectCodex } from './codex-plugin.js';
@@ -21,6 +21,7 @@ app.setName('Welcome to My TED Talk');
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
 let exportingPDF = false;
+let projectOperations = new AbortController();
 let mcp, mcpError, mcpToken, connectingCodex, connectingClaude, generation = 0;
 let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
 const state = () => ({ root, generation, url: deckServer?.url, name: root ? path.basename(root) : null });
@@ -34,6 +35,8 @@ async function openDeck(folder) {
   clearTimeout(watchTimer);
   await deckServer?.close();
   root = folder; deckServer = next; generation++;
+  projectOperations.abort(); projectOperations = new AbortController();
+  mcp?.cancelStaleSessions();
   watcher = chokidar.watch(root, { ignored: /(^|[/\\])\.|node_modules/, ignoreInitial: true, awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 } });
   watcher.on('all', () => { clearTimeout(watchTimer); watchTimer = setTimeout(() => notify('deck:changed', state()), 100); });
   watcher.on('error', error => console.error('Deck watcher:', error.message));
@@ -90,7 +93,14 @@ handle('deck:read-content', (folder, version) => readContent(contentRoot(folder,
 handle('deck:save-content', (folder, version, source, pointer, text) => saveContent(contentRoot(folder, version), source, pointer, text));
 handle('deck:import-assets', (expectedRoot, sources) => {
   if (!root || root !== expectedRoot) throw new Error('The open project changed. Drop the files again.');
-  return importAssets(root, sources);
+  return runTool(root, 'import_assets', { sources }, projectOperations.signal).then(JSON.parse);
+});
+handle('deck:choose-assets', async (expectedRoot, expectedGeneration) => {
+  const folder = contentRoot(expectedRoot, expectedGeneration);
+  const result = await dialog.showOpenDialog(window, { properties: ['openFile', 'multiSelections'], title: 'Add assets to presentation' });
+  if (result.canceled) return null;
+  contentRoot(expectedRoot, expectedGeneration);
+  return JSON.parse(await runTool(folder, 'import_assets', { sources: result.filePaths }, projectOperations.signal));
 });
 handle('deck:close', async () => {
   pendingChat?.abort();
@@ -98,6 +108,8 @@ handle('deck:close', async () => {
   clearTimeout(watchTimer);
   await deckServer?.close();
   watcher = undefined; deckServer = undefined; root = undefined; generation++;
+  projectOperations.abort(); projectOperations = new AbortController();
+  mcp?.cancelStaleSessions();
   window.setFullScreen(false);
   notify('deck:changed', state());
   return state();
@@ -207,6 +219,7 @@ app.on('before-quit', event => {
   if (quitting) return;
   event.preventDefault(); quitting = true;
   pendingChat?.abort(); generation++;
+  projectOperations.abort();
   Promise.allSettled([mcp?.close(), watcher?.close(), deckServer?.close(), shellServer?.close()]).finally(() => app.quit());
 });
 }).catch(error => {
