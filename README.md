@@ -202,3 +202,7 @@ The export window uses the same 1280 × 720 presentation viewport as slide captu
 Run `npm run test:pdf` to test PDF export through the actual Electron app, including its UI, bridge, save dialog handling, and Chromium rendering.
 
 Run `npm run test:edit` after `npm run build` to test text selection, JSON field focus, saving, preview refresh, and external edit conflicts in the actual Electron app.
+
+## License
+
+Licensed under the [MIT License](LICENSE). Copyright (c) 2026 Ashwin Narayan.
