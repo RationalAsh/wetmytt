@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { agentDescription, agentLongDescription } from './agent-metadata.js';
 
 const pluginName = 'wetmytt';
 const sourcePath = './.agents/plugins/wetmytt';
@@ -51,11 +52,11 @@ export async function prepareCodexPlugin({ url, token, homeDirectory = os.homedi
     await fs.chmod(pluginDirectory, 0o700);
     await fs.mkdir(path.join(pluginDirectory, 'assets'), { recursive: true });
     const manifest = {
-      name: pluginName, version: '0.1.0', description: 'Read, edit, and capture slides in the presentation open in Welcome to My TED Talk.',
+      name: pluginName, version: '0.1.1', description: agentDescription,
       mcpServers: './.mcp.json', requires_local_executor: true,
       interface: {
-        displayName: 'Welcome to My TED Talk', shortDescription: 'Work with your open presentation',
-        longDescription: 'Read and edit presentation files and capture slide screenshots through the running desktop app. Open a presentation before starting a Codex session. Reconnect after switching presentations.',
+        displayName: 'Welcome to My TED Talk', shortDescription: 'Edit slides with an open-source desktop app',
+        longDescription: agentLongDescription,
         developerName: 'Welcome to My TED Talk', category: 'Productivity', capabilities: ['Read', 'Write'],
         defaultPrompt: ['Review the open presentation and suggest improvements.'],
         brandColor: '#5b38b8', composerIcon: './assets/icon.svg', logo: './assets/icon.svg',

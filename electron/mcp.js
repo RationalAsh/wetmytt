@@ -7,6 +7,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { runTool } from './agent.js';
+import { agentLongDescription } from './agent-metadata.js';
 
 export const MCP_PORT = 43187;
 
@@ -24,7 +25,7 @@ export async function loadMcpToken(directory) {
 
 function presentationServer(getDeck, bound, screenshotSlide) {
   const server = new McpServer({ name: 'wetmytt', version: '0.1.0' }, {
-    instructions: 'Tools operate on the presentation open when this MCP session connected. Call get_presentation to identify it. If the presentation changes, reconnect before making further edits.',
+    instructions: `${agentLongDescription}\n\nTools operate on the presentation open when this MCP session connected. Call get_presentation to identify it. If the presentation changes, reconnect before making further edits.`,
   });
   const currentRoot = () => {
     const current = getDeck();

@@ -1,0 +1,10 @@
+// Summary of README.md, shared by the generated connections and MCP sessions.
+export const projectUrl = 'https://github.com/RationalAsh/wetmytt';
+export const agentDescription = 'Connect to an open-source desktop app to read, edit, and capture your HTML presentation.';
+export const agentLongDescription = [
+  'Welcome to My TED Talk (wetmytt) is an open-source, local-first desktop app for HTML slide decks. Create or open a presentation folder, work with an AI to refine its content and design, preview changes live, present in full screen, and export a PDF.',
+  'This connection lets your agent identify the open presentation, list and read its files, create or update presentation files, and capture slide screenshots to review the result. File tools are restricted to the presentation folder and reject hidden paths and paths or symlinks outside it. The connection exposes no terminal or shell command tool.',
+  'The connection uses an authenticated server on your computer. Keep the app running with a presentation open, and reconnect after switching presentations. Presentation content read through these tools is shared with the AI service you use.',
+  `Source code, setup instructions, and documentation: ${projectUrl}`,
+  'An independent project, not affiliated with TED.',
+].join('\n\n');

@@ -11,6 +11,7 @@ import { importAssets } from './files.js';
 import { loadMcpToken, startMcpServer } from './mcp.js';
 import { screenshotSlide } from './screenshot.js';
 import { connectCodex } from './codex-plugin.js';
+import { connectClaude } from './claude-extension.js';
 import { exportDeckPDF } from './pdf.js';
 import { listChats, loadChat, runConversation } from './chats.js';
 import { readContent, saveContent } from './content.js';
@@ -20,7 +21,7 @@ app.setName('Welcome to My TED Talk');
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
 let exportingPDF = false;
-let mcp, mcpError, mcpToken, connectingCodex, generation = 0;
+let mcp, mcpError, mcpToken, connectingCodex, connectingClaude, generation = 0;
 let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
 const state = () => ({ root, generation, url: deckServer?.url, name: root ? path.basename(root) : null });
 const notify = (name, data) => { if (window && !window.isDestroyed()) window.webContents.send(name, data); };
@@ -74,6 +75,11 @@ handle('mcp:connect-codex', async () => {
   // Coalesce repeated clicks while the marketplace is being updated.
   if (!connectingCodex) connectingCodex = connectCodex({ url: mcp.url, token: mcpToken, openExternal: link => shell.openExternal(link) }).finally(() => { connectingCodex = undefined; });
   return connectingCodex;
+});
+handle('mcp:connect-claude', async () => {
+  if (!mcp) throw new Error(mcpError || 'Agent connection unavailable.');
+  if (!connectingClaude) connectingClaude = connectClaude({ url: mcp.url, token: mcpToken, directory: path.join(app.getPath('userData'), 'claude-extension'), openPath: filename => shell.openPath(filename) }).finally(() => { connectingClaude = undefined; });
+  return connectingClaude;
 });
 handle('deck:state', state);
 const contentRoot = (expectedRoot, expectedGeneration) => {

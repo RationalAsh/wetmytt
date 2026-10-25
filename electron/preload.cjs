@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 const invoke = channel => (...args) => ipcRenderer.invoke(channel, ...args);
 contextBridge.exposeInMainWorld('wetmytt', {
   connectCodex: invoke('mcp:connect-codex'),
+  connectClaude: invoke('mcp:connect-claude'),
   exportPDF: invoke('deck:export-pdf'),
   state: invoke('deck:state'), open: invoke('deck:open'), create: invoke('deck:create'), close: invoke('deck:close'),
   readContent: invoke('deck:read-content'), saveContent: invoke('deck:save-content'),

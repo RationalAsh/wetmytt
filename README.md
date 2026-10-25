@@ -23,7 +23,7 @@ The slides have to be HTML. The interface only needs a minimal way to work with 
 
 ## The solution
 
-This app. **New deck** creates the folder and a starter HTML presentation. The built-in chat, or **Connect to Codex**, does the editing against that folder. **Present** puts the slides on screen. **Export PDF** writes a file you can send.
+This app. **New deck** creates the folder and a starter HTML presentation. The built-in chat, **Connect to Codex**, or **Connect to Claude** does the editing against that folder. **Present** puts the slides on screen. **Export PDF** writes a file you can send.
 
 ![A starter deck open in the desktop app, with a live slide preview, navigation, Backstage chat, and controls for PDF export and presenting.](docs/screenshots/workspace.jpg)
 
@@ -132,7 +132,15 @@ If you previously added `[mcp_servers.wetmytt]` to Codex's config manually, remo
 
 The endpoint binds only to `127.0.0.1`, checks Host and Origin headers, and requires the token on every request. Only one app instance runs at a time. If the fixed port is occupied, the app still opens and the connection dialog reports the error; free the port and restart the app.
 
-Tools available through MCP:
+### Connect Claude to the running app
+
+Click **Connect to Claude** beside **Connect to Codex** in the toolbar. The app prepares a private `wetmytt.mcpb` extension and opens it for installation in Claude Desktop. Follow Claude's installation prompts, then start a new chat and enable the **Welcome to My TED Talk** tools. Keep this app running with a presentation open.
+
+If the installer doesn't open, use Claude Settings → Desktop app → Extensions → Advanced settings → Install Extension and select the file shown in the connection dialog. This follows [Claude's custom desktop extension installation flow](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop). The extension uses Claude's bundled Node.js runtime; no separate Node installation is needed.
+
+The package lives in the app's user data directory under `claude-extension/wetmytt.mcpb`. It contains a standalone stdio-to-HTTP bridge and the local access token, so keep it private. The app does not modify Claude's configuration or approve tools on your behalf. Repeated clicks refresh the same package; reinstall it in Claude after rotating the token. After switching presentations, reconnect the extension to start a new MCP session.
+
+Tools available through MCP (Codex and Claude):
 
 - `get_presentation`: identifies the presentation bound to this session and whether it is still current.
 - `list_files`, `read_file`, `write_file`: operate within that presentation folder, with the existing path and symlink restrictions.

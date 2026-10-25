@@ -78,7 +78,7 @@ export function AISettings({ saved, desktop, onClose, onSaved }: { saved: Settin
         <small>Keys are encrypted with your operating system when available. Chat stays in memory for this session. Saving does not verify model access.</small>
         <div className="settings-buttons">{hasSavedKey && <button type="button" disabled={saving} onClick={() => void removeKey()}>Remove saved key</button>}<button type="button" disabled={saving} onClick={onClose}>Cancel</button><button className="primary" disabled={!desktop || saving}>{saving ? 'Saving…' : 'Save connection'}</button></div>
       </form>
-      <div className="mcp-note"><strong>Prefer an external agent?</strong><p>Run Codex in the deck folder for direct editing, or use “Connect to Codex” in the toolbar for files and slide screenshots.</p></div>
+      <div className="mcp-note"><strong>Prefer an external agent?</strong><p>Run Codex in the deck folder for direct editing, or use “Connect to Codex” or “Connect to Claude” in the toolbar for files and slide screenshots.</p></div>
     </section>
   </div>;
 }

@@ -8,6 +8,7 @@ declare global {
   interface Window {
     wetmytt?: {
       connectCodex(): Promise<{ opened: boolean; error?: string }>;
+      connectClaude(): Promise<{ opened: boolean; filename: string; error?: string }>;
       state(): Promise<Deck>;
       readContent(root: string, generation: number): Promise<string>;
       saveContent(root: string, generation: number, source: string, pointer: string, text: string): Promise<string>;
