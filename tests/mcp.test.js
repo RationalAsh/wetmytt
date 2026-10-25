@@ -1,3 +1,4 @@
+import { presentationGuidance } from '../electron/presentation-guidance.js';
 import http from 'node:http';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -78,6 +79,11 @@ test('MCP discovers and opens presentations without a deck, selecting only the c
 test('HTTP MCP exposes the active presentation and scoped file and screenshot tools', async t => {
   const f = await fixture(t);
   const client = await f.connect();
+  assert.ok(client.getInstructions().includes(presentationGuidance));
+  const selected = await client.callTool({ name: 'get_presentation' });
+  assert.ok(selected.content.some(block => block.type === 'text' && block.text === presentationGuidance));
+  const opened = await client.callTool({ name: 'open_presentation', arguments: { path: f.root } });
+  assert.ok(opened.content.some(block => block.type === 'text' && block.text === presentationGuidance));
   assert.deepEqual((await client.listTools()).tools.map(tool => tool.name).sort(), ['get_presentation', 'list_recent_presentations', 'open_presentation', 'screenshot_slide', ...toolDefinitions.map(tool => tool.name)].sort());
   assert.deepEqual(JSON.parse(text(await client.callTool({ name: 'get_presentation' }))), { root: f.root, name: 'deck', current: true });
   assert.deepEqual(JSON.parse(text(await client.callTool({ name: 'list_files' }))), ['index.html']);

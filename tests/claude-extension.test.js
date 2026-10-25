@@ -1,3 +1,4 @@
+import { presentationGuidance } from '../electron/presentation-guidance.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -37,6 +38,7 @@ test('creates a private standalone Claude extension and refreshes its credential
   const files = unzipSync(await fs.readFile(filename));
   const manifest = JSON.parse(strFromU8(files['manifest.json']));
   assert.equal(manifest.name, 'wetmytt');
+  assert.ok(manifest.long_description.includes(presentationGuidance));
   assert.equal(manifest.server.type, 'node');
   assert.deepEqual(Buffer.from(files[manifest.icon]), await fs.readFile(new URL('../electron/assets/icon.png', import.meta.url)));
   assert.ok(files[manifest.server.entry_point]);

@@ -8,6 +8,7 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { runTool, presentationTools } from './tools.js';
 import { agentLongDescription } from './agent-metadata.js';
+import { presentationGuidance } from './presentation-guidance.js';
 
 export const MCP_PORT = 43187;
 
@@ -44,9 +45,9 @@ function presentationServer(getDeck, binding, screenshotSlide, sessionSignal, li
       binding.deck = { ...current };
       binding.controller = new AbortController();
     }
-    return { content: [{ type: 'text', text: JSON.stringify({ root: current.root ?? null, name: current.root ? path.basename(current.root) : null, current: true }) }] };
+    return { content: [{ type: 'text', text: JSON.stringify({ root: current.root ?? null, name: current.root ? path.basename(current.root) : null, current: true }) }, { type: 'text', text: presentationGuidance }] };
   };
-  tool('get_presentation', 'Select and identify the currently open presentation for subsequent tool calls. Call again after opening or switching presentations.', {}, selectPresentation);
+  tool('get_presentation', 'Select and identify the currently open presentation for subsequent tool calls. Returns authoring guidance; read AGENTS.md if present before editing. Call again after opening or switching presentations.', {}, selectPresentation);
   tool('list_recent_presentations', 'List up to ten recently opened presentations, newest first, with absolute folder paths. Works even when no presentation is open; entries may have moved or become unavailable.', {}, async () => {
     const current = getDeck();
     const folders = await listRecentPresentations();

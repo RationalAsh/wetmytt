@@ -1,3 +1,4 @@
+import { presentationGuidance } from '../electron/presentation-guidance.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -141,6 +142,7 @@ test('built-in chat advertises dedicated tools, executes patches, and returns th
   let calls = 0;
   globalThis.fetch = async (_url, options) => {
     const body = JSON.parse(options.body);
+    assert.ok(body.messages[0].content.includes(presentationGuidance));
     assert.ok(!body.tools.some(tool => tool.function.name === 'run_command'));
     assert.deepEqual(body.tools.map(tool => tool.function.name).sort(), toolDefinitions.map(tool => tool.name).sort());
     if (calls++ === 0) return Response.json({ choices: [{ message: { role: 'assistant', content: null, tool_calls: [{ id: 'patch1', type: 'function', function: { name: 'apply_patch', arguments: JSON.stringify({ patch: '--- /dev/null\n+++ b/slide.txt\n@@ -0,0 +1 @@\n+edited\n' }) } }] } }] });

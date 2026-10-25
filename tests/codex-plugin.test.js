@@ -1,3 +1,4 @@
+import { presentationGuidance } from '../electron/presentation-guidance.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -22,6 +23,7 @@ test('prepares a private local plugin with the app endpoint and an encoded Codex
   assert.equal(entry.policy.installation, 'AVAILABLE');
   const manifest = await readJSON(path.join(result.pluginDirectory, '.codex-plugin/plugin.json'));
   assert.equal(manifest.name, 'wetmytt');
+  assert.ok(manifest.interface.longDescription.includes(presentationGuidance));
   assert.equal(manifest.requires_local_executor, true);
   const mcp = await readJSON(path.join(result.pluginDirectory, manifest.mcpServers));
   assert.equal(mcp.mcpServers.wetmytt.url, options.url);
