@@ -57,7 +57,7 @@ test('HTTP MCP exposes the active presentation and scoped file and screenshot to
   assert.equal((await client.callTool({ name: 'screenshot_slide', arguments: { slide: 0 } })).isError, true);
 });
 
-test('sessions fail after switching, closing, or reopening a deck; new sessions bind explicitly', async t => {
+test('get_presentation selects a switched, closed, or reopened deck without reconnecting', async t => {
   const f = await fixture(t);
   const old = await f.connect();
   const next = path.join(f.directory, 'next');
@@ -70,16 +70,31 @@ test('sessions fail after switching, closing, or reopening a deck; new sessions 
     assert.match(text(result), /presentation changed/);
   }
   assert.equal(await fs.readFile(path.join(next, 'index.html'), 'utf8'), 'Next');
-  assert.equal(JSON.parse(text(await old.callTool({ name: 'get_presentation' }))).current, false);
+  assert.deepEqual(JSON.parse(text(await old.callTool({ name: 'get_presentation' }))), { root: next, name: 'next', current: true });
+  assert.equal(text(await old.callTool({ name: 'read_file', arguments: { path: 'index.html' } })), 'Next');
+  assert.ok(!(await old.callTool({ name: 'write_file', arguments: { path: 'notes.txt', content: 'New deck' } })).isError);
+  assert.equal(await fs.readFile(path.join(next, 'notes.txt'), 'utf8'), 'New deck');
+  await assert.rejects(fs.access(path.join(f.root, 'notes.txt')));
   const fresh = await f.connect();
   assert.equal(text(await fresh.callTool({ name: 'read_file', arguments: { path: 'index.html' } })), 'Next');
   f.switchDeck(undefined);
   assert.equal((await fresh.callTool({ name: 'list_files' })).isError, true);
+  assert.deepEqual(JSON.parse(text(await old.callTool({ name: 'get_presentation' }))), { root: null, name: null, current: true });
+  assert.match(text(await old.callTool({ name: 'list_files' })), /Open a presentation/);
   const empty = await f.connect();
   assert.match(text(await empty.callTool({ name: 'list_files' })), /Open a presentation/);
   f.switchDeck(f.root);
   assert.equal((await old.callTool({ name: 'write_file', arguments: { path: 'index.html', content: 'WRONG' } })).isError, true);
   assert.match(await fs.readFile(path.join(f.root, 'index.html'), 'utf8'), /Slide/);
+  for (const client of [old, empty]) {
+    await client.callTool({ name: 'get_presentation' });
+    assert.match(text(await client.callTool({ name: 'read_file', arguments: { path: 'index.html' } })), /Slide/);
+    assert.ok(!(await client.callTool({ name: 'screenshot_slide', arguments: { slide: 1 } })).isError);
+  }
+  f.switchDeck(f.root);
+  assert.match(text(await old.callTool({ name: 'list_files' })), /Call get_presentation/);
+  await old.callTool({ name: 'get_presentation' });
+  assert.deepEqual(JSON.parse(text(await old.callTool({ name: 'list_files' }))), ['index.html']);
 });
 
 test('HTTP MCP rejects invalid credentials, origins, hosts, routes and sessions', async t => {
@@ -138,10 +153,16 @@ test('switching projects aborts an in-flight MCP download before it can write an
   const pending = client.callTool({ name: 'download_asset', arguments: { url: 'https://93.184.216.34/image.png', filename: 'image.png' } });
   await ready;
   f.switchDeck(undefined);
+  // Refresh the same session before the old request finishes. Its cancellation
+  // must stay attached to the original binding.
+  await client.callTool({ name: 'get_presentation' });
   const result = await pending;
   assert.equal(result.isError, true);
   assert.match(text(result), /presentation changed/);
   await assert.rejects(fs.access(path.join(f.root, 'assets/image.png')));
+  f.switchDeck(f.root);
+  await client.callTool({ name: 'get_presentation' });
+  assert.deepEqual(JSON.parse(text(await client.callTool({ name: 'list_files' }))), ['index.html']);
 });
 
 test('installation credentials persist and a closed MCP server releases its port', async t => {

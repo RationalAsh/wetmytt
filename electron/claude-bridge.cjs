@@ -17,7 +17,7 @@ async function forward(line) {
       method: 'POST', headers: headers(), body: JSON.stringify(message),
       signal: AbortSignal.timeout(120000), redirect: 'error',
     });
-    if (!response.ok) throw new Error(`App connection returned HTTP ${response.status}. Keep Welcome to My TED Talk running and reconnect after switching presentations.`);
+    if (!response.ok) throw new Error(`App connection returned HTTP ${response.status}. Keep Welcome to My TED Talk running and reconnect if the connection has expired.`);
     session = response.headers.get('mcp-session-id') || session;
     if (response.status === 202 || response.status === 204) return;
     const result = await response.json();

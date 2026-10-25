@@ -23,36 +23,50 @@ export async function loadMcpToken(directory) {
   return token;
 }
 
-function presentationServer(getDeck, bound, screenshotSlide, sessionSignal) {
+function presentationServer(getDeck, binding, screenshotSlide, sessionSignal) {
   const server = new McpServer({ name: 'wetmytt', version: '0.1.0' }, {
-    instructions: `${agentLongDescription}\n\nTools operate on the presentation open when this MCP session connected. Call get_presentation to identify it. If the presentation changes, reconnect before making further edits.`,
+    instructions: `${agentLongDescription}\n\nCall get_presentation before working to select and identify the open presentation. If the presentation changes, call get_presentation again before making further edits; no reconnect is needed.`,
   });
-  const currentRoot = () => {
+  const currentRoot = (bound) => {
     const current = getDeck();
-    if (current.generation !== bound.generation || current.root !== bound.root) throw new Error('The open presentation changed. Reconnect MCP to work with the new presentation.');
-    if (!bound.root) throw new Error('Open a presentation in the app, then reconnect MCP.');
+    if (current.generation !== bound.generation || current.root !== bound.root) throw new Error('The open presentation changed. Call get_presentation to select the current presentation, then retry.');
+    if (!bound.root) throw new Error('Open a presentation in the app, then call get_presentation.');
     return bound.root;
   };
   const tool = (name, description, inputSchema, callback) => server.registerTool(name, { description, inputSchema }, async (args, extra) => {
     try { return await callback(args, AbortSignal.any([sessionSignal, extra.signal])); }
     catch (error) { return { isError: true, content: [{ type: 'text', text: error.message }] }; }
   });
-  tool('get_presentation', 'Identify this session’s presentation and whether it is still open.', {}, async () => ({
-    content: [{ type: 'text', text: JSON.stringify({ root: bound.root ?? null, name: bound.root ? path.basename(bound.root) : null, current: getDeck().generation === bound.generation && getDeck().root === bound.root }) }],
-  }));
+  tool('get_presentation', 'Select and identify the currently open presentation for subsequent tool calls. Call again after opening or switching presentations.', {}, async () => {
+    const current = getDeck();
+    if (current.generation !== binding.deck.generation || current.root !== binding.deck.root) {
+      binding.controller.abort(new Error('The open presentation changed. Call get_presentation, then retry.'));
+      binding.deck = { ...current };
+      binding.controller = new AbortController();
+    }
+    return { content: [{ type: 'text', text: JSON.stringify({ root: current.root ?? null, name: current.root ? path.basename(current.root) : null, current: true }) }] };
+  });
+  const presentationTool = (name, description, schema, callback) => tool(name, description, schema, async (args, sessionSignal) => {
+    // Capture this binding for the whole call. Selecting another presentation
+    // must never redirect a queued or in-flight operation into its folder.
+    const bound = binding.deck;
+    const root = currentRoot(bound);
+    const signal = AbortSignal.any([sessionSignal, binding.controller.signal]);
+    signal.throwIfAborted();
+    const result = await callback(root, args, signal);
+    signal.throwIfAborted();
+    currentRoot(bound);
+    return result;
+  });
   for (const { name, description, schema } of presentationTools) {
-    tool(name, description, schema.shape, async (args, signal) => {
-      const root = currentRoot();
-      const result = await runTool(root, name, args, signal);
-      currentRoot();
-      return { content: [{ type: 'text', text: result }] };
-    });
+    presentationTool(name, description, schema.shape, async (root, args, signal) => ({
+      content: [{ type: 'text', text: await runTool(root, name, args, signal) }],
+    }));
   }
-  tool('screenshot_slide', 'Get a 1280×720 PNG of a slide without changing the visible preview. Slide numbers start at 1.', {
+  presentationTool('screenshot_slide', 'Get a 1280×720 PNG of a slide without changing the visible preview. Slide numbers start at 1.', {
     slide: z.number().int().min(1),
-  }, async ({ slide }) => {
-    const png = await screenshotSlide(currentRoot(), slide);
-    currentRoot();
+  }, async (root, { slide }) => {
+    const png = await screenshotSlide(root, slide);
     return { content: [{ type: 'image', mimeType: 'image/png', data: png.toString('base64') }] };
   });
   return server;
@@ -100,11 +114,11 @@ export async function startMcpServer({ getDeck, screenshotSlide, token, port = M
       if (sessions.size >= 32) return reject(res, 503, 'Too many MCP sessions. Disconnect unused clients.');
       const controller = new AbortController();
       controllers.add(controller);
-      const bound = { ...getDeck() };
-      const server = presentationServer(getDeck, bound, screenshotSlide, controller.signal);
+      const binding = { deck: { ...getDeck() }, controller: new AbortController() };
+      const server = presentationServer(getDeck, binding, screenshotSlide, controller.signal);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(), enableJsonResponse: true,
-        onsessioninitialized: id => sessions.set(id, { transport, server, bound, controller, lastActive: Date.now() }),
+        onsessioninitialized: id => sessions.set(id, { transport, server, binding, controller, lastActive: Date.now() }),
       });
       await server.connect(transport);
       // Preserve the SDK's cleanup callback installed by connect().
@@ -135,8 +149,8 @@ export async function startMcpServer({ getDeck, screenshotSlide, token, port = M
     url: `${origin}/mcp`,
     cancelStaleSessions() {
       const current = getDeck();
-      for (const { bound, controller } of sessions.values()) {
-        if (bound.root !== current.root || bound.generation !== current.generation) controller.abort(new Error('The open presentation changed. Reconnect MCP.'));
+      for (const { binding } of sessions.values()) {
+        if (binding.deck.root !== current.root || binding.deck.generation !== current.generation) binding.controller.abort(new Error('The open presentation changed. Call get_presentation, then retry.'));
       }
     },
     async close() {

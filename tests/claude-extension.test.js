@@ -49,8 +49,8 @@ test('opens the prepared bundle and reports both shell errors and thrown failure
 test('packaged stdio bridge edits and captures through the authenticated app server', async t => {
   const options = await fixture(t);
   await fs.writeFile(path.join(options.directory, 'index.html'), '<html>Slide</html>');
-  let generation = 1;
-  const service = await startMcpServer({ port: 0, token: options.token, getDeck: () => ({ root: options.directory, generation }), screenshotSlide: async () => Buffer.from('PNG') });
+  let generation = 0, root;
+  const service = await startMcpServer({ port: 0, token: options.token, getDeck: () => ({ root, generation }), screenshotSlide: async () => Buffer.from('PNG') });
   t.after(() => service.close());
   const { filename } = await prepareClaudeExtension({ ...options, url: service.url });
   for (const [name, bytes] of Object.entries(unzipSync(await fs.readFile(filename)))) {
@@ -63,10 +63,18 @@ test('packaged stdio bridge edits and captures through the authenticated app ser
   t.after(() => client.close());
   await client.connect(transport);
   assert.equal((await client.listTools()).tools.length, toolDefinitions.length + 2);
+  assert.equal(JSON.parse((await client.callTool({ name: 'get_presentation' })).content[0].text).root, null);
+  root = options.directory;
+  generation++;
+  service.cancelStaleSessions();
+  assert.equal(JSON.parse((await client.callTool({ name: 'get_presentation' })).content[0].text).root, root);
   assert.match((await client.callTool({ name: 'read_file', arguments: { path: 'index.html' } })).content[0].text, /Slide/);
   assert.ok(!(await client.callTool({ name: 'write_file', arguments: { path: 'deck.json', content: '{"title":"Claude"}' } })).isError);
   assert.equal(await fs.readFile(path.join(options.directory, 'deck.json'), 'utf8'), '{"title":"Claude"}');
   assert.equal((await client.callTool({ name: 'screenshot_slide', arguments: { slide: 1 } })).content[0].data, Buffer.from('PNG').toString('base64'));
   generation++;
+  service.cancelStaleSessions();
   assert.equal((await client.callTool({ name: 'read_file', arguments: { path: 'index.html' } })).isError, true);
+  await client.callTool({ name: 'get_presentation' });
+  assert.match((await client.callTool({ name: 'read_file', arguments: { path: 'index.html' } })).content[0].text, /Slide/);
 });

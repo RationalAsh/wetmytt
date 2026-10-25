@@ -142,18 +142,18 @@ Click **Connect to Claude** beside **Connect to Codex** in the toolbar. The app 
 
 If the installer doesn't open, use Claude Settings → Desktop app → Extensions → Advanced settings → Install Extension and select the file shown in the connection dialog. This follows [Claude's custom desktop extension installation flow](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop). The extension uses Claude's bundled Node.js runtime; no separate Node installation is needed.
 
-The package lives in the app's user data directory under `claude-extension/wetmytt.mcpb`. It contains a standalone stdio-to-HTTP bridge and the local access token, so keep it private. The app does not modify Claude's configuration or approve tools on your behalf. Repeated clicks refresh the same package; reinstall it in Claude after rotating the token. After switching presentations, reconnect the extension to start a new MCP session.
+The package lives in the app's user data directory under `claude-extension/wetmytt.mcpb`. It contains a standalone stdio-to-HTTP bridge and the local access token, so keep it private. The app does not modify Claude's configuration or approve tools on your behalf. Repeated clicks refresh the same package; reinstall it in Claude after rotating the token. After opening or switching presentations, ask Claude to call `get_presentation` to select the open deck; the extension can stay connected.
 
 Tools available through MCP (Codex and Claude), with the same editing, research, asset, and Git tools in built-in chat:
 
-- `get_presentation`: identifies the presentation bound to this session and whether it is still current.
+- `get_presentation`: selects and identifies the currently open presentation for subsequent tool calls.
 - `list_files`, `read_file`, `write_file`, `apply_patch`: edit text within the presentation folder, with path and symlink restrictions.
 - `search_web`, `fetch_url`: search DuckDuckGo without an API key and retrieve readable public pages.
 - `import_assets`, `download_asset`: copy local source files or download public URLs into `assets/`, preserving existing names with numbered suffixes. Maximum 25 MB per file.
 - `git_init`, `git_status`, `git_diff`, `git_log`, `git_stage`, `git_unstage`, `git_commit`, `git_branch`, `git_switch`, `git_restore`: manage local project history using bundled Git.
 - `screenshot_slide`: accepts `{ "slide": 2 }` and returns a 1280×720 PNG of the second slide directly to the model.
 
-Each session binds to the presentation open at initialization. Switching, closing, or reopening a presentation invalidates presentation tool calls for existing sessions, including when the same folder is reopened. Reconnect MCP or start a new Codex session to select the newly open presentation. A connection made before opening a deck also needs to reconnect. Switching or closing projects cancels pending network/Git operations. Completed writes remain in their original folder; operations never redirect into a new presentation.
+Each session initially selects the presentation open at initialization. After opening, switching, closing, or reopening a presentation, call `get_presentation` to select the current deck in the same session. This also works for connections made before a deck was opened. Other presentation tools return a reminder to call `get_presentation` until the selection is refreshed. Switching or closing projects cancels pending network/Git operations. Completed writes remain in their original folder; operations never redirect into a new presentation.
 
 Screenshots use isolated hidden windows inside the running Electron app. They wait for slide containers, images, and fonts, report invalid slide numbers or rendering timeouts, and leave the visible preview and presentation folder untouched. Sessions expire after 30 minutes without requests; reconnect if needed. Quitting the app stops MCP. Neither MCP nor built-in chat exposes terminal execution.
 
