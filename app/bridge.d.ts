@@ -2,8 +2,9 @@ export type Deck = { root?: string; generation?: number; url?: string; name?: st
 export type Provider = 'openrouter' | 'openai' | 'claude' | 'ollama';
 export type Settings = { provider: Provider; baseUrl: string; model: string; hasKey: boolean };
 export type Message = { role: 'user' | 'assistant'; content: string };
+export type TokenUsage = { inputTokens: number; outputTokens: number };
 export type ConversationSummary = { id: string; title: string; updatedAt: string; provider?: Provider; model?: string };
-export type Conversation = { id: string; title: string; messages: Message[]; requests: { provider: Provider; model: string; status: string }[] };
+export type Conversation = { id: string; title: string; messages: Message[]; requests: { provider: Provider; model: string; status: string; usage?: TokenUsage }[] };
 declare global {
   interface Window {
     wetmytt?: {
@@ -29,6 +30,7 @@ declare global {
       chats(root: string): Promise<ConversationSummary[]>;
       loadChat(root: string, id: string): Promise<Conversation>;
       chat(root: string, id: string | null, text: string): Promise<{ conversation: Conversation; error?: string }>;
+      context(): Promise<number | null>;
       cancel(): Promise<void>;
       present(value: boolean): Promise<void>;
       on(name: string, callback: (value: never) => void): () => void;

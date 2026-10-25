@@ -9,6 +9,7 @@ import { AISettings } from './ai-settings';
 import { AgentConnection } from './agent-connection';
 import { MarkdownMessage } from './markdown-message';
 import { ContentEditor, type TextField, type TextSelection } from './content-editor';
+import { conversationTokens } from '../shared/ai.js';
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const paths: Record<string, React.ReactNode> = {
@@ -26,6 +27,23 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
     stop: <rect x="6" y="6" width="12" height="12" rx="2" />,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
+
+function ContextMeter({ used, limit, connected }: { used: number; limit: number | null; connected: boolean }) {
+  const percent = connected && limit && limit > 0 && used >= 0 ? used / limit * 100 : null;
+  const shown = percent == null ? null : Math.round(percent);
+  const label = !connected ? 'Connect a model to see context usage' : shown == null ? 'Context usage unavailable' : `${shown}% context used`;
+  const fill = percent == null ? 0 : Math.min(percent, 100);
+  const radius = 7.25;
+  const circumference = 2 * Math.PI * radius;
+  const tone = shown != null && shown >= 90 ? 'full' : shown != null && shown >= 75 ? 'high' : '';
+  return <span className={['context-meter', percent == null ? 'unknown' : '', tone].filter(Boolean).join(' ')} tabIndex={0} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={shown == null ? undefined : Math.min(shown, 100)} aria-valuetext={label} aria-label={label} data-percent={shown ?? ''}>
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+      <circle cx="11" cy="11" r={radius} />
+      {fill > 0 && <circle className="context-fill" cx="11" cy="11" r={radius} strokeDasharray={`${circumference} ${circumference}`} strokeDashoffset={circumference * (1 - fill / 100)} />}
+    </svg>
+    <span className="context-tooltip" role="tooltip">{label}</span>
+  </span>;
 }
 
 export default function Home() {
@@ -53,6 +71,8 @@ export default function Home() {
   const [agentOpen, setAgentOpen] = useState<'Codex' | 'Claude' | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>({ provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', hasKey: false });
+  const [contextUsed, setContextUsed] = useState(0);
+  const [contextLimit, setContextLimit] = useState<number | null>(null);
   const [desktop, setDesktop] = useState(true);
   const iframe = useRef<HTMLIFrameElement>(null);
   const slideRef = useRef(0);
@@ -127,7 +147,7 @@ export default function Home() {
       session.current++;
       setFields([]); setSelection(null);
       const currentChat = ++chatSession.current;
-      setConversationId(null); setConversations([]); setLoadingChat(Boolean(next.root));
+      setConversationId(null); setConversations([]); setLoadingChat(Boolean(next.root)); setContextUsed(0);
       if (next.root && window.wetmytt) {
         const api = window.wetmytt, folder = next.root;
         void (async () => {
@@ -138,7 +158,7 @@ export default function Home() {
             if (saved.length) {
               const latest = await api.loadChat(folder, saved[0].id);
               if (chatSession.current !== currentChat) return;
-              setConversationId(latest.id); setMessages(latest.messages);
+              setConversationId(latest.id); setMessages(latest.messages); setContextUsed(conversationTokens(latest.requests));
             }
           } catch (err) { if (chatSession.current === currentChat) setError(String(err)); }
           finally { if (chatSession.current === currentChat) setLoadingChat(false); }
@@ -163,6 +183,16 @@ export default function Home() {
     const unsubscribers = [api.on('recent:changed', setRecentFolders), api.on('recent:error', setError), api.on('deck:changed', receiveDeck), api.on('ai:activity', setActivity), api.on('deck:fullscreen', setPresenting)];
     return () => unsubscribers.forEach(unsubscribe => unsubscribe());
   }, [receiveDeck]);
+  useEffect(() => {
+    const api = window.wetmytt;
+    if (!api || busy) return;
+    let active = true;
+    // Refresh independently so metadata cannot hold up a reply or Stop.
+    void api.context().then(value => {
+      if (active) setContextLimit(typeof value === 'number' && value > 0 ? value : null);
+    }).catch(() => { if (active) setContextLimit(null); });
+    return () => { active = false; };
+  }, [settings, busy]);
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       if (!deckRef.current.url || event.source !== iframe.current?.contentWindow || event.origin !== new URL(deckRef.current.url).origin) return;
@@ -240,7 +270,7 @@ export default function Home() {
   function newConversation() {
     if (busy || loadingChat) return;
     chatSession.current++;
-    setConversationId(null); setMessages([]); setDraft(''); setError(''); setActivity('');
+    setConversationId(null); setMessages([]); setDraft(''); setError(''); setActivity(''); setContextUsed(0);
   }
   async function loadConversation(id: string) {
     if (!id || busy || loadingChat || !deck.root || !window.wetmytt) return;
@@ -249,7 +279,7 @@ export default function Home() {
     try {
       const saved = await window.wetmytt.loadChat(deck.root, id);
       if (chatSession.current !== currentChat) return;
-      setConversationId(saved.id); setMessages(saved.messages); setDraft('');
+      setConversationId(saved.id); setMessages(saved.messages); setContextUsed(conversationTokens(saved.requests)); setDraft('');
     } catch (err) { if (chatSession.current === currentChat) setError(String(err)); }
     finally { if (chatSession.current === currentChat) setLoadingChat(false); }
   }
@@ -262,7 +292,7 @@ export default function Home() {
     try {
       const result = await window.wetmytt!.chat(deck.root, conversationId, text.trim());
       if (session.current !== currentSession) return;
-      setConversationId(result.conversation.id); setMessages(result.conversation.messages);
+      setConversationId(result.conversation.id); setMessages(result.conversation.messages); setContextUsed(conversationTokens(result.conversation.requests));
       if (result.error) setError(result.error);
       const saved = await window.wetmytt!.chats(deck.root);
       if (session.current === currentSession) setConversations(saved);
@@ -316,7 +346,7 @@ export default function Home() {
           {messages.length === 0 ? <div className="chat-intro"><span className="spark-tile"><Icon name="spark" size={25} /></span><h2>You bring the idea.<br />We’ll bring the slides.</h2><p>Find your opening. Cut the waffle. Land the ending. Tell your AI what you’re thinking.</p><div className="suggestions">{['Give this deck a stronger opening', 'Make the slides more concise', 'Give this deck a bold stage presence'].map((text, i) => <button key={text} disabled={!deck.root || busy || loadingChat} onClick={() => void send(text)}><span>{['↗', '≋', '◐'][i]}</span>{text}<span>↗</span></button>)}</div><div className="agent-note"><Icon name="terminal" size={17} /><p>Already have an agent?<br /><span>Run it in your deck folder. We’ll keep up.</span></p></div></div> : messages.map((message, index) => <div key={index} className={`message ${message.role}`}><span>{message.role === 'user' ? 'YOU' : 'WETMYTT'}</span>{message.role === 'assistant' ? <MarkdownMessage>{message.content}</MarkdownMessage> : <p>{message.content}</p>}</div>)}
           {busy && <div className="activity" role="status"><span />{activity}</div>}<div ref={bottom} />
         </div>
-        <form className="composer" onSubmit={event => { event.preventDefault(); void send(); }}><textarea aria-label="Message your creative partner" placeholder={deck.root ? 'What’s your big idea?' : 'Open a deck to start creating…'} value={draft} disabled={!deck.root || busy || loadingChat} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} /><div><button type="button" className="model-select" onClick={() => setSettingsOpen(true)}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}<span>⌄</span></button>{busy ? <button type="button" className="send-button" aria-label="Stop generation" onClick={() => void window.wetmytt?.cancel()}><Icon name="stop" size={16} /></button> : <button className="send-button" aria-label="Send message" disabled={!deck.root || loadingChat || !draft.trim()}><Icon name="send" size={18} /></button>}</div></form>
+        <form className="composer" onSubmit={event => { event.preventDefault(); void send(); }}><textarea aria-label="Message your creative partner" placeholder={deck.root ? 'What’s your big idea?' : 'Open a deck to start creating…'} value={draft} disabled={!deck.root || busy || loadingChat} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} /><div><button type="button" className="model-select" onClick={() => setSettingsOpen(true)}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}<span>⌄</span></button><div className="composer-actions"><ContextMeter used={contextUsed} limit={contextLimit} connected={Boolean(settings.model)} />{busy ? <button type="button" className="send-button" aria-label="Stop generation" onClick={() => void window.wetmytt?.cancel()}><Icon name="stop" size={16} /></button> : <button className="send-button" aria-label="Send message" disabled={!deck.root || loadingChat || !draft.trim()}><Icon name="send" size={18} /></button>}</div></div></form>
         <div className="chat-footnote">Your talk. Your files. Your call.</div>
         </div>
       </aside>

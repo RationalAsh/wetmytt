@@ -1,4 +1,4 @@
-import { providers } from '../shared/ai.js';
+import { knownContextWindow, providers } from '../shared/ai.js';
 
 function checkAborted(signal) {
   if (signal.aborted) throw new Error(signal.reason?.name === 'TimeoutError'
@@ -89,5 +89,121 @@ export async function requestMessage(settings, messages, tools, signal) {
   if (!message || (message.content != null && typeof message.content !== 'string') || (message.tool_calls != null && !Array.isArray(message.tool_calls))) throw new Error('The provider returned an unsupported message format. Choose a model with tool calling.');
   if (message.tool_calls?.some(call => !call || typeof call.id !== 'string' || !call.id || typeof call.function?.name !== 'string' || typeof call.function?.arguments !== 'string')) throw new Error('The model returned malformed tool calls. Try another model with tool calling.');
   if (!message.content && !message.tool_calls?.length) throw new Error(message.refusal || 'The model returned an empty response. Try another prompt or model.');
-  return { role: 'assistant', content: message.content ?? null, ...(message.tool_calls?.length ? { tool_calls: message.tool_calls } : {}) };
+  return { role: 'assistant', content: message.content ?? null, ...(message.tool_calls?.length ? { tool_calls: message.tool_calls } : {}), usage: readUsage(settings.provider, data) };
+}
+
+function countedTokens(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100_000_000) return null;
+  return Math.round(value);
+}
+
+// Claude reports cache reads and writes separately from input_tokens.
+// OpenAI-style cached tokens are already included in prompt_tokens.
+export function readUsage(provider, data) {
+  const usage = data?.usage;
+  if (!usage || typeof usage !== 'object') return null;
+  if (provider === 'claude') {
+    const input = countedTokens(usage.input_tokens);
+    const output = countedTokens(usage.output_tokens);
+    if (input == null || output == null) return null;
+    return { inputTokens: input + (countedTokens(usage.cache_creation_input_tokens) ?? 0) + (countedTokens(usage.cache_read_input_tokens) ?? 0), outputTokens: output };
+  }
+  const input = countedTokens(usage.prompt_tokens);
+  const output = countedTokens(usage.completion_tokens);
+  if (input != null && output != null) return { inputTokens: input, outputTokens: output };
+  const total = countedTokens(usage.total_tokens);
+  return total == null ? null : { inputTokens: total, outputTokens: 0 };
+}
+
+function positiveTokens(value) {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0 || value > 20_000_000) return null;
+  return value;
+}
+
+const limitCache = new Map();
+
+async function readJSON(url, options) {
+  const response = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(8000), ...options });
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => {});
+    return null;
+  }
+  try { return await response.json(); }
+  catch { return null; }
+}
+
+function namesMatch(running, requested) {
+  const loaded = String(running || '').trim().toLowerCase();
+  const wanted = String(requested || '').trim().toLowerCase();
+  if (!loaded || !wanted) return false;
+  return loaded === wanted || (!wanted.includes(':') && loaded.startsWith(`${wanted}:`)) || (!loaded.includes(':') && wanted.startsWith(`${loaded}:`));
+}
+
+function modelContextLength(info) {
+  if (!info || typeof info !== 'object') return null;
+  const lengths = Object.entries(info).filter(([key]) => key.endsWith('.context_length')).map(([, value]) => positiveTokens(value)).filter(Boolean);
+  return lengths.length ? Math.max(...lengths) : null;
+}
+
+function ollamaOrigin(settings) {
+  return { origin: new URL(settings.baseUrl).origin, headers: { ...(settings.apiKey ? { Authorization: `Bearer ${settings.apiKey}` } : {}) } };
+}
+
+async function ollamaRunningLimit(settings) {
+  const { origin, headers } = ollamaOrigin(settings);
+  const running = await readJSON(`${origin}/api/ps`, { headers });
+  const loaded = Array.isArray(running?.models) ? running.models.find(model => namesMatch(model?.name || model?.model, settings.model)) : null;
+  return positiveTokens(loaded?.context_length);
+}
+
+async function ollamaConfiguredLimit(settings) {
+  const { origin, headers } = ollamaOrigin(settings);
+  const shown = await readJSON(`${origin}/api/show`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ model: settings.model }) });
+  const parameters = typeof shown?.parameters === 'string' ? shown.parameters : '';
+  const configured = parameters.match(/(?:^|[\r\n])\s*num_ctx\s+(\d+)\b/);
+  return (configured && positiveTokens(Number(configured[1]))) || modelContextLength(shown?.model_info);
+}
+
+async function liveLimit(settings) {
+  if (settings.provider === 'claude') {
+    if (!settings.apiKey) return null;
+    const data = await readJSON(`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}`, { headers: { 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01' } });
+    return positiveTokens(data?.max_input_tokens);
+  }
+  if (settings.provider === 'openrouter') {
+    const data = await readJSON(`${settings.baseUrl}/models`, { headers: { ...(settings.apiKey ? { Authorization: `Bearer ${settings.apiKey}` } : {}) } });
+    let found = null;
+    for (const model of Array.isArray(data?.data) ? data.data : []) {
+      const limit = positiveTokens(model?.context_length) ?? positiveTokens(model?.top_provider?.context_length);
+      if (!limit || typeof model?.id !== 'string') continue;
+      if (model.id === settings.model) found = limit;
+      limitCache.set(`openrouter\0${settings.baseUrl}\0${model.id}`, { value: limit, expires: Date.now() + 600_000 });
+    }
+    return found;
+  }
+  if (settings.provider === 'ollama') return ollamaConfiguredLimit(settings);
+  return null;
+}
+
+export async function contextLimit(settings) {
+  if (!settings?.model) return null;
+  const key = `${settings.provider}\0${settings.baseUrl}\0${settings.model}`;
+  let reachable = true;
+  // A loaded Ollama model reports the context it is actually using, which can differ from the Modelfile.
+  if (settings.provider === 'ollama') {
+    try {
+      const running = await ollamaRunningLimit(settings);
+      if (running) return running;
+    } catch { reachable = false; }
+  }
+  const cached = limitCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.value;
+  let value = null;
+  if (reachable) {
+    try { value = await liveLimit(settings); }
+    catch { value = null; }
+  }
+  if (!value) value = knownContextWindow(settings.provider, settings.model);
+  limitCache.set(key, { value: value ?? null, expires: Date.now() + (value ? 600_000 : 30_000) });
+  return value ?? null;
 }

@@ -33,3 +33,63 @@ export function normalizeSettings(value, previous = {}, { requireKey = true } = 
   if (requireKey && !apiKey.trim() && !(provider === 'ollama' && local)) throw new Error(`Enter an API key for ${providers[provider].name}.`);
   return { provider, baseUrl, model, apiKey: apiKey.trim() };
 }
+
+// Fallback windows for when a provider does not publish the selected model's limit.
+// Live lookups override these. Versions are the documented context window, not the output cap.
+const contextWindows = [
+  [/^gpt-4\.1(?:-mini|-nano)?(?:-\d{4}-\d{2}-\d{2})?$/, 1_047_576],
+  [/^gpt-5(?:-(?:mini|nano|chat))?(?:-\d{4}-\d{2}-\d{2})?$/, 400_000],
+  [/^gpt-4o(?:-mini)?(?:-\d{4}-\d{2}-\d{2})?$/, 128_000],
+  [/^chatgpt-4o/, 128_000],
+  [/^gpt-4-turbo/, 128_000],
+  [/^gpt-4-32k/, 32_768],
+  [/^gpt-4(?:-\d{4})?$/, 8_192],
+  [/^gpt-3\.5-turbo/, 16_385],
+  [/^o4-mini/, 200_000],
+  [/^o3(?:-mini)?(?:-\d{4}-\d{2}-\d{2})?$/, 200_000],
+  [/^o1-mini/, 128_000],
+  [/^o1-preview/, 128_000],
+  [/^o1(?:-\d{4}-\d{2}-\d{2})?$/, 200_000],
+];
+
+function claudeWindow(model) {
+  const modern = model.match(/^claude-(?:fable|mythos|opus|sonnet|haiku)-(\d+)(?:[.-](\d{1,2}))?(?:-\d{8})?(?:$|[^0-9])/);
+  if (modern) {
+    const major = Number(modern[1]);
+    const minor = modern[2] == null ? 0 : Number(modern[2]);
+    // Claude Opus/Sonnet/Haiku 4.6 and the 5+ lines use a 1M window. Earlier Claude models use 200k.
+    return major > 4 || (major === 4 && minor >= 6) ? 1_000_000 : 200_000;
+  }
+  return model.startsWith('claude-') ? 200_000 : null;
+}
+
+export function knownContextWindow(provider, model) {
+  const bare = String(model || '').trim().toLowerCase().split('/').pop();
+  if (!bare) return null;
+  if (provider === 'claude') return claudeWindow(bare);
+  if (provider === 'openai') return contextWindows.find(([pattern]) => pattern.test(bare))?.[1] ?? null;
+  if (provider === 'openrouter') return contextWindows.find(([pattern]) => pattern.test(bare))?.[1] ?? claudeWindow(bare);
+  return null;
+}
+
+function wholeTokens(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100_000_000) return null;
+  return Math.round(value);
+}
+
+export function normalizeUsage(usage) {
+  if (!usage || typeof usage !== 'object') return null;
+  const inputTokens = wholeTokens(usage.inputTokens);
+  const outputTokens = wholeTokens(usage.outputTokens);
+  if (inputTokens == null || outputTokens == null) return null;
+  return { inputTokens, outputTokens };
+}
+
+export function conversationTokens(requests) {
+  if (!Array.isArray(requests)) return 0;
+  for (let index = requests.length - 1; index >= 0; index--) {
+    const usage = normalizeUsage(requests[index]?.usage);
+    if (usage) return usage.inputTokens + usage.outputTokens;
+  }
+  return 0;
+}

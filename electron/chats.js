@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { normalizeUsage } from '../shared/ai.js';
 
 const validId = id => typeof id === 'string' && /^[0-9a-f-]{36}$/.test(id);
 
@@ -65,8 +66,11 @@ export async function runConversation({ root, id, text, settings, signal, onActi
   await saveChat(root, conversation);
   let failure;
   try {
-    const content = await chat({ root, settings, history: conversation.messages.slice(-100).map(({ role, content }) => ({ role, content })), signal, onActivity });
+    const result = await chat({ root, settings, history: conversation.messages.slice(-100).map(({ role, content }) => ({ role, content })), signal, onActivity });
+    const content = typeof result === 'string' ? result : result?.content;
+    const usage = typeof result === 'string' ? null : normalizeUsage(result?.usage);
     signal.throwIfAborted();
+    if (usage) request.usage = usage;
     conversation.messages.push({ role: 'assistant', content, createdAt: new Date().toISOString(), requestId: request.id });
     request.status = 'completed';
   } catch (error) {

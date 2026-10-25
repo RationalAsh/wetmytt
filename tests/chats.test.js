@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { conversationTokens } from '../shared/ai.js';
 import { listChats, loadChat, runConversation } from '../electron/chats.js';
 
 const settings = { provider: 'openai', model: 'test-model', baseUrl: 'https://api.openai.com/v1', apiKey: 'secret-key' };
@@ -41,6 +42,16 @@ test('saves and reloads chats, retains per-request models, and starts with fresh
   assert.ok(!raw.includes('apiKey'));
   assert.equal((await fs.stat(path.join(root, '.wetmytt', 'chats', `${first.id}.json`))).mode & 0o777, 0o600);
   assert.deepEqual(await listChats(await fixture(t)), []);
+});
+
+test('stores provider token usage and keeps the previous count when a later reply fails', async t => {
+  const root = await fixture(t);
+  const saved = (await runConversation(request(root, { chat: async () => ({ content: 'Done.', usage: { inputTokens: 120.2, outputTokens: 30 } }) }))).conversation;
+  assert.deepEqual(saved.requests[0].usage, { inputTokens: 120, outputTokens: 30 });
+  const again = (await runConversation(request(root, { id: saved.id, text: 'Next', chat: async () => { throw new Error('nope'); } }))).conversation;
+  assert.equal(again.requests[1].usage, undefined);
+  assert.equal(conversationTokens(again.requests), 150);
+  assert.equal(conversationTokens(await loadChat(root, saved.id).then(chat => chat.requests)), 150);
 });
 
 test('preserves prompts and request status after provider failures and cancellation', async t => {

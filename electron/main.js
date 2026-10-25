@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import chokidar from 'chokidar';
 import { serveFolder } from './server.js';
 import { chat } from './agent.js';
+import { contextLimit } from './providers.js';
 import { inferProvider, normalizeSettings } from '../shared/ai.js';
 import { createDeck } from './decks.js';
 import { runTool } from './tools.js';
@@ -226,6 +227,7 @@ handle('deck:export-pdf', async expectedRoot => {
 handle('deck:reveal', () => root ? shell.openPath(root) : undefined);
 handle('deck:present', value => { window.setFullScreen(Boolean(value)); });
 handle('ai:settings', () => ({ provider: settings.provider, baseUrl: settings.baseUrl, model: settings.model, hasKey: Boolean(settings.apiKey) }));
+handle('ai:context', () => settings.model ? contextLimit(settings) : null);
 handle('ai:save', async value => {
   // An explicit empty key is the "Remove saved key" action.
   const next = normalizeSettings(value, settings, { requireKey: value.apiKey !== '' });
@@ -248,7 +250,9 @@ handle('ai:chat', async (expectedRoot, id, text) => {
   const connection = normalizeSettings({ ...settings });
   pendingChat = new AbortController();
   const signal = pendingChat.signal;
-  try { return await runConversation({ root: folder, id, text, settings: connection, signal, chat, onActivity: text => { if (root === folder && !signal.aborted) notify('ai:activity', text); } }); }
+  try {
+    return await runConversation({ root: folder, id, text, settings: connection, signal, chat, onActivity: text => { if (root === folder && !signal.aborted) notify('ai:activity', text); } });
+  }
   finally { pendingChat = undefined; }
 });
 

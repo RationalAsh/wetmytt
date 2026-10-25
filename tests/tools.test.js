@@ -150,6 +150,42 @@ test('built-in chat advertises dedicated tools, executes patches, and returns th
     assert.equal(JSON.parse(body.messages.at(-1).content).changed[0].to, 'slide.txt');
     return Response.json({ choices: [{ message: { role: 'assistant', content: 'Edited.' } }] });
   };
-  assert.equal(await chat({ root, settings: { provider: 'openrouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'test', apiKey: 'test' }, history: [{ role: 'user', content: 'Edit.' }], signal: new AbortController().signal, onActivity() {} }), 'Edited.');
+  const result = await chat({ root, settings: { provider: 'openrouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'test', apiKey: 'test' }, history: [{ role: 'user', content: 'Edit.' }], signal: new AbortController().signal, onActivity() {} });
+  assert.equal(result.content, 'Edited.');
+  assert.equal(result.usage.outputTokens, 0);
+  assert.ok(result.usage.inputTokens > 100);
   assert.equal(await fs.readFile(path.join(root, 'slide.txt'), 'utf8'), 'edited\n');
+});
+
+test('chat keeps the latest provider token count and does not send usage back', async t => {
+  const { root } = await fixture(t);
+  const previous = globalThis.fetch;
+  t.after(() => { globalThis.fetch = previous; });
+  let calls = 0;
+  globalThis.fetch = async (_url, options) => {
+    const body = JSON.parse(options.body);
+    assert.equal(body.messages.some(message => Object.hasOwn(message, 'usage')), false);
+    if (calls++ === 0) return Response.json({ usage: { prompt_tokens: 15, completion_tokens: 4 }, choices: [{ message: { content: null, tool_calls: [{ id: 'edit', type: 'function', function: { name: 'write_file', arguments: JSON.stringify({ path: 'note.txt', content: 'ok' }) } }] } }] });
+    return Response.json({ usage: { prompt_tokens: 80, completion_tokens: 6 }, choices: [{ message: { content: 'Saved.' } }] });
+  };
+  const result = await chat({ root, settings: { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o', apiKey: 'test' }, history: [{ role: 'user', content: 'Edit.' }], signal: new AbortController().signal, onActivity() {} });
+  assert.equal(result.content, 'Saved.');
+  assert.deepEqual(result.usage, { inputTokens: 80, outputTokens: 6 });
+});
+
+test('chat estimates the final context when only an earlier tool call reports usage', async t => {
+  const { root } = await fixture(t);
+  const previous = globalThis.fetch;
+  t.after(() => { globalThis.fetch = previous; });
+  let calls = 0;
+  globalThis.fetch = async () => {
+    if (calls++ === 0) return Response.json({ usage: { prompt_tokens: 15, completion_tokens: 4 }, choices: [{ message: { tool_calls: [{ id: 'edit', type: 'function', function: { name: 'write_file', arguments: JSON.stringify({ path: 'note.txt', content: 'ok' }) } }] } }] });
+    return Response.json({ choices: [{ message: { content: 'Saved.' } }] });
+  };
+  const result = await chat({ root, settings: { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o', apiKey: 'test' }, history: [{ role: 'user', content: 'Edit.' }], signal: new AbortController().signal, onActivity() {} });
+  assert.equal(calls, 2);
+  assert.equal(result.content, 'Saved.');
+  assert.ok(result.usage.inputTokens > 100);
+  assert.equal(result.usage.outputTokens, 0);
+  assert.equal(await fs.readFile(path.join(root, 'note.txt'), 'utf8'), 'ok');
 });

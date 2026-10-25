@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('wetmytt', {
   thumbnails: invoke('deck:thumbnails'),
   readContent: invoke('deck:read-content'), saveContent: invoke('deck:save-content'),
   reveal: invoke('deck:reveal'), settings: invoke('ai:settings'), saveSettings: invoke('ai:save'),
-  chat: invoke('ai:chat'), cancel: invoke('ai:cancel'), present: invoke('deck:present'),
+  chat: invoke('ai:chat'), cancel: invoke('ai:cancel'), context: invoke('ai:context'), present: invoke('deck:present'),
   chats: invoke('ai:chats'), loadChat: invoke('ai:load-chat'),
   importAssets: (root, files) => ipcRenderer.invoke('deck:import-assets', root, files.map(file => webUtils.getPathForFile(file))),
   chooseAssets: invoke('deck:choose-assets'),
