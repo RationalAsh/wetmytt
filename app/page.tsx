@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { FileMenu, ConnectMenu, RecentFolders } from './project-menus';
 import { version } from '../package.json';
 import type { ConversationSummary, Deck, Message, Settings } from './bridge';
 import { AISettings } from './ai-settings';
@@ -59,6 +60,19 @@ export default function Home() {
   const chatSession = useRef(0);
   const bottom = useRef<HTMLDivElement>(null);
   const dragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [recentFolders, setRecentFolders] = useState<string[]>([]);
+  async function recentAction(action: 'open' | 'remove' | 'clear', folder = '') {
+    const api = window.wetmytt;
+    if (!api) return;
+    setError('');
+    try {
+      if (action === 'open') await api.openRecent(folder);
+      else if (action === 'remove') await api.removeRecent(folder);
+      else await api.clearRecent();
+    } catch (err) { setError(String(err)); }
+  }
+  const recentProps = { folders: recentFolders, onOpen: (folder: string) => { void recentAction('open', folder); }, onRemove: (folder: string) => { void recentAction('remove', folder); }, onClear: () => { void recentAction('clear'); } };
 
   const clearDrag = useCallback(() => {
     if (dragTimer.current) clearTimeout(dragTimer.current);
@@ -140,8 +154,9 @@ export default function Home() {
     const api = window.wetmytt;
     if (!api) { setDesktop(false); return; }
     api.state().then(receiveDeck).catch(err => setError(String(err)));
+    api.recentFolders().then(setRecentFolders).catch(err => setError(String(err)));
     api.settings().then(setSettings).catch(err => setError(String(err)));
-    const unsubscribers = [api.on('deck:changed', receiveDeck), api.on('ai:activity', setActivity), api.on('deck:fullscreen', setPresenting)];
+    const unsubscribers = [api.on('recent:changed', setRecentFolders), api.on('recent:error', setError), api.on('deck:changed', receiveDeck), api.on('ai:activity', setActivity), api.on('deck:fullscreen', setPresenting)];
     return () => unsubscribers.forEach(unsubscribe => unsubscribe());
   }, [receiveDeck]);
   useEffect(() => {
@@ -159,7 +174,7 @@ export default function Home() {
       if (event.data?.type === 'wetmytt:drop' && Array.isArray(event.data.files) && event.data.files.every((file: unknown) => file instanceof File)) void addAssets(event.data.files);
     }
     function onKey(event: KeyboardEvent) {
-      if ((event.target as HTMLElement).closest('input, textarea, select, [contenteditable], dialog')) return;
+      if ((event.target as HTMLElement).closest('input, textarea, select, [contenteditable], dialog, [role="menu"]')) return;
       if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); navigate(slideRef.current + (event.key === 'ArrowRight' ? 1 : -1)); }
       if (event.key === 'Escape') void present(false);
     }
@@ -254,8 +269,8 @@ export default function Home() {
   return <main className={presenting ? 'app presenting' : 'app'}>
     <header className="topbar">
       <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="release-badge" aria-label={`App version ${version}`}>v{version}</span></div>
-      <div className="file-actions"><button onClick={() => void choose(false)} disabled={!desktop}><Icon name="folder" />Open folder</button><button onClick={() => void choose(true)} disabled={!desktop}><Icon name="plus" />New deck</button>{deck.root && <><button onClick={() => void chooseAssets()} disabled={!desktop}><Icon name="plus" />Add assets</button><button onClick={() => void closeProject()} disabled={!desktop}><Icon name="close" />Close project</button></>}</div>
-      <div className="top-actions"><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><button className="agent-connect" disabled={!desktop} onClick={() => setAgentOpen('Codex')}><Icon name="terminal" />Connect to Codex</button><button className="agent-connect" disabled={!desktop} onClick={() => setAgentOpen('Claude')}><Icon name="terminal" />Connect to Claude</button><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
+      <div className="file-actions"><FileMenu desktop={desktop} hasDeck={Boolean(deck.root)} {...recentProps} onNew={() => void choose(true)} onChoose={() => void choose(false)} onAssets={() => void chooseAssets()} onClose={() => void closeProject()} /></div>
+      <div className="top-actions"><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><ConnectMenu desktop={desktop} onConnect={setAgentOpen} /><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}
     {error && <div className="error" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><Icon name="close" size={15} /></button></div>}
@@ -274,6 +289,7 @@ export default function Home() {
             <div className="stage-card" aria-hidden="true"><span>01 / A VERY IMPORTANT TALK</span><strong>I made<br />slides<span>about it.</span></strong><div className="stage-line" /><small>WETMYTT / PRESS PLAY ↗</small></div>
           </div>}
         </div>
+        {!deck.root && desktop && <RecentFolders {...recentProps} />}
         <footer className="slide-controls"><div className="folder-status"><span className="live-status"><span />{deck.root ? 'Watching your folder' : 'Everything lives in your folder'}</span>{deck.root && deck.branch && <span className="version-chip" tabIndex={0} aria-describedby="version-detail"><span className="version-label">Version:</span><span className="version-name">{deck.branch}</span><span className="version-tooltip" role="tooltip" id="version-detail">This presentation uses Git internally for version history. {deck.branch === 'Detached HEAD' ? 'You are viewing a commit without an active branch (detached HEAD).' : <>The current branch is <strong>{deck.branch}</strong>.</>}</span></span>}</div><div className="pagination"><button className="icon-button" aria-label="Previous slide" disabled={!count || slide === 0} onClick={() => navigate(slide - 1)}><Icon name="left" size={17} /></button><span>{count ? String(slide + 1).padStart(2, '0') : '—'}<b>/</b>{count ? String(count).padStart(2, '0') : '—'}</span><button className="icon-button" aria-label="Next slide" disabled={!count || slide >= count - 1} onClick={() => navigate(slide + 1)}><Icon name="right" size={17} /></button></div><span className="key-hint"><kbd>←</kbd><kbd>→</kbd> to navigate</span></footer>
         <div className="local-note"><Icon name="terminal" size={14} /><span>Your editor, your agent, your files. Changes appear automatically.</span></div>
       </section>

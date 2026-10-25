@@ -237,3 +237,26 @@ kbd { display: inline-flex; align-items: center; justify-content: center; border
   .topbar { flex-wrap: wrap; gap: 12px; }
   .top-actions { flex-wrap: wrap; justify-content: flex-end; }
 }
+
+.dropdown { position: relative; }
+.menu-trigger { padding: 8px 10px; font-size: 12px; white-space: nowrap; }
+.dropdown-panel { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; width: 310px; max-width: calc(100vw - 40px); max-height: calc(100dvh - 120px); overflow: auto; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); box-shadow: 0 8px 28px #30204424; }
+.top-actions .dropdown-panel { left: auto; right: 0; width: 200px; }
+.dropdown-panel button { width: 100%; justify-content: space-between; text-align: left; font-size: 12px; padding: 10px; }
+.menu-separator { border-top: 1px solid var(--line); margin: 5px 0; }
+.recent-folders { flex-shrink: 1; min-height: 90px; max-height: 220px; overflow: auto; border-top: 1px solid var(--line); padding-top: 10px; margin-top: 4px; }
+.recent-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.recent-heading h2 { font-size: 12px; margin: 0; }
+.recent-heading > button { font-size: 10px; padding: 6px; color: var(--muted); }
+.recent-folders ul, .recent-menu-list ul { margin: 4px 0; padding: 0; list-style: none; }
+.recent-folders li, .recent-menu-list li { display: flex; align-items: center; gap: 4px; min-width: 0; }
+button.recent-open { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px; text-align: left; }
+.recent-open strong, .recent-open span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-open strong { font-size: 12px; font-weight: 500; }
+.recent-open span { font-size: 10px; color: var(--muted); }
+button.recent-remove { width: 28px; height: 28px; padding: 4px; flex-shrink: 0; justify-content: center; color: var(--muted); font-size: 18px; }
+.recent-empty { color: var(--muted); font-size: 11px; padding: 8px; line-height: 1.6; }
+.recent-menu-list { margin: 0 2px 4px 8px; border-left: 2px solid var(--tint); padding-left: 4px; }
+@media (min-width: 900px) {
+  .topbar, .top-actions { flex-wrap: nowrap; }
+}

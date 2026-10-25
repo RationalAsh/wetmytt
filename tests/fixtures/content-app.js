@@ -31,8 +31,9 @@ app.whenReady().then(async () => {
       const frame = window.webContents.mainFrame.frames.find(item => item.url.includes('/index.html?revision='));
       return frame?.executeJavaScript(source);
     };
-    await waitFor(() => js(`Boolean([...document.querySelectorAll('button')].find(b => b.textContent === 'Open folder'))`));
-    await js(`[...document.querySelectorAll('button')].find(b => b.textContent === 'Open folder').click()`);
+    await waitFor(() => js(`Boolean([...document.querySelectorAll('button')].find(b => b.classList.contains('menu-trigger') && b.textContent.startsWith('File')))`));
+    await js(`document.querySelector('.file-actions .menu-trigger').click()`);
+    await js(`[...document.querySelectorAll('[role=menuitem]')].find(b => b.textContent === 'Open folder…').click()`);
     await waitFor(() => js(`Boolean(document.querySelector('textarea[data-path="/slides/0/title"]'))`));
     await waitFor(() => preview(`Boolean(document.querySelector('h1'))`));
     await preview(`document.querySelector('h1').click()`);

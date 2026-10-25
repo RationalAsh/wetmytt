@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('wetmytt', {
   connectCodex: invoke('mcp:connect-codex'),
   connectClaude: invoke('mcp:connect-claude'),
   exportPDF: invoke('deck:export-pdf'),
+  recentFolders: invoke('recent:list'), openRecent: invoke('recent:open'),
+  removeRecent: invoke('recent:remove'), clearRecent: invoke('recent:clear'),
   state: invoke('deck:state'), open: invoke('deck:open'), create: invoke('deck:create'), close: invoke('deck:close'),
   readContent: invoke('deck:read-content'), saveContent: invoke('deck:save-content'),
   reveal: invoke('deck:reveal'), settings: invoke('ai:settings'), saveSettings: invoke('ai:save'),
@@ -12,7 +14,7 @@ contextBridge.exposeInMainWorld('wetmytt', {
   importAssets: (root, files) => ipcRenderer.invoke('deck:import-assets', root, files.map(file => webUtils.getPathForFile(file))),
   chooseAssets: invoke('deck:choose-assets'),
   on: (name, callback) => {
-    if (!['deck:changed', 'ai:activity', 'deck:fullscreen'].includes(name)) return () => {};
+    if (!['deck:changed', 'ai:activity', 'deck:fullscreen', 'recent:changed', 'recent:error'].includes(name)) return () => {};
     const listener = (_event, value) => callback(value);
     ipcRenderer.on(name, listener);
     return () => ipcRenderer.removeListener(name, listener);

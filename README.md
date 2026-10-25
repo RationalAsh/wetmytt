@@ -61,7 +61,7 @@ npm start
 
 ## Make a deck
 
-Click **New deck** and choose a new folder name, or **Open folder** for an existing deck with `index.html`. A new deck copies the editable starter:
+Choose **File → New deck** and choose a new folder name, or **File → Open folder** for an existing deck with `index.html`. A new deck copies the editable starter:
 
 ```text
 my-presentation/
@@ -79,9 +79,11 @@ The **Edit** tab lists string values in `deck.json`, including nested objects an
 
 **Save text** writes the field to disk and refreshes the preview. Unsaved drafts stay while switching tabs or selecting other fields. If `deck.json` changes externally before saving, the editor preserves the draft and asks you to reload instead of overwriting those changes. **Discard edits & reload** loads the current file. Selection highlights are hidden during presentation and PDF export.
 
+**File → Open recent** and the welcome screen list the last ten successfully opened or created folders, newest first. History stays in the app’s local user-data directory across restarts. Remove an entry or clear the list without changing the folders on disk. If a folder has moved or is unavailable, opening it reports an error and keeps your current presentation open.
+
 The app watches the complete deck folder for changes, including images and nested assets, and reloads while retaining the current slide where possible. Hidden files and `node_modules` are ignored. A temporarily invalid JSON file displays an error in the slide area; saving valid JSON recovers automatically.
 
-With a project open, drag files anywhere onto the app (including the slide preview) to copy them into its `assets/` folder. You can also click **Add assets** to choose multiple files. Originals stay in place, and duplicate names get a numbered suffix instead of overwriting existing assets. Folders and files over 25 MB are not imported. Agents can use `import_assets` with absolute local paths or `download_asset` with a public URL and filename; both return relative paths for use in the slides.
+With a project open, drag files anywhere onto the app (including the slide preview) to copy them into its `assets/` folder. You can also choose **File → Add assets** to choose multiple files. Originals stay in place, and duplicate names get a numbered suffix instead of overwriting existing assets. Folders and files over 25 MB are not imported. Agents can use `import_assets` with absolute local paths or `download_asset` with a public URL and filename; both return relative paths for use in the slides.
 
 Use the visible arrows or **← / →** to navigate. **Present** enters full screen with the shell hidden; **Esc** exits. A hidden exit button also appears on hover at the top right. Hide or show the chat sidebar with the top-right panel button. Navigation keys do not interfere with typing in chat.
 
@@ -123,7 +125,7 @@ Welcome to My TED Talk does not need to launch or supervise the agent. Changes f
 The Electron app hosts a Streamable HTTP MCP endpoint at `http://127.0.0.1:43187/mcp` while it is running. No presentation contains server code, and clients do not need a path to this app's installation.
 
 1. Start the app and open a presentation.
-2. Click **Connect to Codex** in the toolbar. The app prepares a private local plugin and opens its details in Codex Desktop.
+2. Choose **Connect → Connect to Codex** in the toolbar. The app prepares a private local plugin and opens its details in Codex Desktop.
 3. Select **Install** in Codex, then start a new Codex chat and use the **Welcome to My TED Talk** plugin.
 
 No manual MCP configuration is needed. If the plugin doesn't appear immediately, restart Codex and click **Open in Codex** in the connection dialog. Codex remains responsible for the final installation and enablement; the app does not silently install the plugin or change tool approval settings.
@@ -138,7 +140,7 @@ The endpoint binds only to `127.0.0.1`, checks Host and Origin headers, and requ
 
 ### Connect Claude to the running app
 
-Click **Connect to Claude** beside **Connect to Codex** in the toolbar. The app prepares a private `wetmytt.mcpb` extension and opens it for installation in Claude Desktop. Follow Claude's installation prompts, then start a new chat and enable the **Welcome to My TED Talk** tools. Keep this app running with a presentation open.
+Choose **Connect → Connect to Claude** in the toolbar. The app prepares a private `wetmytt.mcpb` extension and opens it for installation in Claude Desktop. Follow Claude's installation prompts, then start a new chat and enable the **Welcome to My TED Talk** tools. Keep this app running with a presentation open.
 
 If the installer doesn't open, use Claude Settings → Desktop app → Extensions → Advanced settings → Install Extension and select the file shown in the connection dialog. This follows [Claude's custom desktop extension installation flow](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop). The extension uses Claude's bundled Node.js runtime; no separate Node installation is needed.
 

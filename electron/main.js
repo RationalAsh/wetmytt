@@ -16,12 +16,14 @@ import { exportDeckPDF } from './pdf.js';
 import { listChats, loadChat, runConversation } from './chats.js';
 import { readContent, saveContent } from './content.js';
 import { currentBranch } from './git.js';
+import { createRecentFolders } from './recent-folders.js';
 
 app.setName('Welcome to My TED Talk');
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
 let exportingPDF = false;
+let recentFolders, refreshRecentFolders;
 let projectOperations = new AbortController();
 let mcp, mcpError, mcpToken, connectingCodex, connectingClaude, generation = 0;
 let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' };
@@ -56,6 +58,13 @@ async function openDeck(folder) {
   watcher.on('all', () => { clearTimeout(watchTimer); watchTimer = setTimeout(() => { void notifyDeck(); }, 100); });
   watcher.on('error', error => console.error('Deck watcher:', error.message));
   await notifyDeck();
+  try {
+    await recentFolders.add(folder);
+    refreshRecentFolders();
+  } catch (error) {
+    console.error('Could not save recent folders:', error.message);
+    notify('recent:error', 'The folder opened, but its recent-folder entry could not be saved.');
+  }
   return state();
 }
 
@@ -70,6 +79,15 @@ function handle(channel, callback) {
 // module scope would deadlock startup and leave the Dock icon bouncing.
 if (!app.requestSingleInstanceLock()) app.quit();
 else app.whenReady().then(async () => {
+recentFolders = createRecentFolders(path.join(app.getPath('userData'), 'recent-folders.json'));
+await recentFolders.load().catch(error => console.error('Could not load recent folders:', error.message));
+handle('recent:list', () => recentFolders.list());
+handle('recent:open', folder => {
+  if (typeof folder !== 'string' || !recentFolders.list().includes(folder)) throw new Error('This folder is no longer in Open recent.');
+  return openDeck(folder);
+});
+handle('recent:remove', async folder => { await recentFolders.remove(folder); refreshRecentFolders(); });
+handle('recent:clear', async () => { await recentFolders.clear(); refreshRecentFolders(); });
 const settingsPath = path.join(app.getPath('userData'), 'ai-settings.json');
 try {
   // Keep existing connections when upgrading from the original app name.
@@ -220,11 +238,21 @@ async function createWindow() {
   window.on('leave-full-screen', () => notify('deck:fullscreen', false));
   await window.loadURL(url);
 }
+refreshRecentFolders = () => {
+  notify('recent:changed', recentFolders.list());
+  buildApplicationMenu();
+};
+function buildApplicationMenu() {
 Menu.setApplicationMenu(Menu.buildFromTemplate([
   ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
-  { label: 'File', submenu: [{ label: 'Open presentation…', accelerator: 'CmdOrCtrl+O', click: async () => { const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'] }); if (!result.canceled) openDeck(result.filePaths[0]).catch(error => dialog.showErrorBox('Could not open deck', error.message)); } }, { role: 'close' }] },
+  { label: 'File', submenu: [{ label: 'Open presentation…', accelerator: 'CmdOrCtrl+O', click: async () => { const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'] }); if (!result.canceled) openDeck(result.filePaths[0]).catch(error => dialog.showErrorBox('Could not open deck', error.message)); } }, { label: 'Open recent', submenu: [
+    ...recentFolders.list().map(folder => ({ label: folder, click: () => { void openDeck(folder).catch(error => dialog.showErrorBox('Could not open deck', error.message)); } })),
+    ...(recentFolders.list().length ? [{ type: 'separator' }, { label: 'Clear recent folders', click: () => { void recentFolders.clear().then(refreshRecentFolders).catch(error => dialog.showErrorBox('Could not clear recent folders', error.message)); } }] : [{ label: 'No recent folders', enabled: false }]),
+  ] }, { role: 'close' }] },
   { role: 'editMenu' }, { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }, { role: 'togglefullscreen' }] },
  ]));
+}
+buildApplicationMenu();
 await createWindow();
 app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); } });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
