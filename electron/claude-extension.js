@@ -8,7 +8,7 @@ export async function prepareClaudeExtension({ url, token, directory }) {
   const endpoint = new URL(url);
   if (endpoint.protocol !== 'http:' || endpoint.hostname !== '127.0.0.1' || endpoint.pathname !== '/mcp' || endpoint.username || endpoint.password || endpoint.search || endpoint.hash || !token) throw new Error('Invalid local agent connection.');
   const manifest = {
-    manifest_version: '0.3', name: 'wetmytt', display_name: 'Welcome to My TED Talk', version: '0.1.2',
+    manifest_version: '0.3', name: 'wetmytt', display_name: 'Welcome to My TED Talk', version: '0.1.3',
     icon: 'assets/icon.png',
     description: agentDescription, long_description: agentLongDescription,
     author: { name: 'Welcome to My TED Talk', url: projectUrl }, tools_generated: true,
