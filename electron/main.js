@@ -254,14 +254,19 @@ const chatRoot = expectedRoot => {
 };
 handle('ai:chats', expectedRoot => listChats(chatRoot(expectedRoot)));
 handle('ai:load-chat', (expectedRoot, id) => loadChat(chatRoot(expectedRoot), id));
-handle('ai:chat', async (expectedRoot, id, text) => {
+handle('ai:chat', async (expectedRoot, id, text, runId) => {
   const folder = chatRoot(expectedRoot);
   if (pendingChat) throw new Error('A request is already running.');
   const connection = normalizeSettings({ ...settings });
   pendingChat = new AbortController();
   const signal = pendingChat.signal;
+  const deckGeneration = generation;
   try {
-    return await runConversation({ root: folder, id, text, settings: connection, signal, chat, onActivity: text => { if (root === folder && !signal.aborted) notify('ai:activity', text); } });
+    return await runConversation({ root: folder, id, text, settings: connection, signal, chat,
+      onConversation: conversation => {
+        if (root === folder && generation === deckGeneration) notify('ai:conversation', { root: folder, generation: deckGeneration, runId, conversation });
+      },
+    });
   }
   finally { pendingChat = undefined; }
 });
@@ -286,7 +291,16 @@ async function createWindow() {
     }
   });
   window.webContents.on('will-navigate', (event, target) => { if (new URL(target).origin !== shellOrigin) event.preventDefault(); });
-  window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  // assistant-ui's Copy action uses the browser Clipboard API. Only the app's
+  // own main frame may write plain text; presentations and clipboard reads
+  // retain the default denial.
+  const canWriteClipboard = (contents, permission, details) => {
+    if (contents !== window.webContents || permission !== 'clipboard-sanitized-write' || !details.isMainFrame) return false;
+    try { return new URL(details.requestingUrl).origin === shellOrigin; }
+    catch { return false; }
+  };
+  window.webContents.session.setPermissionCheckHandler((contents, permission, _origin, details) => canWriteClipboard(contents, permission, details));
+  window.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => callback(canWriteClipboard(contents, permission, details)));
   window.on('enter-full-screen', () => notify('deck:fullscreen', true));
   window.on('leave-full-screen', () => notify('deck:fullscreen', false));
   await window.loadURL(url);

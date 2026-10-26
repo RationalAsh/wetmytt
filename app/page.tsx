@@ -4,11 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { SlideThumbnails } from './slide-thumbnails';
 import { FileMenu, ConnectMenu, RecentFolders } from './project-menus';
 import { version } from '../package.json';
-import type { ConversationSummary, Deck, Message, Settings } from './bridge';
+import type { ConversationEvent, ConversationSummary, Deck, Message, Settings } from './bridge';
 import { AISettings } from './ai-settings';
 import { DEFAULT_MAX_TURNS } from '../shared/ai.js';
 import { AgentConnection } from './agent-connection';
-import { MarkdownMessage } from './markdown-message';
+import { ChatThread } from './chat-thread';
 import { ContentEditor, type TextField, type TextSelection } from './content-editor';
 import { conversationTokens } from '../shared/ai.js';
 
@@ -63,9 +63,7 @@ export default function Home() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingChat, setLoadingChat] = useState(false);
-  const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
-  const [activity, setActivity] = useState('');
   const [error, setError] = useState('');
   const [dragging, setDragging] = useState(false);
   const [assetStatus, setAssetStatus] = useState('');
@@ -83,7 +81,7 @@ export default function Home() {
   const deckRef = useRef<Deck>({});
   const session = useRef(0);
   const chatSession = useRef(0);
-  const bottom = useRef<HTMLDivElement>(null);
+  const activeRun = useRef<string | null>(null);
   const dragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [recentFolders, setRecentFolders] = useState<string[]>([]);
@@ -169,7 +167,7 @@ export default function Home() {
         })();
       }
       slideRef.current = 0; setSlide(0); setCount(0); setMessages([]); setError('');
-      setDraft(''); setBusy(false); setActivity('');
+      activeRun.current = null; setBusy(false);
       clearDrag(); setAssetStatus(''); setExportStatus('');
     }
     // Wait for the reloaded preview's slide count before requesting thumbnails;
@@ -184,7 +182,10 @@ export default function Home() {
     api.state().then(receiveDeck).catch(err => setError(String(err)));
     api.recentFolders().then(setRecentFolders).catch(err => setError(String(err)));
     api.settings().then(setSettings).catch(err => setError(String(err))).finally(() => setSettingsLoaded(true));
-    const unsubscribers = [api.on('recent:changed', setRecentFolders), api.on('recent:error', setError), api.on('deck:changed', receiveDeck), api.on('ai:activity', setActivity), api.on('deck:fullscreen', setPresenting)];
+    const unsubscribers = [api.on('recent:changed', setRecentFolders), api.on('recent:error', setError), api.on('deck:changed', receiveDeck), api.on('ai:conversation', (event: ConversationEvent) => {
+      if (event.runId !== activeRun.current || event.root !== deckRef.current.root || event.generation !== deckRef.current.generation) return;
+      setConversationId(event.conversation.id); setMessages(event.conversation.messages);
+    }), api.on('deck:fullscreen', setPresenting)];
     return () => unsubscribers.forEach(unsubscribe => unsubscribe());
   }, [receiveDeck]);
   useEffect(() => {
@@ -245,7 +246,6 @@ export default function Home() {
       if (dragTimer.current) clearTimeout(dragTimer.current);
     };
   }, [showDrag, addAssets, clearDrag]);
-  useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, activity]);
 
   const configurePreview = useCallback(() => {
     if (!deck.url) return;
@@ -274,7 +274,7 @@ export default function Home() {
   function newConversation() {
     if (busy || loadingChat) return;
     chatSession.current++;
-    setConversationId(null); setMessages([]); setDraft(''); setError(''); setActivity(''); setContextUsed(0);
+    setConversationId(null); setMessages([]); setError(''); setContextUsed(0);
   }
   async function loadConversation(id: string) {
     if (!id || busy || loadingChat || !deck.root || !window.wetmytt) return;
@@ -283,25 +283,27 @@ export default function Home() {
     try {
       const saved = await window.wetmytt.loadChat(deck.root, id);
       if (chatSession.current !== currentChat) return;
-      setConversationId(saved.id); setMessages(saved.messages); setContextUsed(conversationTokens(saved.requests)); setDraft('');
+      setConversationId(saved.id); setMessages(saved.messages); setContextUsed(conversationTokens(saved.requests));
     } catch (err) { if (chatSession.current === currentChat) setError(String(err)); }
     finally { if (chatSession.current === currentChat) setLoadingChat(false); }
   }
-  async function send(text = draft) {
-    if (!text.trim() || busy || loadingChat || !deck.root) return;
+  async function send(text: string) {
+    if (!text.trim() || busy || activeRun.current || loadingChat || !deck.root || !window.wetmytt) return;
     if (!settings.model) { openSettings('connection'); return; }
     const history: Message[] = [...messages, { role: 'user', content: text.trim() }];
     const currentSession = session.current;
-    setMessages(history); setDraft(''); setBusy(true); setActivity('Thinking…'); setError('');
+    const runId = crypto.randomUUID();
+    activeRun.current = runId;
+    setMessages(history); setBusy(true); setError('');
     try {
-      const result = await window.wetmytt!.chat(deck.root, conversationId, text.trim());
+      const result = await window.wetmytt!.chat(deck.root, conversationId, text.trim(), runId);
       if (session.current !== currentSession) return;
       setConversationId(result.conversation.id); setMessages(result.conversation.messages); setContextUsed(conversationTokens(result.conversation.requests));
       if (result.error) setError(result.error);
       const saved = await window.wetmytt!.chats(deck.root);
       if (session.current === currentSession) setConversations(saved);
     } catch (err) { if (session.current === currentSession) setError(String(err)); }
-    finally { if (session.current === currentSession) { setBusy(false); setActivity(''); } }
+    finally { if (session.current === currentSession) { activeRun.current = null; setBusy(false); } }
   }
 
   return <main className={presenting ? 'app presenting' : 'app'}>
@@ -346,12 +348,11 @@ export default function Home() {
           </select>
           <span title="Saved in this project's .wetmytt/chats/ folder. Resuming uses the model selected below.">{deck.root ? 'Auto-saved to .wetmytt/chats/' : 'Open a deck to save conversations'}</span>
         </div>
-        <div className="chat-messages">
-          {messages.length === 0 ? <div className="chat-intro"><span className="spark-tile"><Icon name="spark" size={25} /></span><h2>You bring the idea.<br />We’ll bring the slides.</h2><p>Find your opening. Cut the waffle. Land the ending. Tell your AI what you’re thinking.</p><div className="suggestions">{['Give this deck a stronger opening', 'Make the slides more concise', 'Give this deck a bold stage presence'].map((text, i) => <button key={text} disabled={!deck.root || busy || loadingChat} onClick={() => void send(text)}><span>{['↗', '≋', '◐'][i]}</span>{text}<span>↗</span></button>)}</div><div className="agent-note"><Icon name="terminal" size={17} /><p>Already have an agent?<br /><span>Run it in your deck folder. We’ll keep up.</span></p></div></div> : messages.map((message, index) => <div key={index} className={`message ${message.role}`}><span>{message.role === 'user' ? 'YOU' : 'WETMYTT'}</span>{message.role === 'assistant' ? <MarkdownMessage>{message.content}</MarkdownMessage> : <p>{message.content}</p>}</div>)}
-          {busy && <div className="activity" role="status"><span />{activity}</div>}<div ref={bottom} />
-        </div>
-        <form className="composer" onSubmit={event => { event.preventDefault(); void send(); }}><textarea aria-label="Message your creative partner" placeholder={deck.root ? 'What’s your big idea?' : 'Open a deck to start creating…'} value={draft} disabled={!deck.root || busy || loadingChat} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} /><div><button type="button" className="model-select" disabled={!settingsLoaded} onClick={() => openSettings('connection')}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}<span>⌄</span></button><div className="composer-actions"><ContextMeter used={contextUsed} limit={contextLimit} connected={Boolean(settings.model)} />{busy ? <button type="button" className="send-button" aria-label="Stop generation" onClick={() => void window.wetmytt?.cancel()}><Icon name="stop" size={16} /></button> : <button className="send-button" aria-label="Send message" disabled={!deck.root || loadingChat || !draft.trim()}><Icon name="send" size={18} /></button>}</div></div></form>
-        <div className="chat-footnote">Your talk. Your files. Your call.</div>
+        <ChatThread key={`${deck.root}:${deck.generation}:${chatSession.current}`} messages={messages} busy={busy} loading={loadingChat} disabled={!deck.root || !desktop} connected={Boolean(settings.model)}
+          onSend={send} onCancel={async () => { await window.wetmytt?.cancel(); }} onConnect={() => openSettings('connection')}
+          intro={<div className="chat-intro"><span className="spark-tile"><Icon name="spark" size={25} /></span><h2>You bring the idea.<br />We’ll bring the slides.</h2><p>Find your opening. Cut the waffle. Land the ending. Tell your AI what you’re thinking.</p><div className="suggestions">{['Give this deck a stronger opening', 'Make the slides more concise', 'Give this deck a bold stage presence'].map((text, i) => <button key={text} disabled={!deck.root || busy || loadingChat} onClick={() => void send(text)}><span>{['↗', '≋', '◐'][i]}</span>{text}<span>↗</span></button>)}</div><div className="agent-note"><Icon name="terminal" size={17} /><p>Already have an agent?<br /><span>Run it in your deck folder. We’ll keep up.</span></p></div></div>}
+          footer={<div className="composer-model"><button type="button" className="model-select" disabled={!settingsLoaded} onClick={() => openSettings('connection')}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}<span>⌄</span></button><ContextMeter used={contextUsed} limit={contextLimit} connected={Boolean(settings.model)} /></div>}
+        />
         </div>
       </aside>
     </div>

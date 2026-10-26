@@ -4,6 +4,19 @@ import { randomUUID } from 'node:crypto';
 import { normalizeUsage } from '../shared/ai.js';
 
 const validId = id => typeof id === 'string' && /^[0-9a-f-]{36}$/.test(id);
+const toolStatuses = ['pending', 'running', 'completed', 'failed', 'cancelled'];
+const validTool = tool => tool && typeof tool.id === 'string' && typeof tool.name === 'string' && typeof tool.argsText === 'string' && toolStatuses.includes(tool.status) && (tool.result === undefined || typeof tool.result === 'string');
+function validMessage(message) {
+  if (!message || !['user', 'assistant'].includes(message.role) || typeof message.content !== 'string') return false;
+  if (message.id !== undefined && typeof message.id !== 'string') return false;
+  if (message.requestId !== undefined && typeof message.requestId !== 'string') return false;
+  if (message.createdAt !== undefined && (typeof message.createdAt !== 'string' || !Number.isFinite(Date.parse(message.createdAt)))) return false;
+  if (message.activity !== undefined && (message.activity !== true || message.role !== 'assistant')) return false;
+  return message.tools === undefined || (message.activity === true && Array.isArray(message.tools) && message.tools.every(validTool));
+}
+// Keep expanded tool details useful without allowing large reads to overwhelm
+// the local conversation file. Full results still go to the model unchanged.
+const toolDetail = text => text.length > 24000 ? text.slice(0, 24000) + '\n[Display truncated to 24,000 characters.]' : text;
 
 async function directory(root, create = false) {
   let folder = await fs.realpath(root);
@@ -22,7 +35,7 @@ export async function loadChat(root, id) {
   const stat = await fs.lstat(file);
   if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 20_000_000) throw new Error('Invalid or oversized conversation file.');
   const value = JSON.parse(await fs.readFile(file, 'utf8'));
-  if (value.version !== 1 || value.id !== id || typeof value.title !== 'string' || typeof value.updatedAt !== 'string' || !Array.isArray(value.messages) || !Array.isArray(value.requests) || value.messages.some(m => !m || !['user', 'assistant'].includes(m.role) || typeof m.content !== 'string')) throw new Error('Invalid conversation file.');
+  if (value.version !== 1 || value.id !== id || typeof value.title !== 'string' || typeof value.updatedAt !== 'string' || !Array.isArray(value.messages) || !Array.isArray(value.requests) || !value.messages.every(validMessage)) throw new Error('Invalid conversation file.');
   return value;
 }
 
@@ -54,33 +67,56 @@ async function saveChat(root, conversation) {
   } finally { await fs.unlink(temporary).catch(() => {}); }
 }
 
-export async function runConversation({ root, id, text, settings, signal, onActivity, chat }) {
+export async function runConversation({ root, id, text, settings, signal, onActivity, onConversation = () => {}, chat }) {
   if (typeof text !== 'string' || !text.trim() || text.length > 50000) throw new Error('Enter a message of up to 50,000 characters.');
   const now = new Date().toISOString();
   const conversation = id ? await loadChat(root, id) : { version: 1, id: randomUUID(), title: text.trim().replace(/\s+/g, ' ').slice(0, 80), createdAt: now, updatedAt: now, messages: [], requests: [] };
   const request = { id: randomUUID(), provider: settings.provider, model: settings.model, baseUrl: settings.baseUrl, startedAt: now, status: 'running' };
-  conversation.messages.push({ role: 'user', content: text.trim(), createdAt: now, requestId: request.id });
+  conversation.messages.push({ id: randomUUID(), role: 'user', content: text.trim(), createdAt: now, requestId: request.id });
   conversation.requests.push(request);
   conversation.updatedAt = now;
   // Persist the prompt before contacting the provider, including on failure or Stop.
   await saveChat(root, conversation);
+  onConversation(conversation);
+  // Preserve the existing model context: tool activity is a display transcript,
+  // not an extra assistant answer or a replay of tool executions.
+  const history = conversation.messages.filter(message => !message.activity).slice(-100).map(({ role, content }) => ({ role, content }));
+  const onEvent = async event => {
+    if (event.type === 'assistant') {
+      conversation.messages.push({ id: randomUUID(), role: 'assistant', activity: true, content: event.content, tools: event.tools.map(tool => ({ ...tool, argsText: toolDetail(tool.argsText) })), createdAt: new Date().toISOString(), requestId: request.id });
+    } else if (event.type === 'tool') {
+      const tool = conversation.messages.at(-1)?.tools?.find(tool => tool.id === event.id);
+      if (!tool) throw new Error('Tool activity has no matching call.');
+      tool.status = event.status;
+      if (event.result !== undefined) tool.result = toolDetail(event.result);
+    }
+    await saveChat(root, conversation);
+    onConversation(conversation);
+  };
   let failure;
   try {
-    const result = await chat({ root, settings, history: conversation.messages.slice(-100).map(({ role, content }) => ({ role, content })), signal, onActivity });
+    const result = await chat({ root, settings, history, signal, onActivity, onEvent });
     const content = typeof result === 'string' ? result : result?.content;
     const usage = typeof result === 'string' ? null : normalizeUsage(result?.usage);
     signal.throwIfAborted();
     if (usage) request.usage = usage;
-    conversation.messages.push({ role: 'assistant', content, createdAt: new Date().toISOString(), requestId: request.id });
+    conversation.messages.push({ id: randomUUID(), role: 'assistant', content, createdAt: new Date().toISOString(), requestId: request.id });
     request.status = 'completed';
   } catch (error) {
     request.status = signal.aborted ? 'cancelled' : 'failed';
     // Provider errors can contain sensitive endpoint details; keep them out of logs.
     failure = signal.aborted ? 'Generation stopped.' : error.message;
   } finally {
+    for (const message of conversation.messages) {
+      if (message.requestId !== request.id) continue;
+      for (const tool of message.tools || []) {
+        if (['pending', 'running'].includes(tool.status)) tool.status = signal.aborted ? 'cancelled' : 'failed';
+      }
+    }
     request.finishedAt = new Date().toISOString();
     conversation.updatedAt = request.finishedAt;
     await saveChat(root, conversation);
+    onConversation(conversation);
   }
   return { conversation, error: failure };
 }

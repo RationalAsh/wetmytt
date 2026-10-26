@@ -1,7 +1,9 @@
 export type Deck = { root?: string; generation?: number; url?: string; name?: string | null; branch?: string | null };
 export type Provider = 'openrouter' | 'openai' | 'claude' | 'ollama';
 export type Settings = { provider: Provider; baseUrl: string; model: string; hasKey: boolean; maxTurns: number };
-export type Message = { role: 'user' | 'assistant'; content: string };
+export type ToolCall = { id: string; name: string; argsText: string; result?: string; status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' };
+export type Message = { id?: string; role: 'user' | 'assistant'; content: string; activity?: boolean; tools?: ToolCall[]; requestId?: string; createdAt?: string };
+export type ConversationEvent = { root: string; generation: number; runId: string; conversation: Conversation };
 export type TokenUsage = { inputTokens: number; outputTokens: number };
 export type ConversationSummary = { id: string; title: string; updatedAt: string; provider?: Provider; model?: string };
 export type Conversation = { id: string; title: string; messages: Message[]; requests: { provider: Provider; model: string; status: string; usage?: TokenUsage }[] };
@@ -30,7 +32,7 @@ declare global {
       saveSettings(value: { provider: Provider; baseUrl: string; model: string; apiKey?: string }): Promise<{ persistedKey: boolean }>;
       chats(root: string): Promise<ConversationSummary[]>;
       loadChat(root: string, id: string): Promise<Conversation>;
-      chat(root: string, id: string | null, text: string): Promise<{ conversation: Conversation; error?: string }>;
+      chat(root: string, id: string | null, text: string, runId?: string): Promise<{ conversation: Conversation; error?: string }>;
       context(): Promise<number | null>;
       cancel(): Promise<void>;
       present(value: boolean): Promise<void>;

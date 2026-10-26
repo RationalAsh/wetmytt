@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld('wetmytt', {
   importAssets: (root, files) => ipcRenderer.invoke('deck:import-assets', root, files.map(file => webUtils.getPathForFile(file))),
   chooseAssets: invoke('deck:choose-assets'),
   on: (name, callback) => {
-    if (!['deck:changed', 'ai:activity', 'deck:fullscreen', 'recent:changed', 'recent:error'].includes(name)) return () => {};
+    if (!['deck:changed', 'ai:conversation', 'deck:fullscreen', 'recent:changed', 'recent:error'].includes(name)) return () => {};
     const listener = (_event, value) => callback(value);
     ipcRenderer.on(name, listener);
     return () => ipcRenderer.removeListener(name, listener);

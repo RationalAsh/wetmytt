@@ -20,12 +20,14 @@
     "test:thumbnails": "node --test tests/thumbnails.integration.js",
     "test:recent": "node --test tests/recent.integration.js",
     "test:settings": "node --test tests/settings.integration.js",
+    "test:chat": "node --test tests/chat.integration.js",
     "test:edit": "node --test tests/content.integration.js",
     "typecheck": "tsc --noEmit",
     "test:pdf": "node --test tests/pdf.integration.js",
     "test:package": "node --test tests/packaged-tools.integration.js"
   },
   "dependencies": {
+    "@assistant-ui/react": "^0.15.31",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "cheerio": "^1.2.0",
     "chokidar": "^4.0.3",

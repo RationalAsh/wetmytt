@@ -282,6 +282,29 @@ kbd { display: inline-flex; align-items: center; justify-content: center; border
 .sidebar-tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
 .chat-panel { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .chat-panel[hidden], .content-editor[hidden] { display: none; }
+.assistant-thread { position: relative; display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.assistant-thread .chat-messages { min-height: 0; overscroll-behavior: contain; }
+.composer-model { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; flex: 1; margin-right: 8px; }
+.composer-model .model-select { min-width: 0; }
+.tool-group { margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; font-size: 11px; overflow: hidden; }
+.tool-group > summary, .tool-call > summary { padding: 10px; cursor: pointer; color: var(--accent); overflow-wrap: anywhere; }
+.tool-group > summary { background: var(--tint); }
+.tool-call + .tool-call { border-top: 1px solid var(--line); }
+.tool-name { font-weight: 600; }
+.tool-status { float: right; font-size: 10px; margin-left: 8px; color: var(--muted); }
+.tool-running .tool-status { color: var(--accent); animation: pulse 1s infinite; }
+.tool-failed .tool-status, .tool-cancelled .tool-status { color: #a53b31; }
+.tool-content { padding: 0 10px 10px; }
+.tool-content strong { font-size: 10px; color: var(--muted); }
+.tool-content pre { max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 9px; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; font: 10px/1.6 ui-monospace, monospace; }
+.tool-detail { padding: 0 10px 10px; overflow-wrap: anywhere; color: var(--muted); }
+.tool-group summary:focus-visible, .tool-call summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.message-actions { margin-top: 8px; }
+.message-actions button { font-size: 10px; color: var(--muted); padding: 4px 0; }
+.copied-label, [data-copied] .copy-label { display: none; }
+[data-copied] .copied-label { display: inline; }
+.scroll-to-bottom { position: absolute; bottom: 165px; align-self: center; background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: 7px 12px; color: var(--accent); font-size: 11px; box-shadow: 0 3px 12px #24163f14; }
+.scroll-to-bottom:disabled { display: none; }
 .content-editor { flex: 1; min-height: 0; overflow: auto; padding: 22px 20px; }
 .edit-intro strong { font-size: 15px; }
 .edit-intro p, .edit-empty, .edit-status { font-size: 11px; line-height: 1.7; color: var(--muted); }
