@@ -28,6 +28,23 @@ app.whenReady().then(async () => {
     await js(`document.querySelector('.top-actions [aria-label="Settings"]').click()`);
     await waitFor(() => js(`Boolean(document.querySelector('#max-turns'))`));
     assert.equal(await js(`document.querySelector('#max-turns').value`), phase === 'save' ? '300' : '72');
+    assert.equal((await js('window.wetmytt.updateState()')).phase, 'disabled');
+    assert.equal((await js('window.wetmytt.checkForUpdates()')).phase, 'disabled');
+    await js('window.wetmytt.restartToUpdate()');
+    if (phase === 'save') {
+      // Exercise the real preload subscription and UI without contacting GitHub
+      // or installing an update in this unpackaged test app.
+      window.webContents.send('updates:changed', { phase: 'downloading', version: '0.4.0' });
+      await waitFor(() => js(`document.querySelector('.update-badge')?.textContent.includes('Downloading')`));
+      assert.equal(await js(`document.querySelector('.update-badge button') === null`), true);
+      window.webContents.send('updates:changed', { phase: 'downloaded', version: '0.4.0' });
+      await waitFor(() => js(`document.querySelector('.update-badge button')?.textContent === 'Restart to Update'`));
+      assert.equal(await js(`document.querySelector('.app-updates button').textContent.trim()`), 'Restart to Update');
+      window.webContents.send('updates:changed', { phase: 'error', version: '0.4.0', message: 'Check your connection and try again.' });
+      await waitFor(() => js(`document.querySelector('.update-badge button')?.textContent.includes('Retry')`));
+      window.webContents.send('updates:changed', { phase: 'disabled' });
+      await waitFor(() => js(`document.querySelector('.update-badge') === null`));
+    }
     window.setMinimumSize(480, 600);
     for (const [width, height] of [[1100, 760], [580, 720]]) {
       window.setSize(width, height);

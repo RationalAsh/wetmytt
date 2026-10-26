@@ -29,6 +29,11 @@ button.selected { background: var(--tint); color: var(--accent); }
 .brand-mark::before { content: ''; position: absolute; width: 40px; height: 42px; top: -10px; left: -3px; background: linear-gradient(180deg, #ffffff05, #ffffff65); clip-path: polygon(50% 0, 100% 100%, 0 100%); transform: rotate(-25deg); }
 .brand-mark > span { position: absolute; width: 22px; height: 7px; border-radius: 50%; background: var(--lime); left: 6px; bottom: 6px; transform: rotate(-12deg); }
 .release-badge { margin-left: 6px; border: 1px solid var(--line); color: var(--muted); border-radius: 4px; padding: 4px 5px; font-size: 9px; letter-spacing: .3px; white-space: nowrap; }
+.update-badge { position: absolute; top: 72px; right: 28px; z-index: 5; font-size: 10px; color: var(--accent); background: var(--tint); border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px; }
+.update-badge button { padding: 0; font-size: inherit; }
+.app.presenting .update-badge { display: none; }
+.settings-info.app-updates { padding: 0 0 18px; margin-bottom: 24px; border-bottom: 1px solid var(--line); }
+.app-updates button { border: 1px solid var(--line); padding: 7px 10px; font-size: 11px; }
 .file-actions { display: flex; border-left: 1px solid var(--line); padding-left: 18px; gap: 4px; }
 .file-actions button { padding: 8px; font-size: 12px; color: #62596f; white-space: nowrap; }
 .top-actions { margin-left: auto; display: flex; gap: 16px; align-items: center; }

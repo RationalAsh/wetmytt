@@ -1,5 +1,6 @@
 export type Deck = { root?: string; generation?: number; contentRevision?: number; contentSettled?: boolean; url?: string; name?: string | null; branch?: string | null };
 export type Provider = 'openrouter' | 'openai' | 'claude' | 'ollama';
+export type UpdateStatus = { phase: 'disabled' | 'idle' | 'checking' | 'current' | 'downloading' | 'downloaded' | 'error'; version?: string; message?: string };
 export type Settings = { provider: Provider; baseUrl: string; model: string; hasKey: boolean; maxTurns: number };
 export type ToolCall = { id: string; name: string; argsText: string; result?: string; status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' };
 export type Message = { id?: string; role: 'user' | 'assistant'; content: string; activity?: boolean; tools?: ToolCall[]; requestId?: string; createdAt?: string };
@@ -10,6 +11,9 @@ export type Conversation = { id: string; title: string; messages: Message[]; req
 declare global {
   interface Window {
     wetmytt?: {
+      updateState(): Promise<UpdateStatus>;
+      checkForUpdates(): Promise<UpdateStatus>;
+      restartToUpdate(): Promise<void>;
       connectCodex(): Promise<{ opened: boolean; error?: string }>;
       connectClaude(): Promise<{ opened: boolean; filename: string; error?: string }>;
       recentFolders(): Promise<string[]>;

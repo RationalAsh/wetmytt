@@ -46,7 +46,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run typecheck
-      - name: Build, sign, and notarize DMG
+      - name: Build, sign, and notarize DMG and update ZIP
         run: npm run dist:mac:${{ matrix.arch }}
         env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
@@ -75,10 +75,16 @@ jobs:
           if [ "$(node -p process.arch)" = '${{ matrix.arch }}' ]; then
             WETMYTT_PACKAGED_APP="$app" npm run test:package
           fi
+      - name: Preserve architecture update metadata
+        run: mv dist/latest-mac.yml dist/latest-mac-${{ matrix.arch }}.yml
       - uses: actions/upload-artifact@v4
         with:
           name: mac-${{ matrix.arch }}
-          path: dist/*.dmg
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.blockmap
+            dist/latest-mac-*.yml
           if-no-files-found: error
 
   release:
@@ -89,19 +95,26 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
       - uses: actions/download-artifact@v4
         with:
           pattern: mac-*
           merge-multiple: true
           path: dist
-      - name: Create draft release with both DMGs
+      - name: Merge and verify update manifests
+        run: node scripts/merge-mac-updates.js dist
+      - name: Create draft release with installers and auto-update assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd dist
-          sha256sum *.dmg > SHA256SUMS.txt
+          sha256sum *.dmg *.zip *.blockmap latest-mac.yml > SHA256SUMS.txt
           cd ..
-          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/SHA256SUMS.txt \
+          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/*.blockmap dist/latest-mac.yml dist/SHA256SUMS.txt \
             --verify-tag --draft \
             --title "Welcome to My TED Talk $GITHUB_REF_NAME" \
             --notes-file "docs/release-notes/$GITHUB_REF_NAME.md"

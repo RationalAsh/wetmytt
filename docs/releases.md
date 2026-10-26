@@ -7,7 +7,7 @@ The initial release is **0.1.0**, tagged **v0.1.0**. Both downloads belong to th
 | Apple Silicon (M1 and later) | `wetmytt-0.1.0-mac-arm64.dmg` |
 | Intel | `wetmytt-0.1.0-mac-x64.dmg` |
 
-The app includes Electron and the built interface. Users do not need Node.js or npm. Drag the app from the DMG into Applications before launching it. Auto-update is not configured; install later releases manually.
+The app includes Electron and the built interface. Users do not need Node.js or npm. Drag the app from the DMG into Applications before launching it. Installed production builds check public GitHub Releases at startup and every four hours, then download updates in the background. Settings includes **Check for Updates**. A small badge appears while downloading; **Restart to Update** becomes available after macOS verifies and stages the update. Updates also apply after a normal quit and relaunch. Development builds never check for updates.
 
 Both macOS builds use the Codex plugin artwork for the app's Finder and Dock icon. The source is `electron/assets/icon.svg`; electron-builder converts the committed 1024×1024 `build/icon.png` into the app bundle's macOS icon before signing. After changing the SVG, regenerate the PNG with ImageMagick before committing:
 
@@ -85,7 +85,7 @@ git tag -a v0.1.0 -m "Welcome to My TED Talk 0.1.0"
 git push origin v0.1.0
 ```
 
-The tag must match the package version. `.github/workflows/release.yml` builds both architectures, signs and notarizes them, and creates a **draft** release with both DMGs, `SHA256SUMS.txt`, and the text in `docs/release-notes/v0.1.0.md`. Only the final release job has repository write permission; it uses GitHub's automatically provided token, so no personal access token is needed.
+The tag must match the package version. `.github/workflows/release.yml` builds both architectures, signs and notarizes them, and creates a **draft** release with both DMGs, both signed app ZIPs, blockmaps, a merged `latest-mac.yml`, `SHA256SUMS.txt`, and the text in `docs/release-notes/v0.1.0.md`. Only the final release job has repository write permission; it uses GitHub's automatically provided token, so no personal access token is needed.
 
 Review the draft in [Releases](https://github.com/RationalAsh/wetmytt/releases), then publish it when ready. A public repository's release downloads are public; private repository downloads require repository access. GitHub's automatically generated source archives contain source code, not an installed app.
 
@@ -116,7 +116,7 @@ Once the certificate and secrets are configured, future releases use the same wo
    git push origin v0.1.1
    ```
 
-7. Wait for **macOS release** to finish. Check the draft contains both architecture DMGs, release notes, and `SHA256SUMS.txt`. Install and check each architecture on its matching Mac if not already done on this commit.
+7. Wait for **macOS release** to finish. Check the draft contains both architecture DMGs and ZIPs, blockmaps, `latest-mac.yml`, release notes, and `SHA256SUMS.txt`. Install and check each architecture on its matching Mac if not already done on this commit.
 8. Publish the draft in GitHub Releases. Share the release page so users can choose their Mac's download.
 
 Use a new version for subsequent changes after publishing. Reuse the existing signing setup until credentials expire or are revoked; if notarization authentication fails, update the app-specific-password secret. Renew the Developer ID certificate before it expires, export the new certificate with its private key, and replace the two `MAC_CSC_*` secrets.
@@ -143,3 +143,52 @@ Run `npm run test:package` after packaging on the matching architecture. It load
 the shared tools from the actual ASAR and creates an initial commit with system
 Git removed from `PATH`. Set `WETMYTT_PACKAGED_APP` to the `.app` path when testing
 an app outside `dist/mac-arm64/` or `dist/mac/`.
+
+
+## Test automatic updates with two successive releases
+
+The first release must already contain the updater. Versions released before
+this integration require one manual DMG installation. Use two increasing stable
+versions (for example `0.3.1` and `0.3.2`); do not reuse a published version or
+mark either release as a prerelease. No GitHub token is shipped in the app.
+The repository and release assets must be public.
+
+1. Set the first version with `npm version 0.3.1 --no-git-tag-version`, add
+   `docs/release-notes/v0.3.1.md`, validate, commit, and push tag `v0.3.1` using
+   the release procedure above. Review and publish the draft. Install its DMG
+   into `/Applications` and launch from there, outside the mounted DMG.
+2. Open Settings and select **Check for Updates**. It should report that the
+   app is current. Rapid repeated clicks must not start overlapping checks.
+   Checks are throttled for 30 seconds, including after an error.
+3. Make a visible change and release `0.3.2` the same way. Before publishing,
+   verify that the draft contains both `wetmytt-0.3.2-mac-arm64.zip` and
+   `wetmytt-0.3.2-mac-x64.zip`, the DMGs, blockmaps, and `latest-mac.yml`.
+   The manifest's `files` must reference both architectures with SHA-512 hashes
+   and sizes. The workflow merges the matrix manifests and verifies each
+   referenced file's checksum and size before creating the draft. Keep every
+   artifact's filename intact. Drafts are invisible to installed clients.
+4. Publish the second draft as the latest stable release. In the first app,
+   use **Check for Updates** (or relaunch to test the startup check, or leave
+   it running for the four-hour check). Expect the small download badge,
+   then **Restart to Update**. Continue using the app during the download;
+   it must not restart itself. Choose Restart and confirm the version badge
+   and visible change now match the second release.
+5. Reinstall the first version with the app closed to test the other path.
+   Let it download the second version, then quit normally with Cmd+Q without
+   selecting Restart. Launch again and confirm the second version is installed.
+   Closing the last window on macOS leaves the app running; use Quit to test
+   installation. Also confirm reopening a closed window retains update status.
+6. Repeat on Intel and Apple Silicon. Test offline startup/manual checking:
+   Settings should show a quiet connection error and the rest of the app must
+   work. Reconnect, wait at least 30 seconds, and check again. Disconnect during
+   a download to test retry; a failed download must never enable Restart.
+   With an already staged update, quitting and installation should work offline.
+7. Run `npm run dev` or `npm start` from the source checkout and verify Settings
+   explains updates require the installed macOS app and no release requests occur.
+
+The feed is configured in `electron-builder.yml`; electron-builder embeds
+`app-update.yml` in the app. Do not use `setFeedURL`, bundle a GitHub token, or
+upload only the DMGs. The updater validates download hashes and macOS verifies
+the signed app through Squirrel.Mac before Restart is shown. Keep the app ID
+and signing identity consistent between releases. See the
+[electron-builder auto-update guide](https://www.electron.build/docs/features/auto-update/).

@@ -11,6 +11,11 @@ extraResources:
   - from: docs/licenses/git-COPYING
     to: git/COPYING
 forceCodeSigning: true
+publish:
+  provider: github
+  owner: RationalAsh
+  repo: wetmytt
+  releaseType: release
 directories:
   output: dist
 files:
@@ -25,6 +30,8 @@ mac:
   category: public.app-category.productivity
   target:
     - target: dmg
+      arch: [arm64, x64]
+    - target: zip
       arch: [arm64, x64]
   artifactName: wetmytt-${version}-mac-${arch}.${ext}
   hardenedRuntime: true

@@ -1,4 +1,6 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, Menu, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell, Menu, safeStorage, autoUpdater as nativeUpdater } from 'electron';
+import electronUpdater from 'electron-updater';
+import { createUpdates } from './updates.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -108,6 +110,16 @@ function handle(channel, callback) {
 // module scope would deadlock startup and leave the Dock icon bouncing.
 if (!app.requestSingleInstanceLock()) app.quit();
 else app.whenReady().then(async () => {
+let quitting = false, cleanupPromise;
+const updates = createUpdates({
+  updater: electronUpdater.autoUpdater, nativeUpdater,
+  enabled: app.isPackaged && process.platform === 'darwin' && !process.env.WETMYTT_DEV_URL && process.env.NODE_ENV !== 'development',
+  notify: status => notify('updates:changed', status),
+  beforeRestart: () => { quitting = true; return cleanup(); },
+});
+handle('updates:state', updates.state);
+handle('updates:check', updates.check);
+handle('updates:restart', updates.restart);
 recentFolders = createRecentFolders(path.join(app.getPath('userData'), 'recent-folders.json'));
 await recentFolders.load().catch(error => console.error('Could not load recent folders:', error.message));
 handle('recent:list', () => recentFolders.list());
@@ -328,16 +340,22 @@ Menu.setApplicationMenu(Menu.buildFromTemplate([
 }
 buildApplicationMenu();
 await createWindow();
+updates.start();
 app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); } });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 app.on('window-all-closed', () => { pendingChat?.abort(); if (process.platform !== 'darwin') app.quit(); });
-let quitting = false;
+function cleanup() {
+  if (cleanupPromise) return cleanupPromise;
+  updates.stop();
+  pendingChat?.abort(); generation++; thumbnailOperations.abort();
+  projectOperations.abort();
+  cleanupPromise = Promise.allSettled([thumbnailRenderer?.close(), mcp?.close(), watcher?.close(), deckServer?.close(), shellServer?.close()]);
+  return cleanupPromise;
+}
 app.on('before-quit', event => {
   if (quitting) return;
   event.preventDefault(); quitting = true;
-  pendingChat?.abort(); generation++; thumbnailOperations.abort();
-  projectOperations.abort();
-  Promise.allSettled([thumbnailRenderer?.close(), mcp?.close(), watcher?.close(), deckServer?.close(), shellServer?.close()]).finally(() => app.quit());
+  cleanup().finally(() => app.quit());
 });
 }).catch(error => {
   console.error(error);

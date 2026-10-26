@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Provider, Settings } from './bridge';
+import { AppUpdates } from './app-updates';
 import { DEFAULT_MAX_TURNS, MAX_TURNS, normalizeMaxTurns, normalizeSettings, providers } from '../shared/ai.js';
 
 export function AISettings({ saved, desktop, initialSection = 'chat', onClose, onSaved }: { saved: Settings; desktop: boolean; initialSection?: 'chat' | 'connection'; onClose(): void; onSaved(settings: Settings, persistedKey: boolean): void }) {
@@ -68,6 +69,7 @@ export function AISettings({ saved, desktop, initialSection = 'chat', onClose, o
         <button type="button" data-initial-focus={initialSection === 'connection' || undefined} aria-current={section === 'connection' ? 'page' : undefined} disabled={saving} onClick={() => { setSection('connection'); setError(''); }}><span>AI connection</span><small>Provider &amp; model</small></button>
       </nav>
       <div className="settings-content">
+      <AppUpdates />
       <div className="settings-section-heading"><h3>{section === 'chat' ? 'Chat preferences' : 'Bring your own AI.'}</h3><p>{section === 'chat' ? 'Choose how much your AI can do in a single request.' : 'Connect a provider and a model that supports tool calling.'}</p></div>
       <form onSubmit={save}>
         {section === 'chat' ? <fieldset disabled={saving} className="connection-fields">
