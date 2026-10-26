@@ -50,6 +50,8 @@ function ContextMeter({ used, limit, connected }: { used: number; limit: number 
 export default function Home() {
   const [deck, setDeck] = useState<Deck>({});
   const [revision, setRevision] = useState(0);
+  const [previewRevision, setPreviewRevision] = useState<number | undefined>(undefined);
+  const [slideIds, setSlideIds] = useState<string[]>([]);
   const [sidebar, setSidebar] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<'chat' | 'edit'>('chat');
   const [fields, setFields] = useState<TextField[]>([]);
@@ -145,6 +147,11 @@ export default function Home() {
     catch (err) { setError(String(err)); }
   }, []);
   const receiveDeck = useCallback((next: Deck) => {
+    const current = deckRef.current;
+    // Metadata lookups can complete after newer watcher notifications.
+    if ((next.generation ?? -1) < (current.generation ?? -1) ||
+      (next.generation === current.generation && ((next.contentRevision ?? -1) < (current.contentRevision ?? -1) ||
+        (next.contentRevision === current.contentRevision && current.contentSettled === true && next.contentSettled === false)))) return;
     if (deckRef.current.root !== next.root || deckRef.current.generation !== next.generation) {
       session.current++;
       setFields([]); setSelection(null);
@@ -173,6 +180,7 @@ export default function Home() {
     // Wait for the reloaded preview's slide count before requesting thumbnails;
     // the previous count can include slides that were just removed.
     setCount(0);
+    setPreviewRevision(next.contentRevision);
     deckRef.current = next; setDeck(next); setRevision(value => value + 1);
   }, [clearDrag]);
 
@@ -182,7 +190,11 @@ export default function Home() {
     api.state().then(receiveDeck).catch(err => setError(String(err)));
     api.recentFolders().then(setRecentFolders).catch(err => setError(String(err)));
     api.settings().then(setSettings).catch(err => setError(String(err))).finally(() => setSettingsLoaded(true));
-    const unsubscribers = [api.on('recent:changed', setRecentFolders), api.on('recent:error', setError), api.on('deck:changed', receiveDeck), api.on('ai:conversation', (event: ConversationEvent) => {
+    const unsubscribers = [api.on('recent:changed', setRecentFolders), api.on('recent:error', setError), api.on('deck:invalidated', (next: Deck) => {
+      if (next.root !== deckRef.current.root || next.generation !== deckRef.current.generation) return;
+      const invalid = { ...deckRef.current, ...next };
+      deckRef.current = invalid; setDeck(invalid); setCount(0); setSlideIds([]);
+    }), api.on('deck:changed', receiveDeck), api.on('ai:conversation', (event: ConversationEvent) => {
       if (event.runId !== activeRun.current || event.root !== deckRef.current.root || event.generation !== deckRef.current.generation) return;
       setConversationId(event.conversation.id); setMessages(event.conversation.messages);
     }), api.on('deck:fullscreen', setPresenting)];
@@ -201,8 +213,8 @@ export default function Home() {
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       if (!deckRef.current.url || event.source !== iframe.current?.contentWindow || event.origin !== new URL(deckRef.current.url).origin) return;
-      if (event.data?.type === 'wetmytt:state' && Number.isInteger(event.data.index) && Number.isInteger(event.data.count)) {
-        slideRef.current = event.data.index; setSlide(event.data.index); setCount(event.data.count);
+      if (event.data?.type === 'wetmytt:state' && deckRef.current.contentSettled !== false && event.data.revision === String(deckRef.current.contentRevision) && Array.isArray(event.data.slides) && event.data.slides.every((id: unknown) => typeof id === 'string') && Number.isInteger(event.data.index) && Number.isInteger(event.data.count)) {
+        slideRef.current = event.data.index; setSlide(event.data.index); setCount(event.data.count); setSlideIds(event.data.slides);
       }
       if (event.data?.type === 'wetmytt:select' && (event.data.path === null || typeof event.data.path === 'string')) {
         setSelection({ path: event.data.path, text: typeof event.data.text === 'string' ? event.data.text : '', token: Date.now() });
@@ -319,9 +331,9 @@ export default function Home() {
     {dragging && deck.root && <div className="asset-drop-overlay"><div><Icon name="folder" size={32} /><strong>Drop files to add assets</strong><span>Copy to {deck.name}/assets/</span></div></div>}
     <div className="workspace">
       <section className="editor">
-        <div className={deck.root ? "deck-heading has-thumbnails" : "deck-heading"}><div className="deck-title"><span className="eyebrow">YOUR PRESENTATION</span><h1 title={deck.name || undefined}>{deck.name || 'Got a point? Make it.'}</h1></div>{deck.root && <SlideThumbnails key={`${deck.root}:${deck.generation}:${revision}`} deck={deck} count={count} slide={slide} onNavigate={navigate} />}</div>
+        <div className={deck.root ? "deck-heading has-thumbnails" : "deck-heading"}><div className="deck-title"><span className="eyebrow">YOUR PRESENTATION</span><h1 title={deck.name || undefined}>{deck.name || 'Got a point? Make it.'}</h1></div>{deck.root && <SlideThumbnails key={`${deck.root}:${deck.generation}:${deck.contentRevision}`} deck={deck} ids={slideIds} count={count} slide={slide} onNavigate={navigate} />}</div>
         <div className="canvas-area">
-          {deck.url ? <div className="slide-frame"><iframe ref={iframe} title="Presentation slide" src={`${deck.url}index.html?revision=${revision}`} sandbox="allow-scripts allow-same-origin" onLoad={() => { navigate(slideRef.current); configurePreview(); }} /></div> : <div className="welcome-card">
+          {deck.url ? <div className="slide-frame"><iframe ref={iframe} title="Presentation slide" src={`${deck.url}index.html?revision=${revision}&contentRevision=${previewRevision}`} sandbox="allow-scripts allow-same-origin" onLoad={() => { navigate(slideRef.current); configurePreview(); }} /></div> : <div className="welcome-card">
             <div className="welcome-spotlight" aria-hidden="true" /><span className="welcome-tag"><span />THE FLOOR IS YOURS</span>
             <h2>Okay,<br /><em>hear me out.</em></h2>
             <p>Big opinions. Questionable theories. Your next great idea.<br />Give them a few slides. Make your point.</p>

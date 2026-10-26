@@ -19,5 +19,7 @@ test('thumbnail navigation, scrolling, caching, refresh and project lifecycle in
   t.after(() => { if (child.exitCode === null) child.kill(); });
   const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', resolve); });
   assert.equal(code, 0, log);
+  assert.match(log, /Thumbnail integration passed\./, 'fixture must finish all assertions');
+  if (process.env.WETMYTT_THUMBNAIL_TRACE) console.log(log);
   assert.doesNotMatch(log, /handler for 'deck:thumbnails':.*AbortError/, 'expected cancellations must not be logged as errors');
 });

@@ -1,4 +1,4 @@
-export type Deck = { root?: string; generation?: number; url?: string; name?: string | null; branch?: string | null };
+export type Deck = { root?: string; generation?: number; contentRevision?: number; contentSettled?: boolean; url?: string; name?: string | null; branch?: string | null };
 export type Provider = 'openrouter' | 'openai' | 'claude' | 'ollama';
 export type Settings = { provider: Provider; baseUrl: string; model: string; hasKey: boolean; maxTurns: number };
 export type ToolCall = { id: string; name: string; argsText: string; result?: string; status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' };
@@ -17,7 +17,7 @@ declare global {
       removeRecent(folder: string): Promise<void>;
       clearRecent(): Promise<void>;
       state(): Promise<Deck>;
-      thumbnails(root: string, generation: number, indices: number[]): Promise<{ index: number; url: string }[] | null>;
+      thumbnails(root: string, generation: number, revision: number, slides: { index: number; id: string }[]): Promise<{ root: string; generation: number; revision: number; index: number; id: string; url?: string; error?: string }[] | null>;
       readContent(root: string, generation: number): Promise<string>;
       saveContent(root: string, generation: number, source: string, pointer: string, text: string): Promise<string>;
       open(): Promise<Deck | null>;

@@ -1,6 +1,6 @@
 # Reliable slide thumbnails
 
-Status: proposed; implementation deferred.
+Status: implemented. See [the rendering contract](thumbnail-rendering.md) for deck hooks and diagnostics. Immutable snapshots and dependency-based invalidation remain follow-up work.
 
 ## Goal and decision
 

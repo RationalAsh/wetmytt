@@ -10,7 +10,7 @@ import { DEFAULT_MAX_TURNS, inferProvider, normalizeMaxTurns, normalizeSettings 
 import { createDeck } from './decks.js';
 import { runTool } from './tools.js';
 import { loadMcpToken, startMcpServer } from './mcp.js';
-import { screenshotSlide, screenshotSlides } from './screenshot.js';
+import { screenshotSlide, createThumbnailRenderer } from './screenshot.js';
 import { connectCodex } from './codex-plugin.js';
 import { connectClaude } from './claude-extension.js';
 import { exportDeckPDF } from './pdf.js';
@@ -25,22 +25,28 @@ const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
 let exportingPDF = false;
 let thumbnailOperations = new AbortController();
-let thumbnailQueue = Promise.resolve();
+let thumbnailRenderer, contentRevision = 0, contentSettled = true;
 let openingDeck = Promise.resolve();
 let recentFolders, refreshRecentFolders;
 let projectOperations = new AbortController();
 let mcp, mcpError, mcpToken, connectingCodex, connectingClaude, generation = 0;
 let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '', maxTurns: DEFAULT_MAX_TURNS };
 const state = async () => {
-  const snapshot = { root, generation, url: deckServer?.url, name: root ? path.basename(root) : null };
+  const snapshot = { root, generation, contentRevision, contentSettled, url: deckServer?.url, name: root ? path.basename(root) : null };
   return { ...snapshot, branch: snapshot.root ? await currentBranch(snapshot.root) : null };
 };
 const notify = (name, data) => { if (window && !window.isDestroyed()) window.webContents.send(name, data); };
-async function notifyDeck() {
+function invalidateThumbnails() {
+  contentRevision++; contentSettled = false;
   thumbnailOperations.abort();
   thumbnailOperations = new AbortController();
+  void thumbnailRenderer?.close(); thumbnailRenderer = undefined;
+  notify('deck:invalidated', { root, generation, contentRevision, contentSettled });
+}
+async function notifyDeck() {
+  contentSettled = true;
   const snapshot = await state();
-  if (snapshot.generation === generation) notify('deck:changed', snapshot);
+  if (snapshot.generation === generation && snapshot.contentRevision === contentRevision) notify('deck:changed', snapshot);
 }
 
 function openDeck(folder, signal) {
@@ -67,6 +73,7 @@ async function performOpenDeck(folder) {
   clearTimeout(watchTimer);
   await deckServer?.close();
   root = folder; deckServer = next; generation++;
+  invalidateThumbnails();
   projectOperations.abort(); projectOperations = new AbortController();
   mcp?.cancelStaleSessions();
   watcher = chokidar.watch(root, {
@@ -75,9 +82,9 @@ async function performOpenDeck(folder) {
       if (relative === '.git' || relative === path.join('.git', 'HEAD')) return false;
       return /(^|[/\\])\.|(^|[/\\])node_modules([/\\]|$)/.test(relative);
     },
-    ignoreInitial: true, awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 },
+    ignoreInitial: true,
   });
-  watcher.on('all', () => { clearTimeout(watchTimer); watchTimer = setTimeout(() => { void notifyDeck(); }, 100); });
+  watcher.on('all', () => { invalidateThumbnails(); clearTimeout(watchTimer); watchTimer = setTimeout(() => { void notifyDeck(); }, 250); });
   watcher.on('error', error => console.error('Deck watcher:', error.message));
   await notifyDeck();
   try {
@@ -147,25 +154,20 @@ const contentRoot = (expectedRoot, expectedGeneration) => {
   if (!root || root !== expectedRoot || generation !== expectedGeneration) throw new Error('The open project changed. Please try again.');
   return root;
 };
-handle('deck:thumbnails', (folder, version, indices) => {
+handle('deck:thumbnails', async (folder, version, revision, slides) => {
   contentRoot(folder, version);
-  if (!Array.isArray(indices) || !indices.length || indices.length > 6 || indices.some(index => !Number.isSafeInteger(index) || index < 0)) throw new Error('Request up to six slide thumbnails at a time.');
+  if (!Array.isArray(slides) || !slides.length || slides.length > 6 || slides.some(slide => !Number.isSafeInteger(slide?.index) || slide.index < 0 || typeof slide.id !== 'string')) throw new Error('Request up to six identified slide thumbnails at a time.');
+  if (revision !== contentRevision || !contentSettled) return null;
   const signal = thumbnailOperations.signal;
-  const operation = thumbnailQueue.then(async () => {
-    signal.throwIfAborted();
-    contentRoot(folder, version);
-    const images = await screenshotSlides(folder, indices.map(index => index + 1), { width: 320, signal });
-    signal.throwIfAborted();
-    contentRoot(folder, version);
-    return images.map((image, i) => ({ index: indices[i], url: `data:image/png;base64,${image.toString('base64')}` }));
-  });
-  thumbnailQueue = operation.catch(() => {});
-  // Refreshes deliberately cancel old captures. Resolve normally so Electron
-  // does not log an expected cancellation as an IPC handler error.
-  return operation.catch(error => {
+  thumbnailRenderer ??= createThumbnailRenderer(folder, { revision, signal, trace: process.env.WETMYTT_THUMBNAIL_TRACE ? event => console.log('Thumbnail:', JSON.stringify({ root: folder, generation: version, ...event })) : undefined });
+  try {
+    const results = await thumbnailRenderer.capture(slides);
+    if (signal.aborted || revision !== contentRevision || !contentSettled || folder !== root || version !== generation) return null;
+    return results.map(({ image, ...result }) => ({ ...result, root: folder, generation: version, ...(image ? { url: `data:image/png;base64,${image.toString('base64')}` } : {}) }));
+  } catch (error) {
     if (signal.aborted) return null;
     throw error;
-  });
+  }
 });
 handle('deck:read-content', (folder, version) => readContent(contentRoot(folder, version)));
 handle('deck:save-content', (folder, version, source, pointer, text) => saveContent(contentRoot(folder, version), source, pointer, text));
@@ -186,6 +188,7 @@ handle('deck:close', async () => {
   clearTimeout(watchTimer);
   await deckServer?.close();
   watcher = undefined; deckServer = undefined; root = undefined; generation++;
+  invalidateThumbnails();
   projectOperations.abort(); projectOperations = new AbortController();
   mcp?.cancelStaleSessions();
   window.setFullScreen(false);
@@ -301,6 +304,10 @@ async function createWindow() {
   };
   window.webContents.session.setPermissionCheckHandler((contents, permission, _origin, details) => canWriteClipboard(contents, permission, details));
   window.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => callback(canWriteClipboard(contents, permission, details)));
+  window.on('closed', () => {
+    thumbnailOperations.abort(); thumbnailOperations = new AbortController();
+    void thumbnailRenderer?.close(); thumbnailRenderer = undefined;
+  });
   window.on('enter-full-screen', () => notify('deck:fullscreen', true));
   window.on('leave-full-screen', () => notify('deck:fullscreen', false));
   await window.loadURL(url);
@@ -330,7 +337,7 @@ app.on('before-quit', event => {
   event.preventDefault(); quitting = true;
   pendingChat?.abort(); generation++; thumbnailOperations.abort();
   projectOperations.abort();
-  Promise.allSettled([mcp?.close(), watcher?.close(), deckServer?.close(), shellServer?.close()]).finally(() => app.quit());
+  Promise.allSettled([thumbnailRenderer?.close(), mcp?.close(), watcher?.close(), deckServer?.close(), shellServer?.close()]).finally(() => app.quit());
 });
 }).catch(error => {
   console.error(error);

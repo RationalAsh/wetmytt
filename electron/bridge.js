@@ -1,5 +1,15 @@
 (() => {
   let index = 0;
+  const parameters = new URLSearchParams(location.search);
+  const revision = parameters.get('contentRevision') || '';
+  const context = parameters.get('context') === 'thumbnail' ? 'thumbnail' : 'presentation';
+  document.documentElement.dataset.wetmyttContext = context;
+  window.wetmyttContext = context;
+  let token = '';
+  const identities = all => {
+    const ids = all.map(slide => slide.dataset.slideId || slide.id);
+    return ids.map((id, i) => id && ids.filter(value => value === id).length === 1 ? 'id:' + id : 'index:' + revision + ':' + i);
+  };
   let parentOrigin;
   let editing = false, fields = [], selectedPath = null, selectedElement;
   const normalize = value => value.replace(/\s+/g, ' ').trim();
@@ -39,7 +49,7 @@
     if (all.length) index = Math.max(0, Math.min(index, all.length - 1));
     all.forEach((slide, i) => { slide.hidden = i !== index; });
     restoreSelection();
-    if (parentOrigin) parent.postMessage({ type: 'wetmytt:state', index, count: all.length, title: document.title }, parentOrigin);
+    if (parentOrigin) parent.postMessage({ type: 'wetmytt:state', index, count: all.length, slides: identities(all), revision, token, title: document.title }, parentOrigin);
   }
   addEventListener('message', event => {
     if (event.source !== parent) return;
@@ -52,6 +62,7 @@
     }
     if (event.data?.type !== 'wetmytt:navigate') return;
     parentOrigin = event.origin;
+    token = typeof event.data.token === 'string' ? event.data.token : '';
     if (Number.isInteger(event.data.index)) index = event.data.index;
     render();
   });

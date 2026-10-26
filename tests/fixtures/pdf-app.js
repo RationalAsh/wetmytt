@@ -43,8 +43,9 @@ try {
   let window;
   await waitFor(() => { window = BrowserWindow.getAllWindows().find(item => item.isVisible()); return window; });
   const js = source => window.webContents.executeJavaScript(source);
-  await waitFor(() => js(`Boolean([...document.querySelectorAll('button')].find(b => b.textContent === 'Open folder'))`));
-  await js(`[...document.querySelectorAll('button')].find(b => b.textContent === 'Open folder').click()`);
+  await waitFor(() => js(`Boolean(document.querySelector('.file-actions .menu-trigger'))`));
+  await js(`document.querySelector('.file-actions .menu-trigger').click()`);
+  await js(`[...document.querySelectorAll('[role=menuitem]')].find(b => b.textContent === 'Open folder…').click()`);
   await waitFor(() => js(`Boolean(document.querySelector('iframe'))`));
   const exportClick = async () => {
     await waitFor(() => js(`Boolean([...document.querySelectorAll('button')].find(b => b.textContent === 'Export PDF' && !b.disabled))`));
@@ -71,7 +72,7 @@ try {
   await exportClick();
   assert.match(await js(`document.querySelector('[role=alert]').textContent`), /decode|asset|load/i);
   assert.deepEqual(await fs.readFile(target), original, 'failure must not overwrite an existing PDF');
-  assert.equal(BrowserWindow.getAllWindows().length, 1, 'export windows must be destroyed');
+  assert.ok(BrowserWindow.getAllWindows().length <= 2, 'only the app and reusable thumbnail renderer may remain');
   await writeDeck('100%', '100%');
   const htmlPath = path.join(root, 'index.html');
   const html = await fs.readFile(htmlPath, 'utf8');

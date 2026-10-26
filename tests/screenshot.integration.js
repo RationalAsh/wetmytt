@@ -64,7 +64,7 @@ test('MCP screenshot tool captures requested slides, fresh edits, and the starte
   t.after(() => transport.terminateSession().catch(() => {}).finally(() => client.close()));
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map(tool => tool.name).sort(), ['get_presentation', 'list_recent_presentations', 'open_presentation', 'screenshot_slide', ...toolDefinitions.map(tool => tool.name)].sort());
+  assert.deepEqual(tools.map(tool => tool.name).sort(), ['get_presentation', 'list_recent_presentations', 'open_presentation', 'create_presentation', 'screenshot_slide', ...toolDefinitions.map(tool => tool.name)].sort());
   for (const [slide, dominantChannel] of [[2, 1], [1, 0]]) {
     const result = await client.callTool({ name: 'screenshot_slide', arguments: { slide } });
     assert.ok(!result.isError, JSON.stringify(result));

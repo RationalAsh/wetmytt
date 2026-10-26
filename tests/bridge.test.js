@@ -7,8 +7,8 @@ test('preview forwards file drags and drops to its parent and prevents file navi
   const listeners = {}, messages = [];
   const parent = { postMessage: (message, origin) => messages.push({ message, origin }) };
   vm.runInNewContext(await fs.readFile(new URL('../electron/bridge.js', import.meta.url), 'utf8'), {
-    parent,
-    document: { querySelectorAll: () => [], body: {}, title: 'Deck', createElement: () => ({}), head: { append() {} } },
+    parent, window: {}, location: { search: '' }, URLSearchParams,
+    document: { querySelectorAll: () => [], body: {}, documentElement: { dataset: {} }, title: 'Deck', createElement: () => ({}), head: { append() {} } },
     MutationObserver: class { observe() {} },
     addEventListener: (name, listener) => { listeners[name] = listener; },
   });

@@ -7,7 +7,7 @@ function Chevron({ right = false }: { right?: boolean }) {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={right ? 'm10 5 7 7-7 7' : 'm14 5-7 7 7 7'} /></svg>;
 }
 
-export function SlideThumbnails({ deck, count, slide, onNavigate }: { deck: Deck; count: number; slide: number; onNavigate(index: number): void }) {
+export function SlideThumbnails({ deck, ids, count, slide, onNavigate }: { deck: Deck; ids: string[]; count: number; slide: number; onNavigate(index: number): void }) {
   const viewport = useRef<HTMLDivElement>(null);
   const alive = useRef(false);
   const [visible, setVisible] = useState<number[]>([]);
@@ -62,18 +62,22 @@ export function SlideThumbnails({ deck, count, slide, onNavigate }: { deck: Deck
   }, [slide, count]);
 
   useEffect(() => {
-    if (busy || cancelled || !deck.root || deck.generation === undefined || !window.wetmytt) return;
+    if (busy || cancelled || !deck.root || deck.generation === undefined || deck.contentRevision === undefined || deck.contentSettled === false || ids.length !== count || !window.wetmytt) return;
     const indices = visible.filter(index => !images[index] && !failed.includes(index)).slice(0, 6);
     if (!indices.length) return;
     setBusy(true);
-    void window.wetmytt.thumbnails(deck.root, deck.generation, indices).then(result => {
+    void window.wetmytt.thumbnails(deck.root, deck.generation, deck.contentRevision, indices.map(index => ({ index, id: ids[index] }))).then(result => {
       if (result === null) { if (alive.current) setCancelled(true); return; }
-      if (alive.current) setImages(current => ({ ...current, ...Object.fromEntries(result.map(image => [image.index, image.url])) }));
+      if (alive.current) {
+        const valid = result.filter(image => image.root === deck.root && image.generation === deck.generation && image.revision === deck.contentRevision && indices.includes(image.index) && image.id === ids[image.index]);
+        setImages(current => ({ ...current, ...Object.fromEntries(valid.filter(image => image.url).map(image => [image.index, image.url!])) }));
+        setFailed(current => [...current, ...valid.filter(image => image.error).map(image => image.index)]);
+      }
     }).catch(() => {
       // Navigation still works when a custom slide cannot be captured.
       if (alive.current) setFailed(current => [...current, ...indices]);
     }).finally(() => { if (alive.current) setBusy(false); });
-  }, [visible, images, failed, busy, cancelled, deck.root, deck.generation]);
+  }, [visible, images, failed, busy, cancelled, deck.root, deck.generation, deck.contentRevision, deck.contentSettled, ids, count]);
 
   const move = (direction: number) => {
     const element = viewport.current;
@@ -81,7 +85,7 @@ export function SlideThumbnails({ deck, count, slide, onNavigate }: { deck: Deck
   };
   const overflow = scroll.max > 1;
 
-  return <nav className="slide-thumbnails" aria-label="Slide thumbnails" data-slide-thumbnails>
+  return <nav className="slide-thumbnails" aria-label="Slide thumbnails" data-slide-thumbnails data-content-revision={deck.contentRevision}>
     <button className="thumbnail-chevron" aria-label="Scroll thumbnails left" disabled={!overflow || scroll.left < 1} onClick={() => move(-1)}><Chevron /></button>
     <div className="thumbnail-track">
       <div className="thumbnail-viewport" ref={viewport} data-fade-left={scroll.left > 1} data-fade-right={scroll.left < scroll.max - 1}>

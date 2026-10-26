@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { PDFDocument } from 'pdf-lib';
 import { serveFolder } from './server.js';
+import { prepareStaticSlide } from './static-slide.js';
 
 // Print the live DOM, one slide at a time. Combining PDF pages preserves text,
 // fonts, paths and SVGs; capturePage must never be used in this export path.
@@ -39,7 +40,7 @@ export async function exportDeckPDF(root) {
     const pdf = await PDFDocument.create();
     let count;
     for (let index = 0; count === undefined || index < count; index++) {
-      const page = await contents.executeJavaScript(`(${prepareSlide.toString()})(${index})`);
+      const page = await contents.executeJavaScript(`(${prepareStaticSlide.toString()})(${index})`);
       count ??= page.count;
       if (page.count !== count) throw new Error('Slides changed during export. Please try again.');
       if (failures.size) throw new Error('PDF export could not load an asset: ' + [...failures][0]);
@@ -75,58 +76,4 @@ export async function exportDeckPDF(root) {
     if (window && !window.isDestroyed()) window.destroy();
     await server?.close();
   }
-}
-
-// Serialized into the sandboxed deck window, without access to Node or IPC.
-async function prepareSlide(index) {
-  let timer;
-  const ready = async () => {
-    while (!document.querySelector('[data-slide]')) await new Promise(resolve => setTimeout(resolve, 50));
-    const slides = [...document.querySelectorAll('[data-slide]')];
-    await new Promise(resolve => {
-      const listener = event => {
-        if (event.source === window && event.data?.type === 'wetmytt:state' && event.data.index === index) {
-          removeEventListener('message', listener); resolve();
-        }
-      };
-      addEventListener('message', listener);
-      window.postMessage({ type: 'wetmytt:navigate', index }, location.origin);
-    });
-    const active = slides[index];
-    const images = [...active.querySelectorAll('img')];
-    images.forEach(image => { image.loading = 'eager'; });
-    await Promise.all(images.map(image => image.decode().catch(() => {
-      throw new Error('Could not load slide image: ' + image.getAttribute('src'));
-    })));
-    // CSS backgrounds (including pseudo-elements) do not appear in img lists.
-    const urls = new Set();
-    const elements = [active, ...active.querySelectorAll('*')];
-    for (let parent = active.parentElement; parent; parent = parent.parentElement) elements.push(parent);
-    for (const element of elements) for (const pseudo of [null, '::before', '::after']) {
-      const style = getComputedStyle(element, pseudo);
-      for (const value of [style.backgroundImage, style.maskImage, style.borderImageSource, style.content]) {
-        for (const match of value.matchAll(/url\(["']?(.*?)["']?\)/g)) urls.add(match[1]);
-      }
-    }
-    await Promise.all([...urls].map(async url => {
-      const image = new Image(); image.src = url;
-      await image.decode().catch(() => { throw new Error('Could not load slide background: ' + url); });
-    }));
-    await document.fonts.ready;
-    if ([...document.fonts].some(font => font.status === 'error')) throw new Error('A presentation font failed to load.');
-    for (const animation of document.getAnimations()) {
-      if (animation.effect?.getComputedTiming().iterations !== Infinity) {
-        try { animation.finish(); } catch { animation.pause(); }
-      } else animation.pause();
-    }
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    const rect = active.getBoundingClientRect();
-    if (rect.width < 1 || rect.height < 1) throw new Error('Slide ' + (index + 1) + ' has no visible dimensions.');
-    return { count: slides.length };
-  };
-  try {
-    return await Promise.race([ready(), new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error('Slide ' + (index + 1) + ' did not finish loading. Check data-slide, the navigation bridge, fonts and images.')), 20000);
-    })]);
-  } finally { clearTimeout(timer); }
 }
