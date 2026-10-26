@@ -105,7 +105,6 @@ export function ChatThread({ messages, busy, loading, disabled, connected, onSen
               : <button type="button" className="send-button" aria-label="Connect AI to send message" disabled={disabled || loading} onClick={onConnect}>↑</button>}
         </div></div>
       </ComposerPrimitive.Root>
-      <div className="chat-footnote">Your talk. Your files. Your call.</div>
     </ThreadPrimitive.Root>
   </AssistantRuntimeProvider>;
 }
