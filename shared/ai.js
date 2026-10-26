@@ -5,8 +5,8 @@ export const providers = {
   ollama: { name: 'Ollama', baseUrl: 'http://localhost:11434/v1', hint: 'Start Ollama and pull a model that supports tools.' },
 };
 
-export const DEFAULT_MAX_TURNS = 48;
-export const MAX_TURNS = 256;
+export const DEFAULT_MAX_TURNS = 300;
+export const MAX_TURNS = 1024;
 
 export function normalizeMaxTurns(value = DEFAULT_MAX_TURNS) {
   if (!Number.isInteger(value) || value < 1 || value > MAX_TURNS) throw new Error(`Enter a whole number of turns between 1 and ${MAX_TURNS}.`);

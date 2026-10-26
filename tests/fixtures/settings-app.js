@@ -27,7 +27,7 @@ app.whenReady().then(async () => {
     await waitFor(() => js(`Boolean(document.querySelector('.top-actions [aria-label="Settings"]:not(:disabled)'))`));
     await js(`document.querySelector('.top-actions [aria-label="Settings"]').click()`);
     await waitFor(() => js(`Boolean(document.querySelector('#max-turns'))`));
-    assert.equal(await js(`document.querySelector('#max-turns').value`), phase === 'save' ? '48' : '72');
+    assert.equal(await js(`document.querySelector('#max-turns').value`), phase === 'save' ? '300' : '72');
     window.setMinimumSize(480, 600);
     for (const [width, height] of [[1100, 760], [580, 720]]) {
       window.setSize(width, height);

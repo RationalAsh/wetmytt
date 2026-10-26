@@ -8,12 +8,12 @@ const connection = (provider = 'openai') => ({ provider, baseUrl: providers[prov
 const messages = [{ role: 'system', content: 'Edit the deck.' }, { role: 'user', content: 'List files.' }];
 const signal = () => new AbortController().signal;
 const mocked = new WeakSet();
-test('turn limits default to 48, survive connection changes, and reject invalid values', () => {
-  assert.equal(normalizeSettings(connection()).maxTurns, 48);
+test('turn limits default to 300, survive connection changes, and reject invalid values', () => {
+  assert.equal(normalizeSettings(connection()).maxTurns, 300);
   assert.equal(normalizeSettings(connection('claude'), { ...connection(), maxTurns: 72 }).maxTurns, 72);
   assert.equal(normalizeSettings({ ...connection(), maxTurns: 1 }).maxTurns, 1);
-  assert.equal(normalizeMaxTurns(256), 256);
-  for (const maxTurns of [0, -1, 257, 1.5, '48', null, NaN, Infinity]) {
+  assert.equal(normalizeMaxTurns(1024), 1024);
+  for (const maxTurns of [0, -1, 1025, 1.5, '300', null, NaN, Infinity]) {
     assert.throws(() => normalizeMaxTurns(maxTurns), /whole number of turns/);
   }
 });

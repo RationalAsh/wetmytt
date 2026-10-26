@@ -21,20 +21,20 @@ async function fixture(t, create = false) {
 }
 const rawGit = (root, args) => promisify(execFile)(resolveGitBinary(), args, { cwd: root });
 
-test('chat permits 48 turns by default and preserves edits at a configured limit', async t => {
+test('chat permits 300 turns by default and preserves edits at a configured limit', async t => {
   const { root } = await fixture(t);
   const previous = globalThis.fetch;
   t.after(() => { globalThis.fetch = previous; });
   let calls = 0;
   globalThis.fetch = async () => {
     calls++;
-    return Response.json({ choices: [{ message: calls === 48 ? { content: 'Finished.' } : {
+    return Response.json({ choices: [{ message: calls === 300 ? { content: 'Finished.' } : {
       tool_calls: [{ id: `edit-${calls}`, type: 'function', function: { name: 'write_file', arguments: JSON.stringify({ path: 'progress.txt', content: String(calls) }) } }],
     } }] });
   };
   const options = { root, settings: { provider: 'openrouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'test', apiKey: 'test' }, history: [{ role: 'user', content: 'Edit.' }], signal: new AbortController().signal, onActivity() {} };
   assert.equal((await chat(options)).content, 'Finished.');
-  assert.equal(calls, 48);
+  assert.equal(calls, 300);
   calls = 0;
   await assert.rejects(chat({ ...options, settings: { ...options.settings, maxTurns: 2 } }), /Reached the 2-turn limit/);
   assert.equal(calls, 2);
