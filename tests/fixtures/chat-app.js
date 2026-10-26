@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, safeStorage } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -9,6 +9,18 @@ const [directory] = process.argv.slice(2);
 app.setPath('userData', path.join(directory, 'profile'));
 app.setPath('sessionData', path.join(directory, 'profile'));
 app.whenReady().then(async () => {
+  const settingsPath = path.join(directory, 'profile/ai-settings.json');
+  await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+  const encryptedKey = Buffer.from('test-cipher').toString('base64');
+  await fs.writeFile(settingsPath, JSON.stringify({ provider: 'ollama', baseUrl: 'http://localhost:11434/v1', model: 'chat-test', encryptedKey }));
+  let keychainAccesses = 0, decryptions = 0, finishUnlock, providerRequests = 0;
+  safeStorage.isAsyncEncryptionAvailable = async () => { keychainAccesses++; return true; };
+  safeStorage.decryptStringAsync = async cipher => {
+    decryptions++;
+    assert.equal(cipher.toString(), 'test-cipher');
+    return new Promise(resolve => { finishUnlock = () => resolve({ result: 'chat-test-key' }); });
+  };
+  safeStorage.encryptStringAsync = async () => { throw new Error('The existing encrypted key should be retained.'); };
   const first = path.join(directory, 'Chat deck'), second = path.join(directory, 'Other deck');
   await fs.cp(path.resolve('templates/starter'), first, { recursive: true });
   await fs.cp(path.resolve('templates/starter'), second, { recursive: true });
@@ -27,6 +39,8 @@ app.whenReady().then(async () => {
   globalThis.fetch = async (url, options) => {
     if (!String(url).startsWith('http://localhost:11434/v1')) return originalFetch(url, options);
     if (!String(url).endsWith('/chat/completions')) return Response.json({ data: [] });
+    providerRequests++;
+    assert.equal(options.headers.Authorization, 'Bearer chat-test-key');
     const body = JSON.parse(options.body);
     const prompt = body.messages.findLast(message => message.role === 'user').content;
     if (prompt === 'Switch project' || (prompt === 'Stop after edit' && body.messages.at(-1).role === 'tool')) {
@@ -60,15 +74,33 @@ app.whenReady().then(async () => {
     await waitFor(() => js(`Boolean(window.wetmytt && document.querySelector('.assistant-thread'))`));
     await js(`window.wetmytt.open()`);
     await waitFor(() => js(`document.querySelector('.chat-messages').textContent.includes('Old answer')`));
-    await js(`window.wetmytt.saveSettings({ provider: 'ollama', baseUrl: 'http://localhost:11434/v1', model: 'chat-test', apiKey: '' })`);
+    assert.equal((await js('window.wetmytt.settings()')).hasKey, true);
+    await js('window.wetmytt.context()');
+    await js('window.wetmytt.savePreferences({ maxTurns: 300 })');
+    await js(`window.wetmytt.saveSettings({ provider: 'ollama', baseUrl: 'http://localhost:11434/v1', model: 'chat-test' })`);
+    assert.equal(JSON.parse(await fs.readFile(settingsPath, 'utf8')).encryptedKey, encryptedKey);
+    assert.equal(keychainAccesses, 0);
     // Reload to exercise startup settings and legacy history restoration together.
     window.webContents.reload();
     await waitFor(() => js(`document.querySelector('.model-select')?.textContent.includes('chat-test') && document.querySelector('.chat-messages').textContent.includes('Old answer')`));
+    assert.equal(keychainAccesses, 0);
     const click = label => js(`document.querySelector('[aria-label=${JSON.stringify(label)}]').click()`);
     const input = text => js(`(() => { const e = document.querySelector('.composer textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(e, ${JSON.stringify(text)}); e.dispatchEvent(new Event('input', { bubbles: true })); })()`);
     const send = async text => { await input(text); await click('Send message'); };
+    // Closing the deck while macOS is asking for access must not send the
+    // request after the user eventually approves the prompt.
+    await js(`window.unlockAttempt = window.wetmytt.chat(${JSON.stringify(first)}, null, 'Interrupted unlock').then(() => 'unexpected success', error => error.message); void 0`);
+    await waitFor(() => decryptions === 1);
+    await js('window.wetmytt.close()');
+    finishUnlock();
+    assert.match(await js('window.unlockAttempt'), /aborted|project changed/i);
+    assert.equal(providerRequests, 0);
+    await js('window.wetmytt.open()');
+    await waitFor(() => js(`document.querySelector('.chat-messages').textContent.includes('Old answer')`));
     await send('Inspect the deck');
     await waitFor(() => js(`document.querySelector('.chat-messages').textContent.includes('Finished') && !document.querySelector('[aria-label="Stop generation"]')`));
+    assert.equal(keychainAccesses, 1);
+    assert.equal(decryptions, 1);
     assert.equal(await js(`document.querySelector('.message.assistant .markdown-body strong')?.textContent`), 'Finished');
     assert.equal(await js(`Array.from(document.querySelectorAll('.message.user')).filter(e => e.textContent.includes('Inspect the deck')).length`), 1);
     window.focus();

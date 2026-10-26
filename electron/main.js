@@ -8,7 +8,7 @@ import chokidar from 'chokidar';
 import { serveFolder } from './server.js';
 import { chat } from './agent.js';
 import { contextLimit } from './providers.js';
-import { DEFAULT_MAX_TURNS, inferProvider, normalizeMaxTurns, normalizeSettings } from '../shared/ai.js';
+import { createAISettings } from './ai-settings.js';
 import { createDeck } from './decks.js';
 import { runTool } from './tools.js';
 import { loadMcpToken, startMcpServer } from './mcp.js';
@@ -32,7 +32,6 @@ let openingDeck = Promise.resolve();
 let recentFolders, refreshRecentFolders;
 let projectOperations = new AbortController();
 let mcp, mcpError, mcpToken, connectingCodex, connectingClaude, generation = 0;
-let settings = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '', maxTurns: DEFAULT_MAX_TURNS };
 const state = async () => {
   const snapshot = { root, generation, contentRevision, contentSettled, url: deckServer?.url, name: root ? path.basename(root) : null };
   return { ...snapshot, branch: snapshot.root ? await currentBranch(snapshot.root) : null };
@@ -130,17 +129,14 @@ handle('recent:open', folder => {
 handle('recent:remove', async folder => { await recentFolders.remove(folder); refreshRecentFolders(); });
 handle('recent:clear', async () => { await recentFolders.clear(); refreshRecentFolders(); });
 const settingsPath = path.join(app.getPath('userData'), 'ai-settings.json');
+const settings = createAISettings({ safeStorage, write: saved => fs.writeFile(settingsPath, JSON.stringify(saved), { mode: 0o600 }) });
 try {
   // Keep existing connections when upgrading from the original app name.
   const savedText = await fs.readFile(settingsPath, 'utf8').catch(error => {
     if (error.code !== 'ENOENT') throw error;
     return fs.readFile(path.join(app.getPath('appData'), 'decklet', 'ai-settings.json'), 'utf8');
   });
-  const saved = JSON.parse(savedText);
-  settings.maxTurns = normalizeMaxTurns(saved.maxTurns);
-  const apiKey = saved.encryptedKey && await safeStorage.isAsyncEncryptionAvailable()
-    ? (await safeStorage.decryptStringAsync(Buffer.from(saved.encryptedKey, 'base64'))).result : '';
-  settings = normalizeSettings({ provider: saved.provider ?? inferProvider(saved.baseUrl), baseUrl: saved.baseUrl, model: saved.model, apiKey, maxTurns: settings.maxTurns }, {}, { requireKey: false });
+  settings.load(JSON.parse(savedText));
 } catch {}
 
 try {
@@ -247,21 +243,10 @@ handle('deck:export-pdf', async expectedRoot => {
 });
 handle('deck:reveal', () => root ? shell.openPath(root) : undefined);
 handle('deck:present', value => { window.setFullScreen(Boolean(value)); });
-handle('ai:settings', () => ({ provider: settings.provider, baseUrl: settings.baseUrl, model: settings.model, hasKey: Boolean(settings.apiKey), maxTurns: settings.maxTurns }));
-handle('ai:context', () => settings.model ? contextLimit(settings) : null);
-async function persistSettings(next) {
-  const persistedKey = !next.apiKey || await safeStorage.isAsyncEncryptionAvailable();
-  const encryptedKey = next.apiKey && persistedKey ? (await safeStorage.encryptStringAsync(next.apiKey)).toString('base64') : null;
-  await fs.writeFile(settingsPath, JSON.stringify({ provider: next.provider, baseUrl: next.baseUrl, model: next.model, maxTurns: next.maxTurns, encryptedKey }), { mode: 0o600 });
-  settings = next;
-  return { persistedKey };
-}
-handle('ai:preferences', value => persistSettings({ ...settings, maxTurns: normalizeMaxTurns(value.maxTurns) }));
-handle('ai:save', async value => {
-  // An explicit empty key is the "Remove saved key" action.
-  const next = normalizeSettings(value, settings, { requireKey: value.apiKey !== '' });
-  return persistSettings(next);
-});
+handle('ai:settings', settings.state);
+handle('ai:context', () => contextLimit(settings.context()));
+handle('ai:preferences', settings.savePreferences);
+handle('ai:save', settings.saveConnection);
 handle('ai:cancel', () => pendingChat?.abort());
 const chatRoot = expectedRoot => {
   if (!root || root !== expectedRoot) throw new Error('The open project changed. Please try again.');
@@ -272,11 +257,13 @@ handle('ai:load-chat', (expectedRoot, id) => loadChat(chatRoot(expectedRoot), id
 handle('ai:chat', async (expectedRoot, id, text, runId) => {
   const folder = chatRoot(expectedRoot);
   if (pendingChat) throw new Error('A request is already running.');
-  const connection = normalizeSettings({ ...settings });
   pendingChat = new AbortController();
   const signal = pendingChat.signal;
   const deckGeneration = generation;
   try {
+    const connection = await settings.connection();
+    signal.throwIfAborted();
+    if (root !== folder || generation !== deckGeneration) throw new Error('The open project changed. Please try again.');
     return await runConversation({ root: folder, id, text, settings: connection, signal, chat,
       onConversation: conversation => {
         if (root === folder && generation === deckGeneration) notify('ai:conversation', { root: folder, generation: deckGeneration, runId, conversation });
