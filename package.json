@@ -19,6 +19,7 @@
     "test:screenshot": "node --test tests/screenshot.integration.js",
     "test:thumbnails": "node --test tests/thumbnails.integration.js",
     "test:recent": "node --test tests/recent.integration.js",
+    "test:quit": "node --test tests/quit.integration.js",
     "test:settings": "node --test tests/settings.integration.js",
     "test:chat": "node --test tests/chat.integration.js",
     "test:edit": "node --test tests/content.integration.js",

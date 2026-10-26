@@ -317,7 +317,12 @@ refreshRecentFolders = () => {
 };
 function buildApplicationMenu() {
 Menu.setApplicationMenu(Menu.buildFromTemplate([
-  ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
+  ...(process.platform === 'darwin' ? [{ label: app.name, submenu: [
+    { role: 'about' }, { type: 'separator' }, { role: 'services' },
+    { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
+    { type: 'separator' },
+    { label: `Quit ${app.name}`, accelerator: 'Command+Q', click: () => app.quit() },
+  ] }] : []),
   { label: 'File', submenu: [{ label: 'Open presentation…', accelerator: 'CmdOrCtrl+O', click: async () => { const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'] }); if (!result.canceled) openDeck(result.filePaths[0]).catch(error => dialog.showErrorBox('Could not open deck', error.message)); } }, { label: 'Open recent', submenu: [
     ...recentFolders.list().map(folder => ({ label: folder, click: () => { void openDeck(folder).catch(error => dialog.showErrorBox('Could not open deck', error.message)); } })),
     ...(recentFolders.list().length ? [{ type: 'separator' }, { label: 'Clear recent folders', click: () => { void recentFolders.clear().then(refreshRecentFolders).catch(error => dialog.showErrorBox('Could not clear recent folders', error.message)); } }] : [{ label: 'No recent folders', enabled: false }]),
@@ -328,8 +333,8 @@ Menu.setApplicationMenu(Menu.buildFromTemplate([
 buildApplicationMenu();
 await createWindow();
 updates.start();
-app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); } });
-app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
+app.on('second-instance', () => { if (!quitting && window && !window.isDestroyed()) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); } });
+app.on('activate', () => { if (!quitting && !BrowserWindow.getAllWindows().length) createWindow(); });
 app.on('window-all-closed', () => { pendingChat?.abort(); if (process.platform !== 'darwin') app.quit(); });
 function cleanup() {
   if (cleanupPromise) return cleanupPromise;
