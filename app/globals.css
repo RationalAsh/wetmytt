@@ -143,7 +143,6 @@ kbd { display: inline-flex; align-items: center; justify-content: center; border
 .context-meter.full { color: #b42318; }
 .context-tooltip { display: none; position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 6; width: max-content; max-width: 220px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); font-size: 11px; line-height: 1.4; white-space: nowrap; box-shadow: 0 4px 16px #30204414; }
 .context-meter:hover .context-tooltip, .context-meter:focus .context-tooltip, .context-meter:focus-visible .context-tooltip { display: block; }
-.model-select > span:last-child { margin-left: 5px; }
 .connection-dot { width: 5px; height: 5px; border-radius: 50%; background: #b7aec6; flex-shrink: 0; }
 .connection-dot.connected { background: var(--accent); }
 .send-button { background: var(--accent); color: white; width: 29px; height: 29px; border-radius: 7px; }
