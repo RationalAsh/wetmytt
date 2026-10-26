@@ -158,6 +158,7 @@ Tools available through MCP (Codex and Claude), with the same editing, research,
 
 - `list_recent_presentations`: lists up to ten recently opened presentations, newest first, as `{ root, name, current }` entries. Works with no presentation open.
 - `open_presentation`: accepts `{ "path": "/absolute/path/to/presentation" }` to open an existing folder and select it for subsequent tools in the calling session. Uses the same validation, live preview, and recent history as opening through the app. The folder must contain an `index.html` file.
+- `create_presentation`: accepts `{ "path": "/absolute/path/to/new-presentation" }` to create a starter project, open it, and select it for subsequent tools in the calling session. Works with no presentation open. Includes starter files, `AGENTS.md`, and local Git history, just like creating through the app. The parent directory must exist; existing destinations (including empty folders) are rejected without overwriting them.
 - `get_presentation`: selects and identifies the currently open presentation for subsequent tool calls.
 - `list_files`, `read_file`, `write_file`, `apply_patch`: edit text within the presentation folder, with path and symlink restrictions.
 - `search_web`, `fetch_url`: search DuckDuckGo without an API key and retrieve readable public pages.
@@ -165,7 +166,7 @@ Tools available through MCP (Codex and Claude), with the same editing, research,
 - `git_init`, `git_status`, `git_diff`, `git_log`, `git_stage`, `git_unstage`, `git_commit`, `git_branch`, `git_switch`, `git_restore`: manage local project history using bundled Git.
 - `screenshot_slide`: accepts `{ "slide": 2 }` and returns a 1280×720 PNG of the second slide directly to the model.
 
-Use `list_recent_presentations` and `open_presentation` to choose a deck without using the app’s folder picker. Recent entries may be unavailable; a failed open keeps the current deck selected. Opening a deck through MCP selects it for the calling session. Other sessions must refresh their selection.
+Use `list_recent_presentations` and `open_presentation` to choose a deck, or `create_presentation` to start a new one, without using the app’s folder picker. Recent entries may be unavailable; a failed open keeps the current deck selected. Opening or creating a deck through MCP selects it for the calling session. Other sessions must refresh their selection.
 
 Each session initially selects the presentation open at initialization. After opening, switching, closing, or reopening a presentation outside the calling MCP session, call `get_presentation` to select the current deck in the same session. This also works for connections made before a deck was opened. Other presentation tools return a reminder to call `get_presentation` until the selection is refreshed. Switching or closing projects cancels pending network/Git operations. Completed writes remain in their original folder; operations never redirect into a new presentation.
 

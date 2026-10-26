@@ -69,7 +69,7 @@ test('packaged stdio bridge edits and captures through the authenticated app ser
   const service = await startMcpServer({ port: 0, token: options.token, getDeck: () => ({ root, generation }), screenshotSlide: async () => Buffer.from('PNG') });
   t.after(() => service.close());
   const client = await packagedClient(t, { ...options, url: service.url });
-  assert.equal((await client.listTools()).tools.length, toolDefinitions.length + 4);
+  assert.equal((await client.listTools()).tools.length, toolDefinitions.length + 5);
   assert.equal(JSON.parse((await client.callTool({ name: 'get_presentation' })).content[0].text).root, null);
   root = options.directory;
   generation++;

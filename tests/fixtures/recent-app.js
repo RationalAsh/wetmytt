@@ -98,6 +98,16 @@ app.whenReady().then(async () => {
       assert.equal(failed.isError, true);
       assert.equal(JSON.parse((await call('get_presentation')).content[0].text).root, await fs.realpath(first));
       assert.equal(await js(`document.querySelector('h1').textContent`), 'First deck');
+      const createdFolder = path.join(directory, 'MCP project');
+      const created = await call('create_presentation', { path: createdFolder });
+      assert.ok(!created.isError, JSON.stringify(created));
+      assert.equal(JSON.parse(created.content[0].text).root, await fs.realpath(createdFolder));
+      await waitFor(() => js(`document.querySelector('h1').textContent === 'MCP project'`));
+      assert.ok(!(await call('read_file', { path: 'AGENTS.md' })).isError);
+      assert.ok((await fs.stat(path.join(createdFolder, '.git'))).isDirectory());
+      assert.equal(JSON.parse((await call('list_recent_presentations')).content[0].text)[0].root, await fs.realpath(createdFolder));
+      assert.equal((await call('create_presentation', { path: createdFolder })).isError, true);
+      assert.equal(await js(`document.querySelector('h1').textContent`), 'MCP project');
     } finally {
       await transport.terminateSession();
       await client.close();

@@ -52,6 +52,12 @@ function openDeck(folder, signal) {
   return operation;
 }
 
+async function createPresentation(folder, signal) {
+  signal?.throwIfAborted();
+  await createDeck(folder);
+  return openDeck(folder, signal);
+}
+
 async function performOpenDeck(folder) {
   folder = await fs.realpath(folder);
   if (!(await fs.stat(path.join(folder, 'index.html'))).isFile()) throw new Error('The presentation must contain an index.html file.');
@@ -120,7 +126,7 @@ try {
 
 try {
   mcpToken = await loadMcpToken(app.getPath('userData'));
-  mcp = await startMcpServer({ getDeck: () => ({ root, generation }), screenshotSlide, listRecentPresentations: () => recentFolders.list(), openPresentation: openDeck, token: mcpToken });
+  mcp = await startMcpServer({ getDeck: () => ({ root, generation }), screenshotSlide, listRecentPresentations: () => recentFolders.list(), openPresentation: openDeck, createPresentation, token: mcpToken });
 } catch (error) {
   mcpError = `Could not start the agent connection: ${error.message}`;
   console.error(mcpError);
@@ -194,8 +200,7 @@ handle('deck:open', async () => {
 handle('deck:create', async () => {
   const result = await dialog.showSaveDialog(window, { title: 'Create presentation folder', defaultPath: path.join(app.getPath('documents'), 'Untitled presentation'), buttonLabel: 'Create presentation' });
   if (result.canceled || !result.filePath) return null;
-  await createDeck(result.filePath);
-  return openDeck(result.filePath);
+  return createPresentation(result.filePath);
 });
 handle('deck:export-pdf', async expectedRoot => {
   if (!root || root !== expectedRoot) throw new Error('The open project changed. Please export again.');

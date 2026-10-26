@@ -10,6 +10,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { startMcpServer, loadMcpToken } from '../electron/mcp.js';
 import { toolDefinitions } from '../electron/tools.js';
 import { createRecentFolders } from '../electron/recent-folders.js';
+import { createDeck } from '../electron/decks.js';
 
 async function fixture(t) {
   const directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'wetmytt-mcp-')));
@@ -20,12 +21,18 @@ async function fixture(t) {
   const recent = createRecentFolders(path.join(directory, 'recent.json'));
   await recent.add(root);
   const token = await loadMcpToken(directory);
-  const service = await startMcpServer({ port: 0, token, getDeck: () => deck, listRecentPresentations: () => recent.list(), openPresentation: async folder => {
+  const openPresentation = async folder => {
     const canonical = await fs.realpath(folder);
     if (!(await fs.stat(path.join(canonical, 'index.html'))).isFile()) throw new Error('Expected index.html file.');
     deck = { root: canonical, generation: deck.generation + 1 };
     service.cancelStaleSessions();
     await recent.add(canonical);
+  };
+  const service = await startMcpServer({ port: 0, token, getDeck: () => deck, listRecentPresentations: () => recent.list(), openPresentation, createPresentation: async (folder, signal) => {
+    signal.throwIfAborted();
+    await createDeck(folder);
+    signal.throwIfAborted();
+    await openPresentation(folder);
   }, screenshotSlide: async (capturedRoot, slide) => {
     assert.equal(capturedRoot, root);
     if (slide > 2) throw new Error('Slide does not exist.');
@@ -47,6 +54,45 @@ async function fixture(t) {
 }
 
 const text = result => result.content[0].text;
+
+test('MCP creates starter projects at an absolute path and selects only the calling session', async t => {
+  const f = await fixture(t);
+  f.switchDeck(undefined);
+  const client = await f.connect();
+  const other = await f.connect();
+  const call = (name, args) => client.callTool({ name, arguments: args });
+  const folder = path.join(f.directory, 'New presentation');
+  const created = await call('create_presentation', { path: folder });
+  assert.ok(!created.isError, text(created));
+  assert.deepEqual(JSON.parse(text(created)), { root: folder, name: 'New presentation', current: true });
+  assert.ok(created.content.some(block => block.text === presentationGuidance));
+  for (const file of ['index.html', 'AGENTS.md']) {
+    assert.equal(text(await call('read_file', { path: file })), await fs.readFile(new URL(`../templates/starter/${file}`, import.meta.url), 'utf8'));
+  }
+  assert.ok((await fs.stat(path.join(folder, '.git'))).isDirectory());
+  assert.deepEqual(JSON.parse(text(await call('list_recent_presentations'))), [{ root: folder, name: 'New presentation', current: true }, { root: f.root, name: 'deck', current: false }]);
+  assert.equal((await other.callTool({ name: 'list_files' })).isError, true);
+  await other.callTool({ name: 'get_presentation' });
+  assert.ok(!(await other.callTool({ name: 'list_files' })).isError);
+
+  const empty = path.join(f.directory, 'empty');
+  const file = path.join(f.directory, 'file');
+  await fs.mkdir(empty);
+  await fs.writeFile(file, 'Keep this');
+  for (const args of [{}, { path: '' }, { path: 'relative' }, { path: 42 }, { path: folder }, { path: empty }, { path: file }, { path: path.join(f.directory, 'missing', 'deck') }]) {
+    assert.equal((await call('create_presentation', args)).isError, true);
+    assert.equal(JSON.parse(text(await call('get_presentation'))).root, folder);
+  }
+  assert.deepEqual(await fs.readdir(empty), []);
+  assert.equal(await fs.readFile(file, 'utf8'), 'Keep this');
+  assert.equal(await fs.readFile(path.join(f.root, 'index.html'), 'utf8'), '<html><body>Slide</body></html>');
+  const next = path.join(f.directory, 'Next presentation');
+  assert.ok(!(await call('create_presentation', { path: next })).isError);
+  assert.equal((await other.callTool({ name: 'list_files' })).isError, true);
+  assert.ok(!(await call('write_file', { path: 'notes.txt', content: 'New project' })).isError);
+  assert.equal(await fs.readFile(path.join(next, 'notes.txt'), 'utf8'), 'New project');
+  await assert.rejects(fs.access(path.join(folder, 'notes.txt')));
+});
 
 test('MCP discovers and opens presentations without a deck, selecting only the calling session', async t => {
   const f = await fixture(t);
@@ -84,7 +130,7 @@ test('HTTP MCP exposes the active presentation and scoped file and screenshot to
   assert.ok(selected.content.some(block => block.type === 'text' && block.text === presentationGuidance));
   const opened = await client.callTool({ name: 'open_presentation', arguments: { path: f.root } });
   assert.ok(opened.content.some(block => block.type === 'text' && block.text === presentationGuidance));
-  assert.deepEqual((await client.listTools()).tools.map(tool => tool.name).sort(), ['get_presentation', 'list_recent_presentations', 'open_presentation', 'screenshot_slide', ...toolDefinitions.map(tool => tool.name)].sort());
+  assert.deepEqual((await client.listTools()).tools.map(tool => tool.name).sort(), ['get_presentation', 'list_recent_presentations', 'open_presentation', 'create_presentation', 'screenshot_slide', ...toolDefinitions.map(tool => tool.name)].sort());
   assert.deepEqual(JSON.parse(text(await client.callTool({ name: 'get_presentation' }))), { root: f.root, name: 'deck', current: true });
   assert.deepEqual(JSON.parse(text(await client.callTool({ name: 'list_files' }))), ['index.html']);
   assert.match(text(await client.callTool({ name: 'read_file', arguments: { path: 'index.html' } })), /Slide/);

@@ -24,9 +24,9 @@ export async function loadMcpToken(directory) {
   return token;
 }
 
-function presentationServer(getDeck, binding, screenshotSlide, sessionSignal, listRecentPresentations, openPresentation) {
+function presentationServer(getDeck, binding, screenshotSlide, sessionSignal, listRecentPresentations, openPresentation, createPresentation) {
   const server = new McpServer({ name: 'wetmytt', version: '0.1.0' }, {
-    instructions: `${agentLongDescription}\n\nCall get_presentation before working to select and identify the open presentation, or use list_recent_presentations and open_presentation to choose one. If the presentation changes outside this session, call get_presentation again before making further edits; no reconnect is needed.`,
+    instructions: `${agentLongDescription}\n\nCall get_presentation before working to select and identify the open presentation, use list_recent_presentations and open_presentation to choose one, or use create_presentation to create and select a new one. If the presentation changes outside this session, call get_presentation again before making further edits; no reconnect is needed.`,
   });
   const currentRoot = (bound) => {
     const current = getDeck();
@@ -60,6 +60,13 @@ function presentationServer(getDeck, binding, screenshotSlide, sessionSignal, li
     await openPresentation(folder, signal);
     return selectPresentation();
   });
+  tool('create_presentation', 'Create a new presentation from the app’s starter template at the specified absolute folder path, open it in the app, and select it for subsequent tools in this session. Works with no presentation open. The parent directory must exist and the destination must not exist, even as an empty folder. Includes local Git history and authoring guidance. Switches the visible presentation and cancels pending operations on the previous one.', {
+    path: z.string().min(1).refine(value => path.isAbsolute(value), 'Expected an absolute presentation folder path.'),
+  }, async ({ path: folder }, signal) => {
+    signal.throwIfAborted();
+    await createPresentation(folder, signal);
+    return selectPresentation();
+  });
   const presentationTool = (name, description, schema, callback) => tool(name, description, schema, async (args, sessionSignal) => {
     // Capture this binding for the whole call. Selecting another presentation
     // must never redirect a queued or in-flight operation into its folder.
@@ -86,7 +93,7 @@ function presentationServer(getDeck, binding, screenshotSlide, sessionSignal, li
   return server;
 }
 
-export async function startMcpServer({ getDeck, screenshotSlide, listRecentPresentations = () => [], openPresentation = async () => { throw new Error('Opening presentations is unavailable.'); }, token, port = MCP_PORT }) {
+export async function startMcpServer({ getDeck, screenshotSlide, listRecentPresentations = () => [], openPresentation = async () => { throw new Error('Opening presentations is unavailable.'); }, createPresentation = async () => { throw new Error('Creating presentations is unavailable.'); }, token, port = MCP_PORT }) {
   if (!token) throw new Error('MCP requires an access token.');
   const sessions = new Map();
   const controllers = new Set();
@@ -129,7 +136,7 @@ export async function startMcpServer({ getDeck, screenshotSlide, listRecentPrese
       const controller = new AbortController();
       controllers.add(controller);
       const binding = { deck: { ...getDeck() }, controller: new AbortController() };
-      const server = presentationServer(getDeck, binding, screenshotSlide, controller.signal, listRecentPresentations, openPresentation);
+      const server = presentationServer(getDeck, binding, screenshotSlide, controller.signal, listRecentPresentations, openPresentation, createPresentation);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(), enableJsonResponse: true,
         onsessioninitialized: id => sessions.set(id, { transport, server, binding, controller, lastActive: Date.now() }),
