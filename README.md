@@ -25,14 +25,14 @@ The slides have to be HTML. The interface only needs a minimal way to work with 
 
 This app. **New deck** creates the folder and a starter HTML presentation. The built-in chat, **Connect to Codex**, or **Connect to Claude** does the editing against that folder. **Present** puts the slides on screen. **Export PDF** writes a file you can send.
 
-![A starter deck open in the desktop app, with a live slide preview, navigation, Backstage chat, and controls for PDF export and presenting.](docs/screenshots/workspace.jpg)
+![The current workspace with the File and Connect menus, slide thumbnails, a live slide preview, and Backstage Chat and Edit tabs.](docs/screenshots/workspace.jpg)
 
-*The workspace: your slides on the left, your creative partner on the right.*
+*Browse slides with thumbnails, use File for deck actions, and switch between Chat and Edit in Backstage.*
 
 ## Features
 
 - **HTML slides, as files.** Each deck is a folder: `index.html`, `deck.json`, `slides.js`, `styles.css`, and `assets/`. The same folder opens here, in an editor, or with any agent that can write files.
-- **AI-first editing.** The window is a slide preview plus a chat sidebar. Bring your own key for OpenAI, Claude, or OpenRouter, or point it at a local Ollama model. The agent reads and writes the deck, and can run commands when the work needs them.
+- **AI-first editing.** The window is a slide preview plus a chat sidebar. Bring your own key for OpenAI, Claude, or OpenRouter, or point it at a local Ollama model. The agent reads and writes the deck using dedicated editing, research, asset, and Git tools.
 - **Click to edit text.** Select text on a slide to highlight it and open its JSON field in the sidebar's **Edit** tab. Keys become labels; values are editable text. Save each field to update the preview.
 - **A small set of controls.** Create or open a folder, move between slides, present, export, and show the files on disk.
 - **Local first.** The deck stays in the folder you chose. Provider settings stay in the app. Conversations are saved inside the deck at `.wetmytt/chats/`.
@@ -61,7 +61,13 @@ npm start
 
 ## Make a deck
 
-Choose **File → New deck** and choose a new folder name, or **File → Open folder** for an existing deck with `index.html`. A new deck copies the editable starter:
+Choose **File → New deck** and choose a new folder name, or **File → Open folder** for an existing deck with `index.html`.
+
+![The File menu open in the current workspace, showing New deck, Open folder, Open recent, Add assets, Show files, and Close project.](docs/screenshots/file-menu.jpg)
+
+*Deck and file actions live in File; PDF export and Present stay in the toolbar.*
+
+A new deck copies the editable starter:
 
 ```text
 my-presentation/
@@ -78,6 +84,10 @@ my-presentation/
 The **Edit** tab lists string values in `deck.json`, including nested objects and arrays. Clicking slide text opens and focuses the matching field. Starter decks bind text elements with `data-json-path="/slides/0/title"` (a JSON pointer). Custom renderers can use the same attribute; escape `~` as `~0` and `/` as `~1` within key names. Existing decks fall back to unique text matches, preferring the current slide. Repeated or transformed text needs an explicit binding. Text without a match can still be selected; choose its field in Edit. Decks without `deck.json` need a JSON source and bindings to use this editor.
 
 **Save text** writes the field to disk and refreshes the preview. Unsaved drafts stay while switching tabs or selecting other fields. If `deck.json` changes externally before saving, the editor preserves the draft and asks you to reload instead of overwriting those changes. **Discard edits & reload** loads the current file. Selection highlights are hidden during presentation and PDF export.
+
+![A slide title selected in the preview and its matching JSON field focused in the Edit tab, with an unsaved text change and the Save text button visible.](docs/screenshots/editing.jpg)
+
+*Click slide text to select its field, change the value in Edit, then choose Save text to update the preview.*
 
 **File → Open recent** and the welcome screen list the last ten successfully opened or created folders, newest first. History stays in the app’s local user-data directory across restarts. Remove an entry or clear the list without changing the folders on disk. If a folder has moved or is unavailable, opening it reports an error and keeps your current presentation open.
 
@@ -105,7 +115,7 @@ Agents are instructed to start each logical change with a clean Git working tree
 
 ## AI: bring your own key
 
-Open **AI settings**, choose **OpenRouter**, **OpenAI**, **Claude**, or **Ollama**, and enter a model ID that supports tools. Cloud connections require an API key; local Ollama does not. OpenAI, OpenRouter, and Ollama use Chat Completions; Claude uses the Anthropic Messages API. OpenRouter routing requires support for the requested parameters. The advanced base URL supports proxies using the selected API format, with HTTPS required except for loopback servers. Changing providers or endpoints does not reuse the saved key. Saving validates the configuration locally; model access and tool support are checked when you send a message.
+Open **Settings → AI connection**, choose **OpenRouter**, **OpenAI**, **Claude**, or **Ollama**, and enter a model ID that supports tools. Cloud connections require an API key; local Ollama does not. OpenAI, OpenRouter, and Ollama use Chat Completions; Claude uses the Anthropic Messages API. OpenRouter routing requires support for the requested parameters. The advanced base URL supports proxies using the selected API format, with HTTPS required except for loopback servers. Changing providers or endpoints does not reuse the saved key. Saving validates the configuration locally; model access and tool support are checked when you send a message.
 
 The built-in agent and MCP connections share dedicated tools for listing, reading, writing, and patching text files; web search and page retrieval; asset imports and downloads; and local Git history. Neither interface exposes arbitrary shell commands. Changes are applied directly and auto-reloaded. There is no built-in image generation; agents can download assets or write SVG.
 
@@ -196,7 +206,7 @@ npm run test:screenshot
 
 The preview is sandboxed without Node integration, and IPC validates that calls come from the main application frame. File tools reject hidden paths and paths or symlinks outside the deck. Dedicated asset imports can read absolute local source paths supplied by the agent and copy them into `assets/`. Web tools retrieve public URLs; Git operations are restricted to the presentation repository, with hooks, external diff programs, signing, and configured filters disabled. This is a local desktop prototype; avoid opening untrusted folders or allowing concurrent untrusted processes to replace symlinks during writes.
 
-Presenter notes, a separate presenter view, and selecting slide elements for editing are intentionally deferred.
+Presenter notes and a separate presenter view are intentionally deferred.
 
 ## PDF export
 
@@ -209,6 +219,18 @@ The export window uses the same 1280 × 720 presentation viewport as slide captu
 Run `npm run test:pdf` to test PDF export through the actual Electron app, including its UI, bridge, save dialog handling, and Chromium rendering.
 
 Run `npm run test:edit` after `npm run build` to test text selection, JSON field focus, saving, preview refresh, and external edit conflicts in the actual Electron app.
+
+## Refresh README screenshots
+
+Run `npm run screenshots:readme` to build the current interface and capture the welcome screen, workspace, File menu, text editor, and presentation mode. The script uses a temporary profile and starter deck, and verifies that the pictured text edit saves and appears in the preview. Your presentations, recent folders, and AI settings are not used. Electron opens a demo window and briefly enters full screen; the session closes and its temporary files are removed afterward.
+
+To replace only particular images, pass their names, for example:
+
+```sh
+npm run screenshots:readme -- editing file-menu
+```
+
+Available names are `welcome`, `workspace`, `file-menu`, `editing`, and `presentation`. Captures are written to `docs/screenshots/`. Add future feature views as steps in [scripts/capture-readme.js](scripts/capture-readme.js), register their names in `scenes`, and link the new images here. Review the generated images before committing.
 
 ## License
 

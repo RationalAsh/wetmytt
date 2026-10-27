@@ -16,6 +16,7 @@
     "dist:mac:x64": "npm run build && electron-builder --mac dmg zip --x64 --publish never",
     "start": "electron .",
     "test": "node --test tests/*.test.js",
+    "screenshots:readme": "npm run build && electron scripts/capture-readme.js",
     "test:screenshot": "node --test tests/screenshot.integration.js",
     "test:thumbnails": "node --test tests/thumbnails.integration.js",
     "test:recent": "node --test tests/recent.integration.js",
