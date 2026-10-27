@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, Menu, safeStorage, autoUpdater as nativeUpdater } from 'electron';
 import electronUpdater from 'electron-updater';
 import { createUpdates } from './updates.js';
+import { cleanInstalledUpdateCache } from './update-cache.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -110,9 +111,14 @@ function handle(channel, callback) {
 if (!app.requestSingleInstanceLock()) app.quit();
 else app.whenReady().then(async () => {
 let quitting = false, cleanupPromise;
+const updatesEnabled = app.isPackaged && process.platform === 'darwin' && !process.env.WETMYTT_DEV_URL && process.env.NODE_ENV !== 'development';
+if (updatesEnabled) {
+  await cleanInstalledUpdateCache(path.join(app.getPath('home'), 'Library', 'Caches', 'wetmytt-updater'), app.getVersion())
+    .catch(error => console.warn('Could not clean installed update cache:', error.message));
+}
 const updates = createUpdates({
   updater: electronUpdater.autoUpdater, nativeUpdater,
-  enabled: app.isPackaged && process.platform === 'darwin' && !process.env.WETMYTT_DEV_URL && process.env.NODE_ENV !== 'development',
+  enabled: updatesEnabled,
   notify: status => notify('updates:changed', status),
   beforeRestart: () => { quitting = true; return cleanup(); },
 });

@@ -192,3 +192,14 @@ upload only the DMGs. The updater validates download hashes and macOS verifies
 the signed app through Squirrel.Mac before Restart is shown. Keep the app ID
 and signing identity consistent between releases. See the
 [electron-builder auto-update guide](https://www.electron.build/docs/features/auto-update/).
+
+## Update cache retention
+
+Packaged macOS builds clean up the pending ZIP and its metadata on the first
+launch of the matching installed version, before starting any update checks.
+The cache is `~/Library/Caches/wetmytt-updater/`. The root `update.zip` and
+`current.blockmap` stay available for differential downloads; a newer pending
+update is preserved for installation and offline retry. Cleanup skips unknown
+versions, filenames, malformed metadata, and symlinks, and failures do not block
+startup or updating. Squirrel's own staging and backup files are left to macOS's
+updater. Manually downloaded DMGs are not managed by this cleanup.
