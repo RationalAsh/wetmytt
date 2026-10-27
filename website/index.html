@@ -48,50 +48,66 @@
       <figcaption>Your slides and your conversation, together in one window.</figcaption>
     </figure>
 
-    <section id="workflow" class="workflow wrap" aria-labelledby="workflow-title">
-      <p class="eyebrow">From idea to first draft</p>
-      <h2 id="workflow-title">Prompt → Presentation</h2>
-      <p class="section-intro">No template browsing or endless choices. Start with what you want to say.</p>
-      <div class="workflow-content">
-        <ol class="steps">
-          <li><h3>Start with your files</h3><p>Create a deck folder and add your images and reference material. Your HTML, CSS, JavaScript, and assets stay on your computer.</p></li>
-          <li><h3>Talk it into shape</h3><p>Ask AI for a first draft in minutes, or build it slide by slide. Refine the story, layout, and design through conversation.</p></li>
-          <li><h3>Tweak, present, share</h3><p>Click slide text to adjust the wording. Present full screen, or export a PDF with selectable text to send around.</p></li>
-        </ol>
-        <figure class="folder-structure">
-          <img src="assets/folder-structure.svg" width="560" height="460" loading="lazy" alt="An example my-presentation folder containing index.html, deck.json, slides.js, styles.css, and an expanded assets folder with meeting-photo.jpg inside.">
-          <figcaption>Just files in a folder. Yours to keep and edit.</figcaption>
-        </figure>
+    <section id="workflow" class="workflow section-band" aria-labelledby="workflow-title">
+      <div class="wrap">
+        <p class="eyebrow">From idea to first draft</p>
+        <h2 id="workflow-title">Prompt → Presentation</h2>
+        <p class="section-intro">No template browsing or endless choices. Start with what you want to say.</p>
+        <div class="workflow-content">
+          <ol class="steps">
+            <li><h3>Start with your files</h3><p>Create a deck folder and add your images and reference material. Your HTML, CSS, JavaScript, and assets stay on your computer.</p></li>
+            <li><h3>Talk it into shape</h3><p>Ask AI for a first draft in minutes, or build it slide by slide. Refine the story, layout, and design through conversation.</p></li>
+            <li><h3>Tweak, present, share</h3><p>Click slide text to adjust the wording. Present full screen, or export a PDF with selectable text to send around.</p></li>
+          </ol>
+          <figure class="folder-structure">
+            <img src="assets/folder-structure.svg" width="560" height="460" loading="lazy" alt="An example my-presentation folder containing index.html, deck.json, slides.js, styles.css, and an expanded assets folder with meeting-photo.jpg inside.">
+            <figcaption>Just files in a folder. Yours to keep and edit.</figcaption>
+          </figure>
+        </div>
       </div>
     </section>
 
-    <section class="details wrap" aria-labelledby="details-title">
-      <div>
-        <p class="eyebrow">Built for personal presentations</p>
-        <h2 id="details-title">Spin up a quick presentation for those endless meetings without spending hours in PowerPoint.</h2>
-      </div>
-      <div class="answers">
-        <h3>Use the AI you already work with</h3>
-        <p>Connect Codex or Claude Desktop to the app and use your existing agent account. Built-in chat is a separate option: bring an OpenAI, Claude, or OpenRouter API key, or use a local Ollama model. Your agent's account and usage limits still apply.</p>
-        <h3>HTML = infinite possibilities</h3>
-        <p>AI edits the actual HTML, CSS, and JavaScript files. Your slides can have interactive elements, animations, code, video, and whatever the web has to offer. No Markdown conversion or fixed template catalog. Open the folder in your own editor whenever you like.</p>
-        <h3>Local files, with a choice of AI connection</h3>
-        <p>Decks and conversations stay on disk. Cloud AI receives the content sent to it; choose local Ollama for local inference. Presenting and PDF export work without an AI connection.</p>
-        <h3>Still work in progress!</h3>
-        <p>Mac downloads are available for Apple Silicon and Intel. This is an early build for personal use, with no shared editing, PowerPoint export, or presenter notes yet.</p>
+    <section class="details section-band" aria-labelledby="details-title">
+      <div class="wrap">
+        <div class="details-heading">
+          <p class="eyebrow">Built for personal presentations</p>
+          <h2 id="details-title">Spin up a quick presentation for those endless meetings without spending hours in PowerPoint.</h2>
+        </div>
+        <div class="answers">
+          <article class="feature">
+            <h3>Use the AI you already work with</h3>
+            <p>Connect Codex or Claude Desktop to the app and use your existing agent account. Built-in chat is a separate option: bring an OpenAI, Claude, or OpenRouter API key, or use a local Ollama model. Your agent's account and usage limits still apply.</p>
+          </article>
+          <article class="feature">
+            <h3>HTML = infinite possibilities</h3>
+            <p>AI edits the actual HTML, CSS, and JavaScript files. Your slides can have interactive elements, animations, code, video, and whatever the web has to offer. No Markdown conversion or fixed template catalog. Open the folder in your own editor whenever you like.</p>
+          </article>
+          <article class="feature">
+            <h3>Local files, with a choice of AI connection</h3>
+            <p>Decks and conversations stay on disk. Cloud AI receives the content sent to it; choose local Ollama for local inference. Presenting and PDF export work without an AI connection.</p>
+          </article>
+          <article class="feature">
+            <h3>Still work in progress!</h3>
+            <p>Mac downloads are available for Apple Silicon and Intel. This is an early build for personal use, with no shared editing, PowerPoint export, or presenter notes yet.</p>
+          </article>
+        </div>
         <a class="text-link" href="https://github.com/RationalAsh/wetmytt#make-a-deck">Read the setup and authoring guide <span aria-hidden="true">↗</span></a>
       </div>
     </section>
 
-    <section class="story details wrap" aria-labelledby="story-title">
-      <p class="eyebrow">A personal project</p>
-      <h2 id="story-title">Why I made this</h2>
-      <div class="story-copy">
-        <p>I'm an academic, I do research in a lab, and I often lead teams. That means regular meetings. Without a presentation to anchor the discussion, those meetings can quickly turn into chaos.</p>
-        <p>For years, I made my presentations in PowerPoint or Beamer. As AI workflows became more common, I tried using AI with PowerPoint and Google Slides. The results were often OK, but the generated presentations were tough to edit manually, and iterative changes quickly became difficult. I'd run out of context, or have to download the presentation, edit it myself, and upload it again for the next round. Sometimes moving a single element would break the beautiful layout ChatGPT had made for me. Google Slides had similar issues.</p>
-        <p>I eventually started making one-off HTML presentations that I could just play in my browser. That worked, but I got tired of repeating the same prompt: “Help me create a website as a presentation. Follow these rules, include these UI elements…”</p>
-        <p>So I collected the patterns I kept using in those HTML presentations and baked them into this app. Now I can start with the conversation instead of explaining the setup all over again.</p>
-        <p>If this is helpful to you in any way, I'd love to hear from you. Feel free to reach out through my personal website, <a href="https://ashwinnarayan.com/">ashwinnarayan.com</a>.</p>
+    <section class="story section-band" aria-labelledby="story-title">
+      <div class="wrap story-layout">
+        <div class="story-heading">
+          <p class="eyebrow">A personal project</p>
+          <h2 id="story-title">Why I made this</h2>
+        </div>
+        <div class="story-copy">
+          <p>I'm an academic, I do research in a lab, and I often lead teams. That means regular meetings. Without a presentation to anchor the discussion, those meetings can quickly turn into chaos.</p>
+          <p>For years, I made my presentations in PowerPoint or Beamer. As AI workflows became more common, I tried using AI with PowerPoint and Google Slides. The results were often OK, but the generated presentations were tough to edit manually, and iterative changes quickly became difficult. I'd run out of context, or have to download the presentation, edit it myself, and upload it again for the next round. Sometimes moving a single element would break the beautiful layout ChatGPT had made for me. Google Slides had similar issues.</p>
+          <p>I eventually started making one-off HTML presentations that I could just play in my browser. That worked, but I got tired of repeating the same prompt: “Help me create a website as a presentation. Follow these rules, include these UI elements…”</p>
+          <p>So I collected the patterns I kept using in those HTML presentations and baked them into this app. Now I can start with the conversation instead of explaining the setup all over again.</p>
+          <p>If this is helpful to you in any way, I'd love to hear from you. Feel free to reach out through my personal website, <a href="https://ashwinnarayan.com/">ashwinnarayan.com</a>.</p>
+        </div>
       </div>
     </section>
   </main>
