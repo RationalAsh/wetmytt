@@ -41,6 +41,27 @@ This app. **New deck** creates the folder and a starter HTML presentation. The b
 - **Codex from the toolbar.** **Connect to Codex** points Codex at the deck already open in the app, through a local plugin. The deck folder is the working folder.
 - **Caught up with every edit.** The app watches the deck folder and reloads when files change, including edits from another agent or editor. Drop images onto the window to copy them into `assets/`.
 
+## How it compares
+
+Choose **Welcome to My TED Talk** when you want an AI to edit ordinary HTML deck files on your computer, with preview, presentation, and PDF export in one desktop window. Other tools may fit better if you prefer Markdown, need a richer presenter view, or want hosted collaboration.
+
+This is a selection of direct alternatives and adjacent tools, not an exhaustive ranking. Links point to official product pages and documentation, checked on **27 October 2026**. The fit recommendations are our assessment; hosted features and export access can depend on the plan.
+
+| Tool | Authoring and AI workflow | Presenting and sharing | Choose it when / tradeoff |
+| --- | --- | --- | --- |
+| **Welcome to My TED Talk (this app)** | Local HTML/CSS/JS folder; built-in chat with your API key or Ollama, plus Codex and Claude MCP connections. Click-to-edit text uses JSON bindings. | Full-screen desktop presentation; selectable-text PDF export; deck source stays on disk. | You want AI editing and control of local files in one small app. Early build: no presenter notes/view, hosted collaboration, or PowerPoint export. |
+| [reveal.js](https://revealjs.com/) | HTML presentation framework with Markdown support; customize CSS and JavaScript in your editor. | Browser slides, nested navigation, animations, and speaker notes; [PDF via browser printing](https://revealjs.com/pdf-export/). | You want a feature-rich web presentation framework and control over the runtime. You assemble your own authoring and AI workflow. |
+| [HTML Decks](https://htmldecks.com/) | Browser template editor: fill in content, choose colors, and preview changes. | Downloads a self-contained HTML file for offline presenting, with keyboard and touch navigation. | You want a template-based deck quickly without setting up a project. The starting workflow centers on predefined templates; free downloads have a watermark, with premium templates available separately. |
+| [Slidev](https://sli.dev/guide/) | Local Markdown project with Vue components, themes, and developer tooling; official [AI skills and MCP server](https://sli.dev/guide/work-with-ai). | Browser presentation and presenter mode; [PDF, PPTX, PNG, and Markdown export](https://sli.dev/guide/exporting), or build a hosted web app. | You want technical talks with code and interactive components. Local authoring involves a Node.js project; exported files lose web interactivity, and browser PPTX export captures slides as images. |
+| [Marp](https://marp.app/) | Markdown with directives and CSS themes; edit and preview through its VS Code extension or use the CLI. | Exports HTML, PDF, and PowerPoint. | You prefer writing slides as concise Markdown in your existing editor. Its main authoring model is Markdown and themes, so choose a web framework if you want extensive custom runtime behavior. |
+| [Quarto](https://quarto.org/docs/presentations/) | Markdown publishing workflow with presentation formats, including reveal.js. | Produces reveal.js HTML, PowerPoint, or Beamer PDF; reveal.js output can also be printed to PDF. | You already use Quarto or want multiple presentation formats from Markdown. Output capabilities differ by format, so switching formats may require adjustments. |
+| [Slides.com](https://slides.com/) | Hosted visual editor with a built-in AI agent, team features, HTML/CSS access, and MCP integration. | Hosted links, embeds, speaker view, and PDF/PPTX export; [HTML export for self-hosting](https://slides.com/features). | You want visual editing, team collaboration, and web publishing around reveal.js. Authoring lives in the service; HTML export and other advanced features depend on your plan. |
+| [Gamma](https://gamma.app/) | Hosted AI generation and chat-based refinement for presentations and other visual documents. | [Exports PDF, PPTX, PNG, and Google Slides](https://gamma.app/pricing). | You want a managed AI design workflow with common document exports. AI usage, branding removal, and advanced sharing depend on the plan; the authoring workflow is service-based. |
+
+**Local files and local AI are separate choices.** This app keeps decks on disk, but cloud AI providers receive the conversation and any content the agent sends them. Use a local Ollama model for local inference; presenting and PDF export do not require an AI provider.
+
+**HTML does not imply drop-in compatibility.** This app expects `data-slide` containers and browser-ready local assets, and restricts remote resources and dynamic code evaluation. Decks made by another tool may need adaptation; see [Custom slide HTML](#custom-slide-html).
+
 ## Run
 
 Requires Node.js 22.12+ and npm.
