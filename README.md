@@ -4,6 +4,12 @@
 
 `wetmytt` for short. A playful nod to the familiar “welcome to my TED talk” sign-off, with its own violet-and-lime stage identity. An independent project, not affiliated with TED. This is an early build.
 
+<!-- Release agents: update both versioned DMG links after publishing a new stable release. See AGENTS.md and docs/releases.md. -->
+[![Download for Apple Silicon](https://img.shields.io/badge/Download_for-Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/RationalAsh/wetmytt/releases/download/v0.3.2/wetmytt-0.3.2-mac-arm64.dmg)
+[![Download for Apple Intel](https://img.shields.io/badge/Download_for-Apple_Intel-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/RationalAsh/wetmytt/releases/download/v0.3.2/wetmytt-0.3.2-mac-x64.dmg)
+
+Apple Silicon: M1 and later. Intel: Intel-based Macs. Open the DMG and drag the app into Applications; no Node.js or npm required. [Latest release and release notes](https://github.com/RationalAsh/wetmytt/releases/latest).
+
 ![Welcome screen with options to create a presentation or open a deck folder, alongside the Backstage AI sidebar.](docs/screenshots/welcome.jpg)
 
 ## What it does

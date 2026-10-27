@@ -13,3 +13,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 Before each logical change (which may span several files), check `git status` and start with a clean working tree and index. If there are existing changes, inspect both unstaged and staged diffs and read relevant untracked files. Preserve their contents, stage explicit paths, and commit them separately with a descriptive checkpoint message before editing. Do not include secrets or files outside this repository. If a clean baseline cannot be created safely or a Git operation fails, report the blocker before editing.
 
 After each logical change, review the diff and run the relevant checks. Stage explicit changed paths, inspect the staged diff, and commit with a concise, descriptive message explaining what changed and why. Confirm `git status` is clean before starting another change or reporting completion. Do not create empty commits for read-only or unchanged work. Never discard edits or rewrite history unless requested. If validation or a commit fails, report it honestly and preserve the edits.
+
+## README download badges
+
+After publishing a new stable GitHub Release, update both macOS download badges near the top of `README.md` to the published release's DMG asset URLs: Apple Silicon uses `arm64`, and Apple Intel uses `x64`. Verify both assets exist before changing the links, then commit and push the README update. Do not advance the badges for draft releases or prereleases.
+
+The DMG filenames currently include the version (`wetmytt-X.Y.Z-mac-ARCH.dmg`), so `/releases/latest/download/…` does not remove the need to update their filenames. Keep the separate `/releases/latest` page link version-independent. If releases later provide fixed-name DMG aliases for both architectures, the badges can use those aliases with `/releases/latest/download/` instead. See `docs/releases.md` for the release checklist.
