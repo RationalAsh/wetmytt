@@ -49,33 +49,11 @@ This app. **New deck** creates the folder and a starter HTML presentation. The b
 - **Codex from the toolbar.** **Connect to Codex** points Codex at the deck already open in the app, through a local plugin. The deck folder is the working folder.
 - **Caught up with every edit.** The app watches the deck folder and reloads when files change, including edits from another agent or editor. Drop images onto the window to copy them into `assets/`.
 
-## How it compares
+## The workflow
 
-I built this for my own presentations. I make the deck, AI does most of the editing, and I adjust the text. Editing by other people is outside the current scope. Pricing tiers and enterprise features are outside this comparison, too.
+I wanted a local app I could use with the AI subscriptions I already pay for, with HTML authoring for flexibility. AI does most of the editing, and I can tweak the wording myself when needed. No template browsing or endless choices before getting started.
 
-I want a local app that works with the agent I already use. I'm already paying for ChatGPT; I don't want another presentation subscription. I want the AI to write HTML/CSS/JavaScript directly, without worrying about what survives a Markdown-to-slides conversion. I also don't want to browse templates: I spend longer choosing one than I want to, and still end up wanting a different design. If I wanted structured authoring, I'd use Beamer (LaTeX).
-
-The table compares that workflow, not overall product quality. ✅ means the stated capability is available; ❌ means it is outside the tool's usual authoring workflow. Short notes distinguish built-in support from a setup you assemble yourself. Official sources are linked, checked on **27 October 2026**.
-
-| Tool | Local desktop app | BYOK or own agent | Direct HTML authoring | AI edits + manual text UI | Skip template selection |
-| --- | --- | --- | --- | --- | --- |
-| **Welcome to My TED Talk (this app)** | ✅ | ✅ BYOK, Ollama, Codex, Claude | ✅ HTML/CSS/JS files | ✅ AI changes; JSON text fields | ✅ AI designs from a starter |
-| [reveal.js](https://revealjs.com/) | ❌ Browser + editor | ✅ Agent edits local files | ✅ HTML/CSS/JS | ❌ Bring your own editing UI | ✅ Default theme or custom CSS |
-| [HTML Decks](https://htmldecks.com/) | ❌ Browser editor | ✅ Agent can edit downloaded HTML | ❌ Template fields; HTML on export | ❌ Form-based editing | ❌ Pick a template first |
-| [Slidev](https://sli.dev/guide/) | ❌ Local server + browser | ✅ [Agent/MCP](https://sli.dev/guide/work-with-ai) | ❌ Markdown + Vue | ❌ Agent + Markdown source editor | ✅ Default theme available |
-| [Marp](https://marp.app/) | ❌ Editor extension / CLI | ✅ Agent edits local files | ❌ Markdown + CSS | ❌ Agent + Markdown source editor | ✅ Default theme available |
-| [Quarto](https://quarto.org/docs/presentations/) | ❌ Editor + rendering tools | ✅ Agent edits local files | ❌ Markdown publishing pipeline | ❌ Agent + source editor | ✅ Format defaults available |
-| [Slides.com](https://slides.com/features) | ❌ Hosted editor | ✅ External agents via MCP | ✅ HTML/CSS access | ✅ Built-in AI + visual text editing | ✅ Blank deck / custom design |
-| [Gamma](https://gamma.app/) | ❌ Hosted editor | ✅ [External agents via MCP](https://help.gamma.app/en/articles/11962420-does-gamma-have-an-api) | ❌ Service-managed content | ✅ AI + visual text editing | ✅ [Agent can choose the design](https://help.gamma.app/en/articles/15002203-how-do-i-create-with-agent-in-gamma) |
-| [Beamer](https://www.ctan.org/pkg/beamer?lang=en) | ❌ TeX editor + compiler | ✅ Agent edits local files | ❌ LaTeX → PDF | ❌ Agent + LaTeX source editor | ✅ Default theme available |
-
-**How to read the columns.** A local desktop app combines deck editing and presentation in an installed application; a locally served browser deck or editor extension is identified separately. Direct HTML authoring means HTML is the editable source in the normal authoring workflow, rather than just an export. The AI/text column asks for AI editing alongside text controls that do not require editing markup. Skipping template selection means you can start with a default or ask AI to design it; it does not mean the tool has no themes or templates.
-
-**Bring your own agent is different from bring your own inference.** File-based tools can work with an agent that edits their source files. MCP services can accept requests from your agent while still using their own generation backend. In this app, **Connect to Codex** or **Connect to Claude** uses an external agent; built-in chat uses your API key or Ollama. These are separate connection options.
-
-**Local files and local AI are separate choices.** This app keeps decks on disk, but cloud AI providers receive the conversation and any content the agent sends them. Use a local Ollama model for local inference; presenting and PDF export do not require an AI provider.
-
-**HTML does not imply drop-in compatibility.** This app expects `data-slide` containers and browser-ready local assets, and restricts remote resources and dynamic code evaluation. Decks made by another tool may need adaptation; see [Custom slide HTML](#custom-slide-html).
+Put your files in one folder, describe what you need, and prompt the AI to make a first draft in minutes. Then edit it to your liking through conversation, or work slide by slide for a fast back-and-forth workflow.
 
 ## Run
 
