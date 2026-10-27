@@ -16,6 +16,6 @@ After each logical change, review the diff and run the relevant checks. Stage ex
 
 ## README download badges
 
-After publishing a new stable GitHub Release, update both macOS download badges near the top of `README.md` to the published release's DMG asset URLs: Apple Silicon uses `arm64`, and Apple Intel uses `x64`. Verify both assets exist before changing the links, then commit and push the README update. Do not advance the badges for draft releases or prereleases.
+After publishing a new stable GitHub Release, update both macOS download badges near the top of `README.md` to the published release's DMG asset URLs: Apple Silicon uses `arm64`, and Intel uses `x64`. Verify both assets exist before changing the links, then commit and push the README update. Do not advance the badges for draft releases or prereleases.
 
 The DMG filenames currently include the version (`wetmytt-X.Y.Z-mac-ARCH.dmg`), so `/releases/latest/download/…` does not remove the need to update their filenames. Keep the separate `/releases/latest` page link version-independent. If releases later provide fixed-name DMG aliases for both architectures, the badges can use those aliases with `/releases/latest/download/` instead. See `docs/releases.md` for the release checklist.
