@@ -33,18 +33,21 @@ export function renderWebsite(template, release, siteUrl = 'https://rationalash.
   });
 }
 
-async function main() {
-  const { values } = parseArgs({ options: { 'release-json': { type: 'string' } } });
-  let release;
-  if (values['release-json']) {
-    release = JSON.parse(await fs.readFile(values['release-json'], 'utf8'));
+export async function loadRelease(releaseJson) {
+  if (releaseJson) {
+    return JSON.parse(await fs.readFile(releaseJson, 'utf8'));
   } else {
     const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'wetmytt-website' };
     if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
     const response = await fetch('https://api.github.com/repos/RationalAsh/wetmytt/releases/latest', { headers, signal: AbortSignal.timeout(30_000), redirect: 'error' });
     if (!response.ok) throw new Error(`Latest release lookup failed: HTTP ${response.status}`);
-    release = await response.json();
+    return response.json();
   }
+}
+
+async function main() {
+  const { values } = parseArgs({ options: { 'release-json': { type: 'string' } } });
+  const release = await loadRelease(values['release-json']);
   const template = await fs.readFile(path.join(root, 'website/index.html'), 'utf8');
   const html = renderWebsite(template, release, process.env.PAGES_BASE_URL);
   const output = path.join(root, 'dist/website');

@@ -2,7 +2,31 @@
 
 The landing page lives in `website/`. It is plain HTML and CSS, with no browser JavaScript, external fonts, analytics, or application dependencies. It describes the desktop app; it does not run the Electron workspace in a browser.
 
-## Build and preview
+## Local preview
+
+Requires Node.js 22.12+; no dependency installation is needed. From the repository root, run:
+
+```sh
+npm run preview:website
+```
+
+Open `http://127.0.0.1:4173/website/`. Edit `website/index.html` or `website/styles.css`, then refresh your browser to see changes. The server reads source files on each request with caching disabled; no rebuild or restart is needed. Stop it with Ctrl+C.
+
+The server binds only to your computer and serves only the website's HTML, stylesheet, and images. It fetches the latest stable release metadata once on startup so the download links match production. Internet access is required at startup unless you supply saved release metadata:
+
+```sh
+npm run preview:website -- --release-json /path/to/release.json
+```
+
+To use a different port:
+
+```sh
+npm run preview:website -- --port 8081
+```
+
+You can also run `node scripts/preview-website.mjs` directly without npm. Restart the server to refresh release metadata.
+
+## Production build
 
 Requires Node.js 22.12+; no npm installation is needed:
 
