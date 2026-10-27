@@ -52,6 +52,7 @@ async function main() {
   await fs.mkdir(path.join(output, 'assets'), { recursive: true });
   await fs.writeFile(path.join(output, 'index.html'), html);
   await fs.copyFile(path.join(root, 'website/styles.css'), path.join(output, 'styles.css'));
+  await fs.cp(path.join(root, 'website/assets'), path.join(output, 'assets'), { recursive: true });
   await fs.copyFile(path.join(root, 'docs/screenshots/workspace.jpg'), path.join(output, 'assets/workspace.jpg'));
   await fs.copyFile(path.join(root, 'electron/assets/icon.svg'), path.join(output, 'assets/icon.svg'));
   await fs.writeFile(path.join(output, '.nojekyll'), '');

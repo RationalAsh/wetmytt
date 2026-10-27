@@ -50,28 +50,34 @@
 
     <section id="workflow" class="workflow wrap" aria-labelledby="workflow-title">
       <p class="eyebrow">From idea to first draft</p>
-      <h2 id="workflow-title">A folder. A prompt. A presentation.</h2>
+      <h2 id="workflow-title">Prompt → Presentation</h2>
       <p class="section-intro">No template browsing or endless choices. Start with what you want to say.</p>
-      <ol class="steps">
-        <li><h3>Start with your files</h3><p>Create a deck folder and add your images and reference material. Your HTML, CSS, JavaScript, and assets stay on your computer.</p></li>
-        <li><h3>Talk it into shape</h3><p>Ask AI for a first draft in minutes, or build it slide by slide. Refine the story, layout, and design through conversation.</p></li>
-        <li><h3>Tweak, present, share</h3><p>Click slide text to adjust the wording. Present full screen, or export a PDF with selectable text to send around.</p></li>
-      </ol>
+      <div class="workflow-content">
+        <ol class="steps">
+          <li><h3>Start with your files</h3><p>Create a deck folder and add your images and reference material. Your HTML, CSS, JavaScript, and assets stay on your computer.</p></li>
+          <li><h3>Talk it into shape</h3><p>Ask AI for a first draft in minutes, or build it slide by slide. Refine the story, layout, and design through conversation.</p></li>
+          <li><h3>Tweak, present, share</h3><p>Click slide text to adjust the wording. Present full screen, or export a PDF with selectable text to send around.</p></li>
+        </ol>
+        <figure class="folder-structure">
+          <img src="assets/folder-structure.svg" width="560" height="460" loading="lazy" alt="An example my-presentation folder containing index.html, deck.json, slides.js, styles.css, and an expanded assets folder with meeting-photo.jpg inside.">
+          <figcaption>Just files in a folder. Yours to keep and edit.</figcaption>
+        </figure>
+      </div>
     </section>
 
     <section class="details wrap" aria-labelledby="details-title">
       <div>
         <p class="eyebrow">Built for personal presentations</p>
-        <h2 id="details-title">Your agent.<br>Your files.<br>Your way.</h2>
+        <h2 id="details-title">Spin up a quick presentation for those endless meetings without spending hours in PowerPoint.</h2>
       </div>
       <div class="answers">
         <h3>Use the AI you already work with</h3>
         <p>Connect Codex or Claude Desktop to the app and use your existing agent account. Built-in chat is a separate option: bring an OpenAI, Claude, or OpenRouter API key, or use a local Ollama model. Your agent's account and usage limits still apply.</p>
-        <h3>HTML gives the design room to move</h3>
-        <p>AI edits the actual HTML, CSS, and JavaScript files. No Markdown conversion or fixed template catalog. Open the folder in your own editor whenever you like.</p>
+        <h3>HTML = infinite possibilities</h3>
+        <p>AI edits the actual HTML, CSS, and JavaScript files. Your slides can have interactive elements, animations, code, video, and whatever the web has to offer. No Markdown conversion or fixed template catalog. Open the folder in your own editor whenever you like.</p>
         <h3>Local files, with a choice of AI connection</h3>
         <p>Decks and conversations stay on disk. Cloud AI receives the content sent to it; choose local Ollama for local inference. Presenting and PDF export work without an AI connection.</p>
-        <h3>A small app, still taking shape</h3>
+        <h3>Still work in progress!</h3>
         <p>Mac downloads are available for Apple Silicon and Intel. This is an early build for personal use, with no shared editing, PowerPoint export, or presenter notes yet.</p>
         <a class="text-link" href="https://github.com/RationalAsh/wetmytt#make-a-deck">Read the setup and authoring guide <span aria-hidden="true">↗</span></a>
       </div>
