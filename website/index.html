@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Welcome to My TED Talk — Local, AI-first presentations</title>
+  <meta name="description" content="Make short presentations through conversation. A local Mac app for flexible HTML slides, AI editing, quick wording tweaks, and PDF export.">
+  <meta name="theme-color" content="#5b38b8">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Welcome to My TED Talk — Got a point? Make it.">
+  <meta property="og:description" content="Your ideas, a folder of files, and a conversation. Make HTML slides with the AI agent you already use.">
+  <meta property="og:url" content="{{SITE_URL}}">
+  <meta property="og:image" content="{{IMAGE_URL}}">
+  <meta property="og:image:alt" content="The app's slide preview, thumbnails, and Backstage AI sidebar.">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="{{SITE_URL}}">
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header wrap">
+    <a class="brand" href="./" aria-label="Welcome to My TED Talk home">
+      <img src="assets/icon.svg" width="40" height="40" alt="">
+      <span>Welcome to<br><strong>My TED Talk.</strong></span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="#workflow">How it works</a>
+      <a href="https://github.com/RationalAsh/wetmytt">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero wrap" aria-labelledby="headline">
+      <p class="eyebrow">A local Mac app for your next meeting</p>
+      <h1 id="headline">Got a point?<br><span>Make it.</span></h1>
+      <p class="intro">Turn your ideas into a short presentation through conversation. Let AI make the slides in HTML, tweak the wording, and get on with your meeting.</p>
+      <div class="downloads" aria-label="Download the macOS app">
+        <a class="button primary" href="{{ARM64_URL}}">Download for macOS <span>Apple Silicon · M1 and later <span aria-hidden="true">↓</span></span></a>
+        <a class="button secondary" href="{{X64_URL}}">Download for macOS <span>Intel <span aria-hidden="true">↓</span></span></a>
+      </div>
+      <p class="download-note">{{VERSION}} · Early build · <a href="{{RELEASE_URL}}">Release notes</a></p>
+      <p class="install-note">Open the DMG and drag the app into Applications. No Node.js or npm needed.</p>
+    </section>
+
+    <figure class="workspace wrap">
+      <img src="assets/workspace.jpg" width="1920" height="1119" fetchpriority="high" alt="A presentation open in the app, with slide thumbnails across the top, a large slide preview, and the Backstage Chat and Edit sidebar.">
+      <figcaption>Your slides and your conversation, together in one window.</figcaption>
+    </figure>
+
+    <section id="workflow" class="workflow wrap" aria-labelledby="workflow-title">
+      <p class="eyebrow">From idea to first draft</p>
+      <h2 id="workflow-title">A folder. A prompt. A presentation.</h2>
+      <p class="section-intro">No template browsing or endless choices. Start with what you want to say.</p>
+      <ol class="steps">
+        <li><h3>Start with your files</h3><p>Create a deck folder and add your images and reference material. Your HTML, CSS, JavaScript, and assets stay on your computer.</p></li>
+        <li><h3>Talk it into shape</h3><p>Ask AI for a first draft in minutes, or build it slide by slide. Refine the story, layout, and design through conversation.</p></li>
+        <li><h3>Tweak, present, share</h3><p>Click slide text to adjust the wording. Present full screen, or export a PDF with selectable text to send around.</p></li>
+      </ol>
+    </section>
+
+    <section class="details wrap" aria-labelledby="details-title">
+      <div>
+        <p class="eyebrow">Built for personal presentations</p>
+        <h2 id="details-title">Your agent.<br>Your files.<br>Your way.</h2>
+      </div>
+      <div class="answers">
+        <h3>Use the AI you already work with</h3>
+        <p>Connect Codex or Claude Desktop to the app and use your existing agent account. Built-in chat is a separate option: bring an OpenAI, Claude, or OpenRouter API key, or use a local Ollama model. Your agent's account and usage limits still apply.</p>
+        <h3>HTML gives the design room to move</h3>
+        <p>AI edits the actual HTML, CSS, and JavaScript files. No Markdown conversion or fixed template catalog. Open the folder in your own editor whenever you like.</p>
+        <h3>Local files, with a choice of AI connection</h3>
+        <p>Decks and conversations stay on disk. Cloud AI receives the content sent to it; choose local Ollama for local inference. Presenting and PDF export work without an AI connection.</p>
+        <h3>A small app, still taking shape</h3>
+        <p>Mac downloads are available for Apple Silicon and Intel. This is an early build for personal use, with no shared editing, PowerPoint export, or presenter notes yet.</p>
+        <a class="text-link" href="https://github.com/RationalAsh/wetmytt#make-a-deck">Read the setup and authoring guide <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer wrap">
+    <p>An independent project by <a href="https://github.com/RationalAsh">Ashwin Narayan</a>.<br>Not affiliated with TED.</p>
+    <nav aria-label="Footer navigation">
+      <a href="https://github.com/RationalAsh/wetmytt/releases/latest">Latest release</a>
+      <a href="https://github.com/RationalAsh/wetmytt/issues">Feedback</a>
+      <a href="https://github.com/RationalAsh/wetmytt/blob/master/LICENSE">MIT License</a>
+    </nav>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,38 @@
+# Project website
+
+The landing page lives in `website/`. It is plain HTML and CSS, with no browser JavaScript, external fonts, analytics, or application dependencies. It describes the desktop app; it does not run the Electron workspace in a browser.
+
+## Build and preview
+
+Requires Node.js 22.12+; no npm installation is needed:
+
+```sh
+node --test tests/website.test.js
+node scripts/build-website.mjs
+python3 -m http.server 8080 --bind 127.0.0.1 --directory dist
+```
+
+Open `http://127.0.0.1:8080/website/`. Stop the server with Ctrl+C. Output is ignored at `dist/website/`; the screenshot and icon are copied from the existing repository assets.
+
+The build reads the public GitHub latest-release API and requires both published architecture DMGs. It stops on missing assets or API failures instead of publishing broken or guessed links. It supports an optional `GITHUB_TOKEN` for API requests; the token is never written into the output. To build offline with saved GitHub release metadata:
+
+```sh
+node scripts/build-website.mjs --release-json /path/to/release.json
+```
+
+`PAGES_BASE_URL` overrides the canonical and social-preview URLs. GitHub Actions supplies the actual Pages base URL; the default is `https://rationalash.github.io/wetmytt/`. Local CSS, image, and icon paths are relative, so project subpaths work.
+
+## Publish when ready
+
+The `Project website` workflow is **manual only**, restricted to `master`. Pushing source changes or publishing a desktop release does not deploy the site. No Pages settings or deployment are enabled by adding these files.
+
+When publication is authorized:
+
+1. In repository **Settings → Pages → Build and deployment**, select **GitHub Actions** as the source.
+2. Use the `github-pages` environment's deployment protection rules to restrict deployment to `master`.
+3. In **Actions → Project website → Run workflow**, choose `master`.
+4. Check the successful deployment URL. The expected default is `https://rationalash.github.io/wetmytt/`.
+
+The workflow uses official Actions pinned to commit SHAs, read-only build permissions, and Pages/OIDC write permissions only for the deployment job. It publishes only `dist/website/`, not the repository or the desktop app's static export. No personal access token is required.
+
+After a new stable desktop release, rerun the workflow to refresh the site's download buttons. Download URLs are resolved at build time; the deployed page does not call GitHub's API in visitors' browsers. If automatic publishing is wanted later, add narrowly scoped default-branch push and stable-release triggers after reviewing that change. README download badges remain independently maintained as described in `AGENTS.md`.

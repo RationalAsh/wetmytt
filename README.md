@@ -202,6 +202,8 @@ The former standalone stdio command (`npm run mcp` / `node electron/mcp.js`) has
 
 ## Architecture and checks
 
+The separate project landing page lives in `website/`. See [Website preview and GitHub Pages setup](docs/website.md) for its build and manual deployment workflow.
+
 - `app/`: Next.js App Router interface, exported as static HTML for production.
 - `electron/tools.js`: shared validated tool registry for built-in chat and MCP. `git.js`, `patch.js`, and `web.js` implement dedicated operations.
 - `electron/main.js` and `preload.cjs`: native dialogs, watcher, isolated IPC, settings, and agent orchestration.
