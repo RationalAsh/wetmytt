@@ -58,6 +58,8 @@ h3 { margin: 0 0 .7rem; font-size: 1.1rem; }
 .answers { max-width: 760px; }
 .answers h3:not(:first-child) { margin-top: 1.8rem; }
 .text-link { display: inline-block; margin-top: 1.8rem; font-weight: 600; }
+.story-copy { max-width: 760px; color: var(--muted); }
+.story-copy p { margin: 0 0 1.25rem; }
 .site-footer { display: flex; align-items: center; justify-content: space-between; gap: 2rem; padding-block: 2rem; border-top: 1px solid var(--line); }
 .site-footer p { font-size: .8rem; color: var(--muted); margin: 0; }
 .site-footer nav { gap: 1rem; }
