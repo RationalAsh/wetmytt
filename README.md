@@ -18,7 +18,9 @@ Welcome to My TED Talk is a local desktop app for HTML slide decks. A deck is a 
 
 ## The problem
 
-I need HTML slides without the usual project ritual:
+I need short presentations for meetings I conduct. The PowerPoint-based workflow was too annoying for me: I wanted to describe what I needed, let AI make most of the edits, and get on with the meeting.
+
+HTML slides fit that workflow, but I also wanted to avoid the usual project ritual:
 
 - creating a new project folder by hand
 - opening an IDE inside it
