@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
+import brandIcon from '../electron/assets/icon.svg';
 import { SlideThumbnails } from './slide-thumbnails';
 import { FileMenu, ConnectMenu, RecentFolders } from './project-menus';
 import { version } from '../package.json';
@@ -321,7 +323,7 @@ export default function Home() {
 
   return <main className={presenting ? 'app presenting' : 'app'}>
     <header className="topbar">
-      <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="release-badge" aria-label={`App version ${version}`}>v{version}</span></div>
+      <div className="brand"><Image className="brand-mark" src={brandIcon} width={38} height={38} alt="" /><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="release-badge" aria-label={`App version ${version}`}>v{version}</span></div>
       <div className="file-actions"><FileMenu desktop={desktop} hasDeck={Boolean(deck.root)} {...recentProps} onNew={() => void choose(true)} onChoose={() => void choose(false)} onAssets={() => void chooseAssets()} onReveal={() => { void window.wetmytt?.reveal().catch(err => setError(String(err))); }} onClose={() => void closeProject()} /></div>
       <div className="top-actions"><button className="icon-button" title="Settings" aria-label="Settings" disabled={!settingsLoaded} onClick={() => openSettings('chat')}><Icon name="settings" size={18} /></button><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><ConnectMenu desktop={desktop} onConnect={setAgentOpen} /><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>

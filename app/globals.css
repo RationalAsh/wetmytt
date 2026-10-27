@@ -25,9 +25,7 @@ button.selected { background: var(--tint); color: var(--accent); }
 .brand strong { font-size: 20px; letter-spacing: -.8px; font-weight: 800; line-height: 1.05; }
 .brand strong > span:first-child { display: block; font-size: 11px; font-weight: 500; letter-spacing: .2px; margin-bottom: 4px; }
 .brand-period { color: var(--accent); }
-.brand-mark { width: 34px; height: 38px; position: relative; overflow: hidden; background: var(--accent); border-radius: 9px; }
-.brand-mark::before { content: ''; position: absolute; width: 40px; height: 42px; top: -10px; left: -3px; background: linear-gradient(180deg, #ffffff05, #ffffff65); clip-path: polygon(50% 0, 100% 100%, 0 100%); transform: rotate(-25deg); }
-.brand-mark > span { position: absolute; width: 22px; height: 7px; border-radius: 50%; background: var(--lime); left: 6px; bottom: 6px; transform: rotate(-12deg); }
+.brand-mark { display: block; width: 38px; height: 38px; flex-shrink: 0; }
 .release-badge { margin-left: 6px; border: 1px solid var(--line); color: var(--muted); border-radius: 4px; padding: 4px 5px; font-size: 9px; letter-spacing: .3px; white-space: nowrap; }
 .update-badge { position: absolute; top: 56px; right: 28px; z-index: 5; font-size: 10px; color: var(--accent); background: var(--tint); border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px; }
 .update-badge button { padding: 0; font-size: inherit; }
