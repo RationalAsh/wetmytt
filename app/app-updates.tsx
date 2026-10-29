@@ -24,17 +24,22 @@ function useUpdates() {
   return { status, error, action };
 }
 
-export function UpdateBadge() {
+export function UpdateBanner() {
   const { status, error, action } = useUpdates();
   if (!['downloading', 'downloaded', 'error'].includes(status.phase) || !status.version) return null;
-  return <span className="update-badge" aria-live="polite">
-    {status.phase === 'downloaded'
-      ? <button title={`Version ${status.version} is ready. You can also quit normally to install.`} onClick={() => void action(true)}>Restart to Update</button>
-      : status.phase === 'error'
-        ? <button title={status.message} onClick={() => void action()}>Update available · Retry</button>
-        : <span title={`Downloading version ${status.version}`}>Update available · Downloading…</span>}
-    {error && <span role="status">{error}</span>}
-  </span>;
+  const ready = status.phase === 'downloaded';
+  return <div className="update-banner">
+    <div className="update-banner-message" role="status">
+      <span className="update-banner-dot" aria-hidden="true" />
+      <span><strong>{ready ? 'Update ready' : 'Update available'}</strong>{' '}
+        {error || (ready
+          ? `Version ${status.version} is ready. Restart to install the update.`
+          : status.phase === 'error' ? status.message : `Downloading version ${status.version}…`)}</span>
+    </div>
+    {status.phase !== 'downloading' && <button type="button" className="primary" onClick={() => void action(ready)}>
+      {ready ? 'Restart to Update' : 'Retry download'}
+    </button>}
+  </div>;
 }
 
 export function AppUpdates() {

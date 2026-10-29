@@ -8,7 +8,7 @@ import { FileMenu, ConnectMenu, RecentFolders } from './project-menus';
 import { version } from '../package.json';
 import type { ConversationEvent, ConversationSummary, Deck, Message, Settings } from './bridge';
 import { AISettings } from './ai-settings';
-import { UpdateBadge } from './app-updates';
+import { UpdateBanner } from './app-updates';
 import { DEFAULT_MAX_TURNS } from '../shared/ai.js';
 import { AgentConnection } from './agent-connection';
 import { ChatThread } from './chat-thread';
@@ -327,7 +327,7 @@ export default function Home() {
       <div className="file-actions"><FileMenu desktop={desktop} hasDeck={Boolean(deck.root)} {...recentProps} onNew={() => void choose(true)} onChoose={() => void choose(false)} onAssets={() => void chooseAssets()} onReveal={() => { void window.wetmytt?.reveal().catch(err => setError(String(err))); }} onClose={() => void closeProject()} /></div>
       <div className="top-actions"><button className="icon-button" title="Settings" aria-label="Settings" disabled={!settingsLoaded} onClick={() => openSettings('chat')}><Icon name="settings" size={18} /></button><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><ConnectMenu desktop={desktop} onConnect={setAgentOpen} /><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
-    <UpdateBadge />
+    <UpdateBanner />
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}
     {error && <div className="error" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><Icon name="close" size={15} /></button></div>}
     {exportStatus && <div className="asset-status" role="status"><span>{exportStatus}</span><button aria-label="Dismiss export notification" onClick={() => setExportStatus('')}><Icon name="close" size={15} /></button></div>}

@@ -35,15 +35,38 @@ app.whenReady().then(async () => {
       // Exercise the real preload subscription and UI without contacting GitHub
       // or installing an update in this unpackaged test app.
       window.webContents.send('updates:changed', { phase: 'downloading', version: '0.4.0' });
-      await waitFor(() => js(`document.querySelector('.update-badge')?.textContent.includes('Downloading')`));
-      assert.equal(await js(`document.querySelector('.update-badge button') === null`), true);
+      await waitFor(() => js(`document.querySelector('.update-banner')?.textContent.includes('Downloading')`));
+      assert.equal(await js(`document.querySelector('.update-banner button') === null`), true);
       window.webContents.send('updates:changed', { phase: 'downloaded', version: '0.4.0' });
-      await waitFor(() => js(`document.querySelector('.update-badge button')?.textContent === 'Restart to Update'`));
+      await waitFor(() => js(`document.querySelector('.update-banner button')?.textContent === 'Restart to Update'`));
       assert.equal(await js(`document.querySelector('.app-updates button').textContent.trim()`), 'Restart to Update');
+      await js(`document.querySelector('[aria-label="Close settings"]').click()`);
+      await waitFor(() => js(`!document.querySelector('.preferences-page')`));
+      assert.match(await js(`document.querySelector('.update-banner').textContent`), /Update ready.*Version 0\.4\.0.*Restart to install/);
+      for (const width of [1100, 580]) {
+        window.setMinimumSize(480, 600);
+        window.setSize(width, 720);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        assert.equal(await js(`(() => {
+          const banner = document.querySelector('.update-banner'), button = banner.querySelector('button');
+          const r = banner.getBoundingClientRect(), b = button.getBoundingClientRect();
+          const header = document.querySelector('.topbar').getBoundingClientRect();
+          const workspace = document.querySelector('.workspace').getBoundingClientRect();
+          return r.height > 0 && r.top >= header.bottom && r.bottom <= workspace.top
+            && banner.scrollWidth <= banner.clientWidth && b.left >= 0 && b.right <= innerWidth;
+        })()`), true, `Update banner fits the workspace at ${width}px`);
+      }
+      await js(`document.querySelector('.app').classList.add('presenting')`);
+      assert.equal(await js(`document.querySelector('.update-banner').getBoundingClientRect().height`), 0);
+      await js(`document.querySelector('.app').classList.remove('presenting')`);
+      window.setSize(1100, 760);
+      await js(`document.querySelector('.update-banner button').click()`);
+      await js(`document.querySelector('.top-actions [aria-label="Settings"]').click()`);
+      await waitFor(() => js(`Boolean(document.querySelector('#max-turns'))`));
       window.webContents.send('updates:changed', { phase: 'error', version: '0.4.0', message: 'Check your connection and try again.' });
-      await waitFor(() => js(`document.querySelector('.update-badge button')?.textContent.includes('Retry')`));
+      await waitFor(() => js(`document.querySelector('.update-banner button')?.textContent.includes('Retry')`));
       window.webContents.send('updates:changed', { phase: 'disabled' });
-      await waitFor(() => js(`document.querySelector('.update-badge') === null`));
+      await waitFor(() => js(`document.querySelector('.update-banner') === null`));
     }
     window.setMinimumSize(480, 600);
     for (const [width, height] of [[1100, 760], [580, 720]]) {
