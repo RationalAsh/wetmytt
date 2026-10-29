@@ -147,6 +147,33 @@ test('patch edits, creates, renames, and deletes without Git; validates all file
   await assert.rejects(tool('apply_patch', { patch: '--- a/link.txt\n+++ b/link.txt\n@@ -1 +1 @@\n-after\n+bad\n' }), /regular files/);
 });
 
+test('patch rejects malformed and empty edits without writing any files', async t => {
+  const { root, tool } = await fixture(t);
+  const source = '<link rel="stylesheet" href="article.css">\n<link rel="stylesheet" href="photo.css">\n';
+  await fs.writeFile(path.join(root, 'index.html'), source);
+  const headers = '--- a/index.html\n+++ b/index.html\n';
+  const edits = ' <link rel="stylesheet" href="article.css">\n+<link rel="stylesheet" href="teaching.css">\n <link rel="stylesheet" href="photo.css">\n';
+  const valid = '--- /dev/null\n+++ b/new.txt\n@@ -0,0 +1 @@\n+new\n';
+  for (const malformed of [
+    // The chat first used custom patch markers, then mixed unified file headers
+    // with bare @@ and a custom end marker. Neither may report success.
+    `*** Begin Patch\n*** Update File: index.html\n@@\n${edits}*** End Patch\n`,
+    `${headers}@@\n${edits}*** End Patch\n`,
+    `${headers}@@\n${edits}`,
+    `${headers}@@ -1 +1 @@\n-${source.split('\n')[0]}\n+changed\n@@\n+silently skipped\n`,
+    headers,
+    `${headers}@@ -1,2 +1,2 @@\n ${source.split('\n').slice(0, 2).join('\n ')}\n`,
+  ]) {
+    await assert.rejects(tool('apply_patch', { patch: valid + malformed }), /numbered hunks.*write_file/);
+    assert.equal(await fs.readFile(path.join(root, 'index.html'), 'utf8'), source);
+    await assert.rejects(fs.access(path.join(root, 'new.txt')));
+  }
+  await assert.rejects(tool('apply_patch', { patch: `${headers}@@ -1 +1 @@\n-${source.split('\n')[0]}\n+${source.split('\n')[0]}\n` }), /makes no changes/);
+  assert.equal(await fs.readFile(path.join(root, 'index.html'), 'utf8'), source);
+  await tool('apply_patch', { patch: `${headers}@@ -1,2 +1,3 @@\n${edits}` });
+  assert.equal(await fs.readFile(path.join(root, 'index.html'), 'utf8'), source.replace('<link rel="stylesheet" href="photo.css">', '<link rel="stylesheet" href="teaching.css">\n<link rel="stylesheet" href="photo.css">'));
+});
+
 test('dedicated tools validate inputs and respect cancellation before mutations', async t => {
   const { root, tool } = await fixture(t);
   const controller = new AbortController(); controller.abort();
