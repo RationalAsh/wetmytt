@@ -258,7 +258,7 @@ kbd { display: inline-flex; align-items: center; justify-content: center; border
 
 .connection-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .provider-label { font-size: 11px; color: #625276; padding: 0; margin-bottom: 9px; }
-.provider-picker { display: grid; grid-template-columns: repeat(4, 1fr); padding: 4px; gap: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--tint); }
+.provider-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); padding: 4px; gap: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--tint); }
 .provider-picker label { position: relative; display: block; margin: 0; text-align: center; border-radius: 6px; cursor: pointer; }
 .provider-picker input { position: absolute; opacity: 0; width: 1px; height: 1px; padding: 0; }
 .provider-picker span { display: block; padding: 10px 3px; border-radius: 6px; font-size: 11px; }

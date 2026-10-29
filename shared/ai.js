@@ -2,6 +2,7 @@ export const providers = {
   openrouter: { name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', hint: 'Use a model ID from OpenRouter that supports tools.' },
   openai: { name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', hint: 'Use an OpenAI model that supports function calling.' },
   claude: { name: 'Claude', baseUrl: 'https://api.anthropic.com/v1', hint: 'Use a Claude API model ID with tool use.' },
+  gemini: { name: 'Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', hint: 'Use a Gemini model ID that supports tools and an API key from Google AI Studio.' },
   ollama: { name: 'Ollama', baseUrl: 'http://localhost:11434/v1', hint: 'Start Ollama and pull a model that supports tools.' },
 };
 
@@ -18,6 +19,7 @@ export function inferProvider(baseUrl) {
     const host = new URL(baseUrl).hostname;
     if (host === 'openrouter.ai') return 'openrouter';
     if (host === 'api.anthropic.com') return 'claude';
+    if (host === 'generativelanguage.googleapis.com') return 'gemini';
     if (['localhost', '127.0.0.1', '[::1]'].includes(host)) return 'ollama';
   } catch {}
   return 'openai';

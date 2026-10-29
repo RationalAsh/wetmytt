@@ -70,6 +70,16 @@ app.whenReady().then(async () => {
       await js(`document.querySelectorAll('.settings-nav button')[1].click()`);
       await waitFor(() => js(`Boolean(document.querySelector('input[name="provider"]'))`));
       assert.equal(await js(`document.querySelector('input[name="provider"]:checked').value`), 'ollama');
+      await js(`document.querySelector('input[name="provider"][value="gemini"]').click()`);
+      assert.equal(await js(`document.querySelector('input[name="provider"]:checked').value`), 'gemini');
+      assert.equal(await js(`document.querySelector('input[type="url"]').value`), 'https://generativelanguage.googleapis.com/v1beta/openai');
+      assert.equal(await js(`document.querySelector('input[type="password"]').required`), true);
+      assert.match(await js(`document.querySelector('#provider-hint').textContent`), /Google AI Studio/);
+      for (const [width, height] of [[1100, 760], [580, 720]]) {
+        window.setSize(width, height);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        assert.equal(await js(`(() => { const e = document.querySelector('.provider-picker'); return e.children.length === 5 && e.scrollWidth <= e.clientWidth; })()`), true);
+      }
     }
     console.log(`Settings ${phase} checks passed.`);
     app.exit(0);

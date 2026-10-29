@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createAISettings } from '../electron/ai-settings.js';
+import { providers } from '../shared/ai.js';
 
 const saved = { provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4.1', maxTurns: 72, encryptedKey: Buffer.from('encrypted').toString('base64') };
 function fixture() {
@@ -14,6 +15,28 @@ function fixture() {
   store.load(saved);
   return { store, calls, writes, safeStorage };
 }
+
+test('Gemini settings encrypt, reload, retain, and remove the saved key', async () => {
+  const { store, calls, writes, safeStorage } = fixture();
+  const gemini = { provider: 'gemini', baseUrl: providers.gemini.baseUrl, model: 'gemini-test' };
+  await assert.rejects(store.saveConnection(gemini), /API key for Gemini/);
+  await store.saveConnection({ ...gemini, apiKey: 'replacement' });
+  assert.equal(Object.hasOwn(writes.at(-1), 'apiKey'), false);
+  assert.equal(writes.at(-1).encryptedKey, Buffer.from('replacement-cipher').toString('base64'));
+  const reloaded = createAISettings({ safeStorage, write: async value => { writes.push(value); } });
+  reloaded.load(writes.at(-1));
+  assert.deepEqual(reloaded.state(), { ...gemini, maxTurns: 72, hasKey: true });
+  await reloaded.saveConnection({ ...gemini, model: 'gemini-other' });
+  assert.equal(calls.decrypt, 0);
+  safeStorage.decryptStringAsync = async cipher => {
+    assert.equal(cipher.toString(), 'replacement-cipher');
+    return { result: 'replacement' };
+  };
+  assert.equal((await reloaded.connection()).apiKey, 'replacement');
+  await reloaded.saveConnection({ ...gemini, apiKey: '' });
+  assert.equal(reloaded.state().hasKey, false);
+  assert.equal(writes.at(-1).encryptedKey, null);
+});
 
 test('loading metadata, context, preferences, and model changes preserve the locked key without Keychain access', async () => {
   const { store, calls, writes } = fixture();

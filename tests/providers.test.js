@@ -48,11 +48,12 @@ test('keys are retained only for the same provider and normalized endpoint', () 
   assert.equal(normalizeSettings({ ...connection('ollama'), apiKey: undefined }, previous).apiKey, '');
   assert.equal(inferProvider('https://openrouter.ai/api/v1'), 'openrouter');
   assert.equal(inferProvider('https://api.anthropic.com/v1'), 'claude');
+  assert.equal(inferProvider('https://generativelanguage.googleapis.com/v1beta/openai'), 'gemini');
   assert.equal(inferProvider('http://127.0.0.1:11434/v1'), 'ollama');
 });
 
-test('OpenAI, OpenRouter, and Ollama use Chat Completions with tools', async t => {
-  for (const provider of ['openai', 'openrouter', 'ollama']) {
+test('OpenAI, OpenRouter, Gemini, and Ollama use Chat Completions with tools', async t => {
+  for (const provider of ['openai', 'openrouter', 'gemini', 'ollama']) {
     mockFetch(t, async (url, options) => {
       assert.equal(url, `${providers[provider].baseUrl}/chat/completions`);
       assert.equal(options.headers.Authorization, 'Bearer secret');
@@ -86,6 +87,29 @@ test('Claude translates system prompts, tool definitions, tool calls and results
   const first = await requestMessage(connection('claude'), messages, toolDefinitions, signal());
   const result = await requestMessage(connection('claude'), [...messages, first, { role: 'tool', tool_call_id: 'call1', content: '["index.html"]' }], toolDefinitions, signal());
   assert.equal(result.content, 'Found index.html.');
+});
+
+test('Gemini tool calls retain thought signatures for the next model turn', async t => {
+  const call = { id: 'gemini-call', type: 'function', function: { name: 'list_files', arguments: '{}' }, extra_content: { google: { thought_signature: 'opaque-signature' } } };
+  let calls = 0;
+  mockFetch(t, async (url, options) => {
+    assert.equal(url, 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+    assert.equal(options.headers.Authorization, 'Bearer secret');
+    const body = JSON.parse(options.body);
+    if (++calls === 1) return Response.json({ choices: [{ message: { role: 'assistant', content: null, tool_calls: [call] } }] });
+    assert.deepEqual(body.messages.at(-2).tool_calls, [call]);
+    assert.deepEqual(body.messages.at(-1), { role: 'tool', tool_call_id: call.id, content: '["index.html"]' });
+    return Response.json({ choices: [{ message: { content: 'Found index.html.' } }] });
+  });
+  const { usage, ...first } = await requestMessage(connection('gemini'), messages, toolDefinitions, signal());
+  const result = await requestMessage(connection('gemini'), [...messages, first, { role: 'tool', tool_call_id: call.id, content: '["index.html"]' }], toolDefinitions, signal());
+  assert.equal(result.content, 'Found index.html.');
+});
+
+test('Gemini requires its own key when switching providers', () => {
+  assert.throws(() => normalizeSettings({ ...connection('gemini'), apiKey: '' }), /API key for Gemini/);
+  assert.throws(() => normalizeSettings({ ...connection('gemini'), apiKey: undefined }, connection()), /API key for Gemini/);
+  assert.equal(normalizeSettings(connection('gemini')).provider, 'gemini');
 });
 
 test('provider errors and invalid responses produce actionable errors', async t => {
@@ -169,10 +193,10 @@ test('partial provider failures cannot be returned as successful edits', async t
   await assert.rejects(requestMessage(connection('openrouter'), messages, toolDefinitions, signal()), /failed while generating/);
 });
 
-test('token usage is normalized for Claude, OpenAI, OpenRouter, and Ollama', async t => {
+test('token usage is normalized for Claude, OpenAI, OpenRouter, Gemini, and Ollama', async t => {
   mockFetch(t, async () => Response.json({ usage: { input_tokens: 100, cache_read_input_tokens: 40, cache_creation_input_tokens: 10, output_tokens: 7 }, content: [{ type: 'text', text: 'Ok.' }], stop_reason: 'end_turn' }));
   assert.deepEqual((await requestMessage(connection('claude'), messages, toolDefinitions, signal())).usage, { inputTokens: 150, outputTokens: 7 });
-  for (const provider of ['openai', 'openrouter', 'ollama']) {
+  for (const provider of ['openai', 'openrouter', 'gemini', 'ollama']) {
     mockFetch(t, async () => Response.json({ usage: { prompt_tokens: 12, completion_tokens: 3, prompt_tokens_details: { cached_tokens: 4 } }, choices: [{ message: { content: 'Ok.' } }] }));
     assert.deepEqual((await requestMessage(connection(provider), messages, toolDefinitions, signal())).usage, { inputTokens: 12, outputTokens: 3 });
   }
