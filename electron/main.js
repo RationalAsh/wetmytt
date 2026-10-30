@@ -20,7 +20,7 @@ import { exportDeckPDF } from './pdf.js';
 import { listChats, loadChat, runConversation } from './chats.js';
 import { readSlideManagement, mutateSlide } from './slide-management.js';
 import { readContent, saveContent, withContentWrite } from './content.js';
-import { currentBranch, gitFilesAction, gitInit, gitHistory, gitSummary, restoreLastSave } from './git.js';
+import { currentBranch, gitFilesAction, gitInit, gitHistory, gitSummary, gitBranches, gitBranchAction, restoreLastSave } from './git.js';
 import { readProjectFiles } from './project-files.js';
 import { createRecentFolders } from './recent-folders.js';
 
@@ -189,12 +189,28 @@ handle('deck:read-content', (folder, version) => readContent(contentRoot(folder,
 handle('deck:files', (folder, version) => readProjectFiles(contentRoot(folder, version), projectOperations.signal));
 handle('deck:git-summary', (folder, version) => gitSummary(contentRoot(folder, version), projectOperations.signal));
 handle('deck:history', (folder, version, page) => gitHistory(contentRoot(folder, version), page, projectOperations.signal));
+handle('deck:branches', (folder, version) => gitBranches(contentRoot(folder, version), projectOperations.signal));
 let filesBusy = false;
-let restoring = false;
+let changingWorktree = false;
+handle('deck:branch-action', async (folder, version, action, name) => {
+  contentRoot(folder, version);
+  if (filesBusy || pendingChat || exportingPDF) throw new Error('Wait for the current operation before changing branches.');
+  filesBusy = true; changingWorktree = true;
+  const signal = projectOperations.signal;
+  try {
+    return await withProject(folder, () => withContentWrite(folder, async () => {
+      contentRoot(folder, version);
+      await gitBranchAction(folder, action, name, signal);
+      contentRoot(folder, version);
+      invalidateThumbnails();
+      await notifyDeck();
+    }), signal);
+  } finally { filesBusy = false; changingWorktree = false; }
+});
 handle('deck:restore-last-save', async (folder, version) => {
   contentRoot(folder, version);
   if (filesBusy || pendingChat || exportingPDF) throw new Error('Wait for the current operation before restoring.');
-  filesBusy = true; restoring = true;
+  filesBusy = true; changingWorktree = true;
   const signal = projectOperations.signal;
   try {
     return await withProject(folder, () => withContentWrite(folder, async () => {
@@ -205,7 +221,7 @@ handle('deck:restore-last-save', async (folder, version) => {
       await notifyDeck();
       return result;
     }), signal);
-  } finally { filesBusy = false; restoring = false; }
+  } finally { filesBusy = false; changingWorktree = false; }
 });
 handle('deck:git-action', async (folder, version, action, paths, message) => {
   contentRoot(folder, version);
@@ -221,11 +237,11 @@ handle('deck:git-action', async (folder, version, action, paths, message) => {
 });
 handle('deck:save-content', (folder, version, source, pointer, text) => saveContent(contentRoot(folder, version), source, pointer, text, () => {
   contentRoot(folder, version);
-  if (restoring) throw new Error('Wait for the saved version to finish restoring.');
+  if (changingWorktree) throw new Error('Wait for the current project operation to finish.');
 }));
 const slideGuard = (folder, version, revision) => {
   contentRoot(folder, version);
-  if (restoring || revision !== contentRevision || !contentSettled) throw new Error('The presentation changed. Wait for it to reload before managing slides.');
+  if (changingWorktree || revision !== contentRevision || !contentSettled) throw new Error('The presentation changed. Wait for it to reload before managing slides.');
 };
 handle('deck:read-slide-management', async (folder, version, revision) => {
   slideGuard(folder, version, revision);
@@ -242,12 +258,12 @@ handle('deck:mutate-slide', (folder, version, revision, source, renderedIds, ope
   });
 });
 handle('deck:import-assets', (expectedRoot, sources) => {
-  if (restoring) throw new Error('Wait for the saved version to finish restoring.');
+  if (changingWorktree) throw new Error('Wait for the current project operation to finish.');
   if (!root || root !== expectedRoot) throw new Error('The open project changed. Drop the files again.');
   return runTool(root, 'import_assets', { sources }, projectOperations.signal).then(JSON.parse);
 });
 handle('deck:choose-assets', async (expectedRoot, expectedGeneration) => {
-  if (restoring) throw new Error('Wait for the saved version to finish restoring.');
+  if (changingWorktree) throw new Error('Wait for the current project operation to finish.');
   const folder = contentRoot(expectedRoot, expectedGeneration);
   const result = await dialog.showOpenDialog(window, { properties: ['openFile', 'multiSelections'], title: 'Add assets to presentation' });
   if (result.canceled) return null;
@@ -279,7 +295,7 @@ handle('deck:create', async () => {
 });
 handle('deck:export-pdf', async expectedRoot => {
   if (!root || root !== expectedRoot) throw new Error('The open project changed. Please export again.');
-  if (restoring) throw new Error('Wait for the saved version to finish restoring.');
+  if (changingWorktree) throw new Error('Wait for the current project operation to finish.');
   if (exportingPDF) throw new Error('A PDF export is already running.');
   exportingPDF = true;
   const folder = root, deckGeneration = generation;
@@ -321,7 +337,7 @@ handle('ai:chats', expectedRoot => listChats(chatRoot(expectedRoot)));
 handle('ai:load-chat', (expectedRoot, id) => loadChat(chatRoot(expectedRoot), id));
 handle('ai:chat', async (expectedRoot, id, text, runId) => {
   const folder = chatRoot(expectedRoot);
-  if (restoring) throw new Error('Wait for the saved version to finish restoring.');
+  if (changingWorktree) throw new Error('Wait for the current project operation to finish.');
   if (pendingChat) throw new Error('A request is already running.');
   pendingChat = new AbortController();
   const signal = pendingChat.signal;

@@ -8,6 +8,8 @@ extraResources:
     filter: ['**/*']
   - from: docs/git-notices.md
     to: git-notices.md
+  - from: docs/codicon-notices.md
+    to: codicon-notices.md
   - from: docs/licenses/git-COPYING
     to: git/COPYING
 forceCodeSigning: true

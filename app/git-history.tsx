@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Deck, GitHistory, GitSummary } from './bridge';
+import { BranchPicker } from './branch-picker';
 
 export function useGitSummary(deck: Deck) {
   const key = `${deck.root}:${deck.generation}`;
@@ -56,7 +57,7 @@ function RestoreLastSave({ deck, summary, disabled }: { deck: Deck; summary: Git
 export function GitStatus({ deck, summary, disabled }: { deck: Deck; summary: GitSummary | null; disabled: boolean }) {
   if (!summary?.branch) return null;
   return <>
-    <span className="version-chip" tabIndex={0} aria-describedby="version-detail"><span className="version-label">Branch:</span><span className="version-name">{summary.branch}</span><span className="version-tooltip" role="tooltip" id="version-detail">{summary.branch === 'Detached HEAD' ? 'You are viewing a commit without an active branch (detached HEAD).' : <>The current branch is <strong>{summary.branch}</strong>.</>}</span></span>
+    <BranchPicker key={`branch:${deck.root}:${deck.generation}`} deck={deck} branch={summary.branch} disabled={disabled} />
     <RestoreLastSave key={`${deck.root}:${deck.generation}`} deck={deck} summary={summary} disabled={disabled} />
     <span className="last-commit" title={summary.latestCommit ? `${summary.latestCommit.shortHash} · ${summary.latestCommit.subject}` : undefined}>{summary.latestCommit?.subject || 'No commits yet'}</span>
     <span className="git-working-status" data-dirty={summary.dirty} role="status">{summary.dirty ? 'Uncommitted changes' : 'No uncommitted changes'}</span>

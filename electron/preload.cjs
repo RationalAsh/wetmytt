@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('wetmytt', {
   readContent: invoke('deck:read-content'), saveContent: invoke('deck:save-content'),
   projectFiles: invoke('deck:files'), gitAction: invoke('deck:git-action'),
   gitSummary: invoke('deck:git-summary'), gitHistory: invoke('deck:history'),
+  gitBranches: invoke('deck:branches'), gitBranchAction: invoke('deck:branch-action'),
   restoreLastSave: invoke('deck:restore-last-save'),
   reveal: invoke('deck:reveal'), settings: invoke('ai:settings'), saveSettings: invoke('ai:save'), savePreferences: invoke('ai:preferences'),
   chat: invoke('ai:chat'), cancel: invoke('ai:cancel'), context: invoke('ai:context'), present: invoke('deck:present'),

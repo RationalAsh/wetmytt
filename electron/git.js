@@ -106,6 +106,24 @@ export async function gitSummary(root, signal) {
   }
 }
 
+export async function gitBranches(root, signal) {
+  root = await repository(root, signal);
+  const names = (await command(root, ['for-each-ref', '--sort=refname', '--format=%(refname:strip=2)', 'refs/heads/'], signal)).trim().split('\n').filter(Boolean);
+  const current = await currentBranch(root, signal);
+  // An unborn branch has a name but does not have a ref until its first commit.
+  if (current && current !== 'Detached HEAD' && !names.includes(current)) names.unshift(current);
+  return names;
+}
+
+export async function gitBranchAction(root, action, name, signal) {
+  if (!['switch', 'create'].includes(action)) throw new Error('Unknown branch action.');
+  if (typeof name !== 'string' || !name || name.startsWith('-') || name.length > 255) throw new Error('Enter a valid branch name (up to 255 characters).');
+  root = await repository(root, signal);
+  // Validate a literal branch ref, excluding revision expressions such as @{-1}.
+  await command(root, ['check-ref-format', `refs/heads/${name}`], signal);
+  return command(root, ['switch', '--no-guess', ...(action === 'create' ? ['-c'] : []), name], signal, await noFilters(root, signal));
+}
+
 // Porcelain -z preserves spaces, newlines, Unicode, and rename destinations.
 export async function gitChanges(root, signal) {
   root = await repository(root, signal);

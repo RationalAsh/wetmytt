@@ -120,13 +120,47 @@ app.whenReady().then(async () => {
       await js(`document.querySelector('.restore-save').blur()`);
       await fs.writeFile(process.env.WETMYTT_RESTORE_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
     }
+    // The footer branch picker creates and switches branches through real IPC.
+    assert.equal(await js(`document.querySelector('.version-chip').tagName`), 'BUTTON');
+    assert.equal(await js(`document.querySelector('.version-chip').textContent`), 'main');
+    assert.equal(await js(`Boolean(document.querySelector('.version-chip svg'))`), true);
+    await js(`document.querySelector('.version-chip').click()`);
+    await waitFor(() => js(`Boolean(document.querySelector('.branch-options [aria-current="true"]'))`));
+    assert.equal(await js(`document.activeElement.getAttribute('aria-label')`), 'Filter branches');
+    await js(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))`);
+    assert.match(await js(`document.activeElement.textContent`), /Create new branch/);
+    await js(`document.activeElement.click()`);
+    const setBranchName = name => js(`(() => { const input = document.querySelector('.branch-popup form input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(name)}); input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    await setBranchName('bad name');
+    await js(`document.querySelector('.branch-popup form').requestSubmit()`);
+    await waitFor(() => js(`Boolean(document.querySelector('.branch-error')) && !document.querySelector('.branch-popup form input').disabled`));
+    assert.equal(await js(`document.querySelector('.version-name').textContent`), 'main');
+    await setBranchName('alternate');
+    await js(`document.querySelector('.branch-popup form').requestSubmit()`);
+    await waitFor(() => js(`document.querySelector('.version-name')?.textContent === 'alternate' && !document.querySelector('.branch-popup')`));
+    await fs.writeFile(path.join(root, 'deck.json'), saved + '\n\n');
+    await gitFilesAction(root, 'stage', ['deck.json']);
+    await gitFilesAction(root, 'commit', [], 'Alternate branch edit');
+    await waitFor(() => js(`document.querySelector('.last-commit')?.textContent === 'Alternate branch edit' && document.querySelector('.commit-timeline h3')?.textContent === 'Alternate branch edit'`));
+    await js(`document.querySelector('.version-chip').click()`);
+    await waitFor(() => js(`document.querySelectorAll('.branch-options button').length === 3`));
+    if (process.env.WETMYTT_BRANCH_SCREENSHOT) await fs.writeFile(process.env.WETMYTT_BRANCH_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+    await js(`[...document.querySelectorAll('.branch-options button')].find(button => button.textContent === 'main').click()`);
+    await waitFor(() => js(`document.querySelector('.version-name')?.textContent === 'main' && document.querySelector('.last-commit')?.textContent === 'Refine presentation' && document.querySelector('.commit-timeline h3')?.textContent === 'Refine presentation'`));
+    assert.equal(await fs.readFile(path.join(root, 'deck.json'), 'utf8'), saved);
+    assert.equal(await js(`window.wetmytt.gitBranchAction(${JSON.stringify(root)}, -1, 'create', 'stale').then(() => false, () => true)`), true);
+    await js(`document.querySelector('.version-chip').click()`);
+    await waitFor(() => js(`Boolean(document.querySelector('.branch-popup input'))`));
+    await js(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+    assert.equal(await js(`Boolean(document.querySelector('.branch-popup'))`), false);
+    assert.equal(await js(`document.activeElement.className`), 'version-chip');
     const command = await js(`document.querySelector('.restore-backup').textContent`);
     const backup = command.split(' ').at(-1);
     assert.match(backup, /^[a-f0-9]{40,64}$/);
     await promisify(execFile)(resolveGitBinary(), ['stash', 'apply', '--index', backup], { cwd: root });
     assert.equal(await fs.readFile(path.join(root, 'deck.json'), 'utf8'), saved + '\n');
     assert.equal(await fs.readFile(path.join(root, 'draft.txt'), 'utf8'), 'Keep this draft');
-    console.log('Files and History integration passed, including footer restore, stale project guard and backup recovery.');
+    console.log('Files and History integration passed, including branch creation, switching, keyboard controls, footer restore, stale project guard and backup recovery.');
     app.exit(0);
   } catch (error) { console.error(error); app.exit(1); }
 }).catch(error => { console.error(error); app.exit(1); });
