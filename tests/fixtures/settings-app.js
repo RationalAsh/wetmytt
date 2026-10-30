@@ -24,8 +24,8 @@ app.whenReady().then(async () => {
     let window;
     await waitFor(() => { window = BrowserWindow.getAllWindows().find(item => item.isVisible()); return window; });
     const js = source => window.webContents.executeJavaScript(source);
-    await waitFor(() => js(`Boolean(document.querySelector('.top-actions [aria-label="Settings"]:not(:disabled)'))`));
-    await js(`document.querySelector('.top-actions [aria-label="Settings"]').click()`);
+    await waitFor(() => js(`Boolean(document.querySelector('.chat-header [aria-label="Settings"]:not(:disabled)'))`));
+    await js(`document.querySelector('.chat-header [aria-label="Settings"]').click()`);
     await waitFor(() => js(`Boolean(document.querySelector('#max-turns'))`));
     assert.equal(await js(`document.querySelector('#max-turns').value`), phase === 'save' ? '300' : '72');
     assert.equal((await js('window.wetmytt.updateState()')).phase, 'disabled');
@@ -61,7 +61,7 @@ app.whenReady().then(async () => {
       await js(`document.querySelector('.app').classList.remove('presenting')`);
       window.setSize(1100, 760);
       await js(`document.querySelector('.update-banner button').click()`);
-      await js(`document.querySelector('.top-actions [aria-label="Settings"]').click()`);
+      await js(`document.querySelector('.chat-header [aria-label="Settings"]').click()`);
       await waitFor(() => js(`Boolean(document.querySelector('#max-turns'))`));
       window.webContents.send('updates:changed', { phase: 'error', version: '0.4.0', message: 'Check your connection and try again.' });
       await waitFor(() => js(`document.querySelector('.update-banner button')?.textContent.includes('Retry')`));

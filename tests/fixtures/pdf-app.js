@@ -48,9 +48,12 @@ try {
   await js(`[...document.querySelectorAll('[role=menuitem]')].find(b => b.textContent === 'Open folder…').click()`);
   await waitFor(() => js(`Boolean(document.querySelector('iframe'))`));
   const exportClick = async () => {
+    await js(`document.querySelector('.file-actions .menu-trigger').click()`);
     await waitFor(() => js(`Boolean([...document.querySelectorAll('button')].find(b => b.textContent === 'Export PDF' && !b.disabled))`));
     await js(`[...document.querySelectorAll('button')].find(b => b.textContent === 'Export PDF').click()`);
+    await js(`document.querySelector('.file-actions .menu-trigger').click()`);
     await waitFor(() => js(`Boolean([...document.querySelectorAll('button')].find(b => b.textContent === 'Export PDF' && !b.disabled))`));
+    await js(`document.querySelector('.file-actions .menu-trigger').click()`);
   };
   await exportClick();
   assert.equal(saves, 1);

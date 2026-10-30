@@ -71,7 +71,7 @@ app.whenReady().then(async () => {
     assert.equal(await js(`document.querySelector('textarea[data-path="/slides/0/title"]').value`), 'Unsaved local draft');
     await js(`[...document.querySelectorAll('button')].find(b => b.textContent === 'Discard edits & reload').click()`);
     await waitFor(() => js(`document.querySelector('textarea[data-path="/slides/0/body"]').value === 'Changed by an external editor'`));
-    await js(`[...document.querySelectorAll('button')].find(b => b.textContent === 'Present').click()`);
+    await js(`document.querySelector('[aria-label="Present"]').click()`);
     await waitFor(() => preview(`!document.querySelector('[data-wetmytt-selected]')`));
     console.log('Edit integration passed: selection, duplicate text, field focus, saving, preview refresh, fallback mapping, sidebar reopening, external conflict, reload, presentation mode.');
     app.exit(0);

@@ -77,7 +77,7 @@ app.whenReady().then(async () => {
     await waitFor(() => js(`document.querySelectorAll('.recent-folders li').length === 0`));
     assert.deepEqual(JSON.parse(await fs.readFile(path.join(directory, 'profile/recent-folders.json'), 'utf8')), []);
     assert.equal(Menu.getApplicationMenu().items.find(item => item.label === 'File').submenu.items.some(item => item.label === 'Open recent'), true);
-    await js(`document.querySelector('.top-actions .menu-trigger').click()`);
+    await js(`document.querySelector('.file-actions .dropdown:nth-child(2) .menu-trigger').click()`);
     assert.equal(await js(`document.querySelector('[role=menu]').textContent.includes('Connect to Codex') && document.querySelector('[role=menu]').textContent.includes('Connect to Claude')`), true);
     const token = (await fs.readFile(path.join(directory, 'profile/mcp-token'), 'utf8')).trim();
     const client = new Client({ name: 'recent-ui-test', version: '1.0.0' });

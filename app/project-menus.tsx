@@ -46,7 +46,7 @@ export function RecentFolders({ folders, onOpen, onRemove, onClear, menu = false
   </div>;
 }
 
-export function FileMenu({ desktop, hasDeck, folders, onOpen, onRemove, onClear, onNew, onChoose, onAssets, onReveal, onClose }: RecentProps & { desktop: boolean; hasDeck: boolean; onNew(): void; onChoose(): void; onAssets(): void; onReveal(): void; onClose(): void }) {
+export function FileMenu({ desktop, hasDeck, exporting, managing, folders, onOpen, onRemove, onClear, onNew, onChoose, onAssets, onReveal, onExport, onClose }: RecentProps & { desktop: boolean; hasDeck: boolean; exporting: boolean; managing: boolean; onNew(): void; onChoose(): void; onAssets(): void; onReveal(): void; onExport(): void; onClose(): void }) {
   const [recent, setRecent] = useState(false);
   return <Dropdown label="File" disabled={!desktop}>
     <button role="menuitem" onClick={onNew}>New deck…</button>
@@ -56,6 +56,7 @@ export function FileMenu({ desktop, hasDeck, folders, onOpen, onRemove, onClear,
     <div role="separator" className="menu-separator" />
     <button role="menuitem" disabled={!hasDeck} onClick={onAssets}>Add assets…</button>
     <button role="menuitem" disabled={!hasDeck} onClick={onReveal}>Show files</button>
+    <button role="menuitem" disabled={!hasDeck || exporting || managing} aria-busy={exporting} onClick={onExport}>{exporting ? 'Exporting…' : 'Export PDF'}</button>
     <button role="menuitem" disabled={!hasDeck} onClick={onClose}>Close project</button>
   </Dropdown>;
 }

@@ -62,7 +62,7 @@ app.whenReady().then(async () => {
     console.log(`Captured ${name}.jpg`);
   };
   await fs.mkdir(output, { recursive: true });
-  await waitFor(() => js(`Boolean(document.querySelector('.top-actions [aria-label="Settings"]:not(:disabled)'))`), 'hydration and settings');
+  await waitFor(() => js(`Boolean(document.querySelector('.chat-header [aria-label="Settings"]:not(:disabled)'))`), 'hydration and settings');
   await capture('welcome');
 
   await click('Create a presentation');
@@ -99,7 +99,7 @@ app.whenReady().then(async () => {
 
   await js(`document.querySelector('[aria-label="Next slide"]').click()`);
   await waitFor(() => preview(`Boolean(document.querySelector('[data-slide]:not([hidden]) img')?.complete)`), 'the illustrated second slide');
-  await click('Present');
+  await js(`document.querySelector('[aria-label="Present"]').click()`);
   await waitFor(() => window.isFullScreen() && js(`document.querySelector('.app').classList.contains('presenting')`), 'presentation mode');
   await waitFor(() => js(`getComputedStyle(document.querySelector('.topbar')).display === 'none'`), 'the hidden application shell');
   await capture('presentation');

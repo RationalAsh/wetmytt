@@ -429,8 +429,14 @@ export default function Home() {
   return <main className={presenting ? 'app presenting' : 'app'}>
     <header className="topbar">
       <div className="brand"><Image className="brand-mark" src={brandIcon} width={38} height={38} alt="" /><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="release-badge" aria-label={`App version ${version}`}>v{version}</span></div>
-      <div className="file-actions"><FileMenu desktop={desktop} hasDeck={Boolean(deck.root)} {...recentProps} onNew={() => void choose(true)} onChoose={() => void choose(false)} onAssets={() => void chooseAssets()} onReveal={() => { void window.wetmytt?.reveal().catch(err => setError(String(err))); }} onClose={() => void closeProject()} /></div>
-      <div className="top-actions"><button className="icon-button" title="Settings" aria-label="Settings" disabled={!settingsLoaded} onClick={() => openSettings('chat')}><Icon name="settings" size={18} /></button><button disabled={!desktop || !deck.root || exporting || managing} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><ConnectMenu desktop={desktop} onConnect={setAgentOpen} /><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
+      <div className="file-actions">
+        <FileMenu desktop={desktop} hasDeck={Boolean(deck.root)} exporting={exporting} managing={managing} {...recentProps} onNew={() => void choose(true)} onChoose={() => void choose(false)} onAssets={() => void chooseAssets()} onReveal={() => { void window.wetmytt?.reveal().catch(err => setError(String(err))); }} onExport={() => void exportPDF()} onClose={() => void closeProject()} />
+        <ConnectMenu desktop={desktop} onConnect={setAgentOpen} />
+      </div>
+      <div className="top-actions">
+        <button className="primary icon-button" title="Present" aria-label="Present" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" /></button>
+        <button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button>
+      </div>
     </header>
     <UpdateBanner />
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}
