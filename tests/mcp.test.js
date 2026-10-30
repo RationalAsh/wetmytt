@@ -214,6 +214,10 @@ test('MCP runs patch, asset, and local Git tools through the shared registry', a
     return text(result);
   };
   await call('apply_patch', { patch: '--- /dev/null\n+++ b/notes.txt\n@@ -0,0 +1 @@\n+Research notes\n' });
+  await call('replace_text', { path: 'notes.txt', old_text: 'Research notes', new_text: 'Updated notes' });
+  assert.equal(await fs.readFile(path.join(f.root, 'notes.txt'), 'utf8'), 'Updated notes\n');
+  assert.equal((await client.callTool({ name: 'replace_text', arguments: { path: 'notes.txt', old_text: 'stale', new_text: 'wrong' } })).isError, true);
+  assert.equal(await fs.readFile(path.join(f.root, 'notes.txt'), 'utf8'), 'Updated notes\n');
   await call('git_init');
   await call('git_stage', { paths: ['notes.txt', '.gitignore'] });
   await call('git_commit', { message: 'Save notes' });

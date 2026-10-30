@@ -100,3 +100,21 @@ export async function writeFile(root, relative, content, beforeWrite = () => {})
   await fs.writeFile(target, content, 'utf8');
   return `Saved ${relative}`;
 }
+
+export async function replaceText(root, relative, oldText, newText, signal) {
+  if (!oldText) throw new Error('old_text must be non-empty. Include enough surrounding text to match exactly once.');
+  if (oldText === newText) throw new Error('Replacement makes no changes. Provide different new_text.');
+  if (Buffer.byteLength(oldText) > 1_000_000 || Buffer.byteLength(newText) > 1_000_000) throw new Error('Replacement text exceeds 1 MB.');
+  const target = await scopedPath(root, relative);
+  if (!(await fs.lstat(target)).isFile()) throw new Error('Replacement targets must be regular files, not symlinks.');
+  const source = await readFile(root, relative);
+  if (source.includes('\0') || newText.includes('\0')) throw new Error('Only text without null bytes is supported.');
+  const start = source.indexOf(oldText);
+  if (start === -1) throw new Error('old_text was not found exactly. Read the file again and preserve whitespace and line endings.');
+  // Count overlapping occurrences too: "aa" is ambiguous within "aaa".
+  if (source.indexOf(oldText, start + 1) !== -1) throw new Error('old_text matches more than once. Include more surrounding text to make the match unique.');
+  // Slicing keeps replacement text literal, including $&, $1, and backslashes.
+  const content = source.slice(0, start) + newText + source.slice(start + oldText.length);
+  if (await fs.readFile(target, 'utf8') !== source) throw new Error('File changed while preparing the replacement. Read it and retry.');
+  return writeFile(root, relative, content, () => signal?.throwIfAborted());
+}

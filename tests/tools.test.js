@@ -130,6 +130,73 @@ test('Git rejects parent repositories, redirected metadata, and external worktre
   await assert.rejects(tool('git_init'), /linked worktrees/);
 });
 
+test('literal replacements preserve surrounding bytes and replacement metacharacters', async t => {
+  const { root, tool } = await fixture(t);
+  const target = path.join(root, 'styles.css');
+  await fs.writeFile(target, '/* café */\r\n.panel {\r\n  font-size: 0.9cqw;\r\n}\r\n');
+  assert.equal(await tool('replace_text', { path: 'styles.css', old_text: '  font-size: 0.9cqw;', new_text: '  font-size: 0.95cqw; /* $& $1 \\ */' }), 'Saved styles.css');
+  assert.equal(await fs.readFile(target, 'utf8'), '/* café */\r\n.panel {\r\n  font-size: 0.95cqw; /* $& $1 \\ */\r\n}\r\n');
+  await tool('replace_text', { path: 'styles.css', old_text: ' /* $& $1 \\ */', new_text: '' });
+  await tool('replace_text', { path: 'styles.css', old_text: '.panel {\r\n', new_text: '.panel {\r\n  color: blue;\r\n' });
+  assert.equal(await fs.readFile(target, 'utf8'), '/* café */\r\n.panel {\r\n  color: blue;\r\n  font-size: 0.95cqw;\r\n}\r\n');
+});
+
+test('literal replacements reject missing, ambiguous, overlapping, empty, and unchanged matches', async t => {
+  const { root, tool } = await fixture(t);
+  const source = 'aaa\nrepeat\nrepeat\n  exact\r\n';
+  const target = path.join(root, 'notes.txt');
+  await fs.writeFile(target, source);
+  for (const [old_text, new_text, error] of [
+    ['missing', 'new', /not found exactly/],
+    ['repeat', 'new', /more than once/],
+    ['aa', 'new', /more than once/],
+    ['  exact\n', 'new', /not found exactly/],
+    ['', 'new', /./],
+    ['aaa', 'aaa', /makes no changes/],
+  ]) {
+    await assert.rejects(tool('replace_text', { path: 'notes.txt', old_text, new_text }), error);
+    assert.equal(await fs.readFile(target, 'utf8'), source);
+  }
+  // Context disambiguates repeated text without replacing every occurrence.
+  await tool('replace_text', { path: 'notes.txt', old_text: 'aaa\nrepeat', new_text: 'aaa\nchanged' });
+  assert.equal(await fs.readFile(target, 'utf8'), source.replace('aaa\nrepeat', 'aaa\nchanged'));
+});
+
+test('literal replacements validate paths, JSON, text limits, and cancellation before writing', async t => {
+  const { root, directory, tool } = await fixture(t);
+  const args = { path: 'data.json', old_text: 'true', new_text: 'invalid' };
+  await fs.writeFile(path.join(root, 'data.json'), '{"ok":true}');
+  await assert.rejects(tool('replace_text', args), SyntaxError);
+  assert.equal(await fs.readFile(path.join(root, 'data.json'), 'utf8'), '{"ok":true}');
+  const controller = new AbortController(); controller.abort();
+  await assert.rejects(tool('replace_text', { ...args, new_text: 'false' }, controller.signal));
+  assert.equal(await fs.readFile(path.join(root, 'data.json'), 'utf8'), '{"ok":true}');
+  await fs.writeFile(path.join(directory, 'outside.txt'), 'true');
+  await fs.writeFile(path.join(root, '.hidden'), 'true');
+  await fs.symlink('data.json', path.join(root, 'link.json'));
+  await fs.symlink(directory, path.join(root, 'escape'));
+  for (const name of ['../outside.txt', '.hidden', 'link.json', 'escape/outside.txt', 'missing.txt', '']) {
+    await assert.rejects(tool('replace_text', { ...args, path: name, new_text: 'false' }));
+  }
+  assert.equal(await fs.readFile(path.join(directory, 'outside.txt'), 'utf8'), 'true');
+  assert.equal(await fs.readFile(path.join(root, '.hidden'), 'utf8'), 'true');
+  await assert.rejects(fs.access(path.join(root, 'missing.txt')));
+  await fs.writeFile(path.join(root, 'large.txt'), 'é'.repeat(500_000));
+  await assert.rejects(tool('replace_text', { path: 'large.txt', old_text: 'é'.repeat(500_000), new_text: 'é'.repeat(500_001) }), /1 MB/);
+  await assert.rejects(tool('replace_text', { path: 'large.txt', old_text: 'é'.repeat(500_001), new_text: '' }), /1 MB/);
+  await fs.writeFile(path.join(root, 'large.txt'), 'x' + 'a'.repeat(999_999));
+  await assert.rejects(tool('replace_text', { path: 'large.txt', old_text: 'x', new_text: 'xx' }), /1 MB/);
+  assert.equal((await fs.stat(path.join(root, 'large.txt'))).size, 1_000_000);
+  await fs.appendFile(path.join(root, 'large.txt'), 'a');
+  await assert.rejects(tool('replace_text', { path: 'large.txt', old_text: 'x', new_text: 'y' }), /1 MB/);
+  await fs.writeFile(path.join(root, 'binary.txt'), 'x\0');
+  await assert.rejects(tool('replace_text', { path: 'binary.txt', old_text: 'x', new_text: 'y' }), /null bytes/);
+  await assert.rejects(tool('replace_text', { ...args, new_text: '\0' }), /null bytes/);
+  assert.equal(await fs.readFile(path.join(root, 'binary.txt'), 'utf8'), 'x\0');
+  await tool('replace_text', { ...args, new_text: 'false' });
+  assert.equal(await fs.readFile(path.join(root, 'data.json'), 'utf8'), '{"ok":false}');
+});
+
 test('patch edits, creates, renames, and deletes without Git; validates all files before writing', async t => {
   const { root, tool } = await fixture(t);
   await fs.writeFile(path.join(root, 'one.txt'), 'before\n');
@@ -182,7 +249,7 @@ test('dedicated tools validate inputs and respect cancellation before mutations'
   for (const [name, args] of [['search_web', { query: '' }], ['search_web', { query: 'test', count: 99 }], ['git_stage', { paths: [] }], ['git_commit', { message: '' }], ['write_file', { path: 'x', content: 'a', command: 'bad' }]]) await assert.rejects(tool(name, args));
 });
 
-test('built-in chat advertises dedicated tools, executes patches, and returns their results', async t => {
+test('built-in chat advertises dedicated tools, executes patches and replacements, and returns their results', async t => {
   const { root } = await fixture(t);
   const previous = globalThis.fetch;
   t.after(() => { globalThis.fetch = previous; });
@@ -193,15 +260,20 @@ test('built-in chat advertises dedicated tools, executes patches, and returns th
     assert.ok(!body.tools.some(tool => tool.function.name === 'run_command'));
     assert.deepEqual(body.tools.map(tool => tool.function.name).sort(), toolDefinitions.map(tool => tool.name).sort());
     if (calls++ === 0) return Response.json({ choices: [{ message: { role: 'assistant', content: null, tool_calls: [{ id: 'patch1', type: 'function', function: { name: 'apply_patch', arguments: JSON.stringify({ patch: '--- /dev/null\n+++ b/slide.txt\n@@ -0,0 +1 @@\n+edited\n' }) } }] } }] });
-    assert.equal(body.messages.at(-1).tool_call_id, 'patch1');
-    assert.equal(JSON.parse(body.messages.at(-1).content).changed[0].to, 'slide.txt');
+    if (calls === 2) {
+      assert.equal(body.messages.at(-1).tool_call_id, 'patch1');
+      assert.equal(JSON.parse(body.messages.at(-1).content).changed[0].to, 'slide.txt');
+      return Response.json({ choices: [{ message: { role: 'assistant', content: null, tool_calls: [{ id: 'replace1', type: 'function', function: { name: 'replace_text', arguments: JSON.stringify({ path: 'slide.txt', old_text: 'edited', new_text: 'updated' }) } }] } }] });
+    }
+    assert.equal(body.messages.at(-1).tool_call_id, 'replace1');
+    assert.equal(body.messages.at(-1).content, 'Saved slide.txt');
     return Response.json({ choices: [{ message: { role: 'assistant', content: 'Edited.' } }] });
   };
   const result = await chat({ root, settings: { provider: 'openrouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'test', apiKey: 'test' }, history: [{ role: 'user', content: 'Edit.' }], signal: new AbortController().signal, onActivity() {} });
   assert.equal(result.content, 'Edited.');
   assert.equal(result.usage.outputTokens, 0);
   assert.ok(result.usage.inputTokens > 100);
-  assert.equal(await fs.readFile(path.join(root, 'slide.txt'), 'utf8'), 'edited\n');
+  assert.equal(await fs.readFile(path.join(root, 'slide.txt'), 'utf8'), 'updated\n');
 });
 
 test('chat keeps the latest provider token count and does not send usage back', async t => {
