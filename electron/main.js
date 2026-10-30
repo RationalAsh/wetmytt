@@ -112,6 +112,12 @@ function handle(channel, callback) {
 // module scope would deadlock startup and leave the Dock icon bouncing.
 if (!app.requestSingleInstanceLock()) app.quit();
 else app.whenReady().then(async () => {
+app.setAboutPanelOptions({
+  applicationName: app.name,
+  applicationVersion: app.getVersion(),
+  copyright: 'Copyright © 2026 Ashwin Narayan',
+  credits: 'Made by Ashwin Narayan.\nLicensed under the MIT License.',
+});
 let quitting = false, cleanupPromise;
 const updatesEnabled = app.isPackaged && process.platform === 'darwin' && !process.env.WETMYTT_DEV_URL && process.env.NODE_ENV !== 'development';
 if (updatesEnabled) {
