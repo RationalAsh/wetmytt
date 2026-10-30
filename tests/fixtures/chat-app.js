@@ -35,7 +35,7 @@ app.whenReady().then(async () => {
   const listen = Server.prototype.listen;
   Server.prototype.listen = function (port, ...args) { return listen.call(this, port === MCP_PORT ? 0 : port, ...args); };
   const originalFetch = globalThis.fetch;
-  let held = false;
+  let held = false, finishStream;
   globalThis.fetch = async (url, options) => {
     if (!String(url).startsWith('http://localhost:11434/v1')) return originalFetch(url, options);
     if (!String(url).endsWith('/chat/completions')) return Response.json({ data: [] });
@@ -48,6 +48,18 @@ app.whenReady().then(async () => {
       return new Promise((resolve, reject) => {
         options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
       });
+    }
+    if (prompt === 'Stream a reply' || prompt === 'Stream complete') {
+      held = true;
+      assert.equal(body.stream, true);
+      return new Response(new ReadableStream({ start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: ' + JSON.stringify({ choices: [{ index: 0, delta: { content: 'A reply arriving before completion.' }, finish_reason: null }] }) + '\n\n'));
+        options.signal.addEventListener('abort', () => controller.error(options.signal.reason), { once: true });
+        finishStream = () => {
+          controller.enqueue(new TextEncoder().encode('data: ' + JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n'));
+          controller.close();
+        };
+      } }), { headers: { 'content-type': 'text/event-stream' } });
     }
     const tools = prompt === 'Stop after edit'
       ? [{ id: 'write', function: { name: 'write_file', arguments: JSON.stringify({ path: 'note.txt', content: 'Saved before Stop' }) } }]
@@ -135,13 +147,38 @@ app.whenReady().then(async () => {
     assert.equal(await js(`Boolean(document.querySelector('[aria-label="Stop generation"]'))`), false);
     await js(`document.querySelector('.composer textarea').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))`);
     await waitFor(() => held);
+    await waitFor(() => js(`document.querySelector('.request-progress [role="status"]')?.textContent === 'Waiting for model response…'`));
+    await waitFor(() => js(`document.querySelector('[aria-label="Request elapsed time"]')?.textContent === '1s'`));
+    assert.ok(await js(`document.querySelector('.request-progress').textContent.includes('Completed edits stay saved.')`));
     await click('Stop generation');
     await waitFor(() => js(`!document.querySelector('[aria-label="Stop generation"]')`));
+    assert.equal(await js(`Boolean(document.querySelector('.request-progress'))`), false);
+    assert.ok(await js(`document.querySelector('[role="alert"]').textContent.includes('Completed edits stay saved.')`));
     assert.equal(await fs.readFile(path.join(first, 'note.txt'), 'utf8'), 'Saved before Stop');
     const stopped = await js(`window.wetmytt.loadChat(${JSON.stringify(first)}, ${JSON.stringify(legacyId)})`);
     assert.equal(stopped.requests.at(-1).status, 'cancelled');
     assert.equal(stopped.messages.at(-1).tools[0].status, 'completed');
     if (process.env.WETMYTT_CHAT_SCREENSHOT) await fs.writeFile(process.env.WETMYTT_CHAT_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+    held = false;
+    await send('Stream a reply');
+    await waitFor(() => js(`document.querySelector('.streaming-response')?.textContent.includes('A reply arriving before completion.')`));
+    assert.equal(await js(`document.querySelector('.request-progress [role="status"]').textContent`), 'Receiving response…');
+    assert.equal(await js(`Boolean(document.querySelector('[aria-label="Stop generation"]'))`), true);
+    if (process.env.WETMYTT_CHAT_SCREENSHOT) await fs.writeFile(process.env.WETMYTT_CHAT_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+    await click('Stop generation');
+    await waitFor(() => js(`!document.querySelector('[aria-label="Stop generation"]') && !document.querySelector('.streaming-response')`));
+    const afterStream = await js(`window.wetmytt.loadChat(${JSON.stringify(first)}, ${JSON.stringify(legacyId)})`);
+    assert.equal(afterStream.requests.at(-1).status, 'cancelled');
+    assert.ok(!afterStream.messages.some(message => message.content.includes('A reply arriving')));
+    held = false;
+    await send('Stream complete');
+    await waitFor(() => js(`Boolean(document.querySelector('.streaming-response'))`));
+    finishStream();
+    await waitFor(() => js(`!document.querySelector('[aria-label="Stop generation"]')`));
+    assert.equal(await js(`Array.from(document.querySelectorAll('.message.assistant')).filter(e => e.textContent.includes('A reply arriving before completion.')).length`), 1);
+    const completedStream = await js(`window.wetmytt.loadChat(${JSON.stringify(first)}, ${JSON.stringify(legacyId)})`);
+    assert.equal(completedStream.requests.at(-1).status, 'completed');
+    assert.equal(completedStream.messages.at(-1).content, 'A reply arriving before completion.');
     held = false;
     await send('Switch project');
     await waitFor(() => held);

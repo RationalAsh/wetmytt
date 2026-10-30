@@ -80,6 +80,7 @@ export default function Home() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingChat, setLoadingChat] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [requestProgress, setRequestProgress] = useState({ startedAt: 0, operation: '', text: '', stopping: false });
   const [error, setError] = useState('');
   const [dragging, setDragging] = useState(false);
   const [assetStatus, setAssetStatus] = useState('');
@@ -295,6 +296,10 @@ export default function Home() {
     }), api.on('deck:changed', receiveDeck), api.on('ai:conversation', (event: ConversationEvent) => {
       if (event.runId !== activeRun.current || event.root !== deckRef.current.root || event.generation !== deckRef.current.generation) return;
       setConversationId(event.conversation.id); setMessages(event.conversation.messages);
+      if (event.conversation.requests.at(-1)?.status !== 'running') setRequestProgress(current => ({ ...current, text: '', operation: 'Finishing request…' }));
+    }), api.on('ai:progress', (event: { runId: string; root: string; generation: number; operation?: string; text?: string }) => {
+      if (event.runId !== activeRun.current || event.root !== deckRef.current.root || event.generation !== deckRef.current.generation) return;
+      setRequestProgress(current => current.stopping ? current : { ...current, ...(event.operation !== undefined ? { operation: event.operation } : {}), ...(event.text !== undefined ? { text: event.text } : {}) });
     }), api.on('deck:fullscreen', setPresenting)];
     return () => unsubscribers.forEach(unsubscribe => unsubscribe());
   }, [receiveDeck]);
@@ -405,6 +410,7 @@ export default function Home() {
     const currentSession = session.current;
     const runId = crypto.randomUUID();
     activeRun.current = runId;
+    setRequestProgress({ startedAt: Date.now(), operation: 'Preparing request…', text: '', stopping: false });
     setMessages(history); setBusy(true); setError('');
     try {
       const result = await window.wetmytt!.chat(deck.root, conversationId, text.trim(), runId);
@@ -466,8 +472,13 @@ export default function Home() {
           </select>
           <span title="Saved in this project's .wetmytt/chats/ folder. Resuming uses the model selected below.">{deck.root ? 'Auto-saved to .wetmytt/chats/' : 'Open a deck to save conversations'}</span>
         </div>
-        <ChatThread key={`${deck.root}:${deck.generation}:${chatSession.current}`} messages={messages} busy={busy} loading={loadingChat} disabled={!deck.root || !desktop || managing} connected={Boolean(settings.model)}
-          onSend={send} onCancel={async () => { await window.wetmytt?.cancel(); }} onConnect={() => openSettings('connection')}
+        <ChatThread key={`${deck.root}:${deck.generation}:${chatSession.current}`} messages={messages} busy={busy} progress={requestProgress} loading={loadingChat} disabled={!deck.root || !desktop || managing} connected={Boolean(settings.model)}
+          onSend={send} onCancel={async () => {
+            const runId = activeRun.current;
+            setRequestProgress(current => ({ ...current, stopping: true }));
+            try { await window.wetmytt?.cancel(); }
+            catch (err) { if (activeRun.current === runId) { setRequestProgress(current => ({ ...current, stopping: false })); setError(String(err)); } }
+          }} onConnect={() => openSettings('connection')}
           intro={<div className="chat-intro"><span className="spark-tile"><Icon name="spark" size={25} /></span><h2>You bring the idea.<br />We’ll bring the slides.</h2><p>Find your opening. Cut the waffle. Land the ending. Tell your AI what you’re thinking.</p><div className="suggestions">{['Give this deck a stronger opening', 'Make the slides more concise', 'Give this deck a bold stage presence'].map((text, i) => <button key={text} disabled={!deck.root || busy || loadingChat || managing} onClick={() => void send(text)}><span>{['↗', '≋', '◐'][i]}</span>{text}<span>↗</span></button>)}</div><div className="agent-note"><Icon name="terminal" size={17} /><p>Already have an agent?<br /><span>Run it in your deck folder. We’ll keep up.</span></p></div></div>}
           footer={<div className="composer-model"><button type="button" className="model-select" disabled={!settingsLoaded} onClick={() => openSettings('connection')}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}</button><ContextMeter used={contextUsed} limit={contextLimit} connected={Boolean(settings.model)} /></div>}
         />

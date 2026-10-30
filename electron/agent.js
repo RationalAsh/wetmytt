@@ -11,7 +11,7 @@ const screenshotTool = {
 };
 const imageNotice = 'Visual inspection unavailable: the model or provider rejected slide images. Continued with text-only editing. Choose a model with image support to review rendered slides.';
 
-export async function chat({ root, settings, history, signal, screenshotSlide, onActivity = () => {}, onEvent = async () => {} }) {
+export async function chat({ root, settings, history, signal, screenshotSlide, onText, onActivity = () => {}, onEvent = async () => {} }) {
   settings = normalizeSettings(settings);
   let visual = typeof screenshotSlide === 'function', notice = '';
   const visualGuidance = visual
@@ -21,9 +21,12 @@ export async function chat({ root, settings, history, signal, screenshotSlide, o
   messages[0].content += visualGuidance;
   for (let turn = 0; turn < settings.maxTurns; turn++) {
     signal.throwIfAborted();
+    onActivity('Waiting for model response…');
+    onText?.('');
+    const preview = onText ? text => { onActivity('Receiving response…'); onText(text); } : undefined;
     let response;
     try {
-      response = await requestMessage(settings, messages, visual ? [...toolDefinitions, screenshotTool] : toolDefinitions, signal);
+      response = await requestMessage(settings, messages, visual ? [...toolDefinitions, screenshotTool] : toolDefinitions, signal, preview);
     } catch (error) {
       if (!(error instanceof ImageInputError) || !visual) throw error;
       visual = false;
@@ -34,12 +37,14 @@ export async function chat({ root, settings, history, signal, screenshotSlide, o
       }
       messages[0].content += '\n' + notice + ' Do not call screenshot_slide or claim visual review in this session.';
       onActivity(notice);
-      response = await requestMessage(settings, messages, toolDefinitions, signal);
+      response = await requestMessage(settings, messages, toolDefinitions, signal, preview);
     }
+    signal.throwIfAborted();
     const { usage: reported, ...message } = response;
     messages.push(message);
     if (!message.tool_calls?.length) return { content: (message.content || 'Done.') + (notice ? '\n\n' + notice : ''), usage: reported || estimateUsage(messages) };
     await onEvent({ type: 'assistant', content: message.content || '', tools: message.tool_calls.map(call => ({ id: call.id, name: call.function.name, argsText: call.function.arguments, status: 'pending' })) });
+    onText?.('');
     const images = [];
     for (const call of message.tool_calls) {
       signal.throwIfAborted();

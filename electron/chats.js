@@ -105,7 +105,7 @@ export async function runConversation({ root, id, text, settings, signal, onActi
   } catch (error) {
     request.status = signal.aborted ? 'cancelled' : 'failed';
     // Provider errors can contain sensitive endpoint details; keep them out of logs.
-    failure = signal.aborted ? 'Generation stopped.' : error.message;
+    failure = signal.aborted ? 'Generation stopped. Completed edits stay saved.' : error.message;
   } finally {
     for (const message of conversation.messages) {
       if (message.requestId !== request.id) continue;

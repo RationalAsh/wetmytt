@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ActionBarPrimitive, AssistantRuntimeProvider, ComposerPrimitive,
-  MessagePrimitive, ThreadPrimitive, groupPartByType, useExternalStoreRuntime,
+  MessagePrimitive, ThreadPrimitive, groupPartByType, useExternalStoreRuntime, useAuiState,
   type ThreadMessageLike, type ToolCallMessagePartProps,
 } from '@assistant-ui/react';
 import type { Message } from './bridge';
@@ -49,8 +49,11 @@ function ToolDetails({ toolName, args, argsText, result, artifact }: ToolCallMes
 const groupTools = groupPartByType({ 'tool-call': ['group-tools'] });
 
 function AssistantMessage() {
-  return <MessagePrimitive.Root className="message assistant">
-    <span>WETMYTT</span>
+  const preview = useAuiState(state => state.message.id === 'response-preview');
+  const empty = useAuiState(state => state.message.parts.length === 0);
+  if (empty) return null;
+  return <MessagePrimitive.Root className={preview ? "message assistant streaming-response" : "message assistant"}>
+    <span>{preview ? 'WETMYTT · RECEIVING' : 'WETMYTT'}</span>
     <MessagePrimitive.GroupedParts groupBy={groupTools} indicator="never">
       {({ part, children }) => {
         switch (part.type) {
@@ -61,7 +64,7 @@ function AssistantMessage() {
         }
       }}
     </MessagePrimitive.GroupedParts>
-    <ActionBarPrimitive.Root className="message-actions"><ActionBarPrimitive.Copy aria-label="Copy response"><span className="copy-label">Copy</span><span className="copied-label">Copied</span></ActionBarPrimitive.Copy></ActionBarPrimitive.Root>
+    {!preview && <ActionBarPrimitive.Root className="message-actions"><ActionBarPrimitive.Copy aria-label="Copy response"><span className="copy-label">Copy</span><span className="copied-label">Copied</span></ActionBarPrimitive.Copy></ActionBarPrimitive.Root>}
   </MessagePrimitive.Root>;
 }
 
@@ -69,15 +72,34 @@ function UserMessage() {
   return <MessagePrimitive.Root className="message user"><span>YOU</span><MessagePrimitive.Parts /></MessagePrimitive.Root>;
 }
 
-export function ChatThread({ messages, busy, loading, disabled, connected, onSend, onCancel, onConnect, intro, footer }: {
-  messages: Message[]; busy: boolean; loading: boolean; disabled: boolean; connected: boolean;
+type RequestProgress = { startedAt: number; operation: string; text: string; stopping: boolean };
+
+function RequestStatus({ progress }: { progress: RequestProgress }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [progress.startedAt]);
+  const seconds = Math.max(0, Math.floor((now - progress.startedAt) / 1000));
+  const elapsed = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return <div className="request-progress">
+    <div className="activity"><span aria-hidden="true" /><div role="status">{progress.stopping ? 'Stopping…' : progress.operation}</div><time aria-label="Request elapsed time">{elapsed}</time></div>
+    <p>{progress.stopping ? 'Waiting for the current operation to stop. Completed edits stay saved.' : 'You can stop at any time. Completed edits stay saved.'}</p>
+  </div>;
+}
+
+export function ChatThread({ messages, busy, progress, loading, disabled, connected, onSend, onCancel, onConnect, intro, footer }: {
+  messages: Message[]; busy: boolean; progress: RequestProgress; loading: boolean; disabled: boolean; connected: boolean;
   onSend: (text: string) => Promise<void>; onCancel: () => Promise<void>; onConnect: () => void;
   intro: ReactNode; footer: ReactNode;
 }) {
   const converted = useMemo(() => {
     const activeRequest = busy ? messages.findLast(message => message.role === 'user')?.requestId : undefined;
-    return messages.map((message, index) => convertMessage(message, index, activeRequest));
-  }, [messages, busy]);
+    const result = messages.map((message, index) => convertMessage(message, index, activeRequest));
+    if (busy && progress.text) result.push({ id: 'response-preview', role: 'assistant', content: [{ type: 'text', text: progress.text }], status: { type: 'running' } });
+    return result;
+  }, [messages, busy, progress.text]);
   const runtime = useExternalStoreRuntime({
     messages: converted, convertMessage: message => message, isRunning: busy, isLoading: loading, isDisabled: disabled || loading,
     isSendDisabled: !connected,
@@ -92,9 +114,9 @@ export function ChatThread({ messages, busy, loading, disabled, connected, onSen
       <ThreadPrimitive.Viewport className="chat-messages">
         <ThreadPrimitive.Empty>{intro}</ThreadPrimitive.Empty>
         <ThreadPrimitive.Messages>{({ message }) => message.role === 'user' ? <UserMessage /> : <AssistantMessage />}</ThreadPrimitive.Messages>
-        {busy && <div className="activity" role="status"><span />Working on your presentation…</div>}
       </ThreadPrimitive.Viewport>
       <ThreadPrimitive.ScrollToBottom className="scroll-to-bottom" aria-label="Scroll to latest message">↓ Latest</ThreadPrimitive.ScrollToBottom>
+      {busy && <RequestStatus progress={progress} />}
       <ComposerPrimitive.Root className="composer">
         <ComposerPrimitive.Input aria-label="Message your creative partner" placeholder={disabled ? 'Open a deck to start creating…' : 'What’s your big idea?'} disabled={busy} onKeyDown={event => {
           if (!connected && event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); onConnect(); }

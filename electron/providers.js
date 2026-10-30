@@ -1,3 +1,4 @@
+import { readResponseStream } from './response-stream.js';
 import { knownContextWindow, providers } from '../shared/ai.js';
 
 export class ImageInputError extends Error {}
@@ -9,7 +10,7 @@ function checkAborted(signal) {
     ? 'The AI request timed out. Try a smaller request or a faster model.' : 'AI request stopped.');
 }
 
-async function fetchCompletion(settings, body, signal) {
+async function fetchCompletion(settings, body, signal, onText) {
   const name = providers[settings.provider].name;
   // Retry only this model request, before any returned tools are executed.
   const attempts = settings.provider === 'openrouter' ? 2 : 1;
@@ -42,6 +43,10 @@ async function fetchCompletion(settings, body, signal) {
       if ([502, 503, 504].includes(response.status) && attempt + 1 < attempts) continue;
       throw new Error(`${name} returned ${response.status}. ${advice}`);
     }
+    if (onText && response.headers?.get('content-type')?.includes('text/event-stream')) {
+      try { return await readResponseStream(response, signal, onText); }
+      catch (error) { checkAborted(signal); throw error; }
+    }
     let text;
     try { text = await response.text(); }
     catch {
@@ -59,10 +64,13 @@ async function fetchCompletion(settings, body, signal) {
 }
 
 // Keep provider wire formats here; the agent works with one tool-call format.
-export async function requestMessage(settings, messages, tools, signal) {
+export async function requestMessage(settings, messages, tools, signal, onText) {
   // File-editing sessions can need several model calls; each gets its own deadline.
   signal = AbortSignal.any([signal, AbortSignal.timeout(180000)]);
   const claude = settings.provider === 'claude';
+  // Gemini tool calls carry provider-specific thought signatures. Keep its
+  // complete JSON format until streaming can preserve those metadata fields.
+  const streamText = onText && ['openai', 'openrouter', 'ollama'].includes(settings.provider) ? onText : undefined;
   const body = claude ? {
     model: settings.model, max_tokens: 8192, system: messages[0].content,
     messages: messages.slice(1).map(message => {
@@ -79,10 +87,10 @@ export async function requestMessage(settings, messages, tools, signal) {
     }),
     tools: tools.map(tool => ({ name: tool.name, description: tool.description, input_schema: tool.parameters })),
   } : {
-    model: settings.model, messages, tools: tools.map(fn => ({ type: 'function', function: fn })),
+    model: settings.model, messages, ...(streamText ? { stream: true, ...(settings.provider === 'openai' ? { stream_options: { include_usage: true } } : {}) } : {}), tools: tools.map(fn => ({ type: 'function', function: fn })),
     ...(settings.provider === 'openrouter' ? { provider: { require_parameters: true } } : {}),
   };
-  const data = await fetchCompletion(settings, body, signal);
+  const data = await fetchCompletion(settings, body, signal, streamText);
   if (!data || typeof data !== 'object') throw new Error('The provider returned an unsupported response. Check the API base URL.');
   if (data.error) throw new Error('The provider could not complete the request. Check model access, tool support, and provider usage.');
   let message;

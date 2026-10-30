@@ -64,7 +64,7 @@ test('preserves prompts and request status after provider failures and cancellat
   assert.equal(saved.messages.length, 1);
   const controller = new AbortController();
   const stopped = await runConversation(request(root, { signal: controller.signal, chat: async () => { controller.abort(); throw controller.signal.reason; } }));
-  assert.equal(stopped.error, 'Generation stopped.');
+  assert.equal(stopped.error, 'Generation stopped. Completed edits stay saved.');
   assert.equal((await loadChat(root, stopped.conversation.id)).requests[0].status, 'cancelled');
 });
 

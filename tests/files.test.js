@@ -128,7 +128,7 @@ test('recovering an OpenRouter reply after an edit does not repeat the file writ
   assert.equal(result.content, 'Updated the title.');
   assert.equal(await readFile(root, 'deck.json'), '{"title":"Recovered"}');
   assert.equal(requests, 3);
-  assert.deepEqual(activity, ['write file · deck.json']);
+  assert.deepEqual(activity, ['Waiting for model response…', 'write file · deck.json', 'Waiting for model response…']);
   assert.deepEqual(continuations[0], continuations[1]);
   assert.equal(continuations[1].at(-1).content, 'Saved deck.json');
 });

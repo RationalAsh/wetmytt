@@ -289,7 +289,11 @@ handle('ai:chat', async (expectedRoot, id, text, runId) => {
     const connection = await settings.connection();
     signal.throwIfAborted();
     if (root !== folder || generation !== deckGeneration) throw new Error('The open project changed. Please try again.');
-    return await runConversation({ root: folder, id, text, settings: connection, signal, chat: options => chat({ ...options, screenshotSlide }),
+    const progress = value => {
+      if (!signal.aborted && root === folder && generation === deckGeneration) notify('ai:progress', { root: folder, generation: deckGeneration, runId, ...value });
+    };
+    return await runConversation({ root: folder, id, text, settings: connection, signal, onActivity: operation => progress({ operation }),
+      chat: options => chat({ ...options, screenshotSlide, onText: text => progress({ text }) }),
       onConversation: conversation => {
         if (root === folder && generation === deckGeneration) notify('ai:conversation', { root: folder, generation: deckGeneration, runId, conversation });
       },
