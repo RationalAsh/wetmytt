@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog } from 'electron';
+import { app, BrowserWindow, dialog, Menu } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -25,6 +25,23 @@ app.whenReady().then(async () => {
     await waitFor(() => { window = BrowserWindow.getAllWindows().find(item => item.isVisible()); return window; });
     const js = source => window.webContents.executeJavaScript(source);
     await waitFor(() => js(`Boolean(document.querySelector('.chat-header [aria-label="Settings"]:not(:disabled)'))`));
+    if (process.platform === 'darwin') {
+      const settingsMenu = Menu.getApplicationMenu().items[0].submenu.items.find(item => item.label === 'Settings…');
+      assert.equal(settingsMenu?.accelerator, 'Command+,');
+      settingsMenu.click();
+      await waitFor(() => js(`Boolean(document.querySelector('#max-turns'))`));
+      await js(`document.querySelector('[aria-label="Close settings"]').click()`);
+      await waitFor(() => js(`!document.querySelector('.preferences-page')`));
+      await js(`document.querySelector('[aria-label="Toggle sidebar"]').click()`);
+      window.focus();
+      window.webContents.sendInputEvent({ type: 'keyDown', keyCode: ',', modifiers: ['meta'] });
+      window.webContents.sendInputEvent({ type: 'keyUp', keyCode: ',', modifiers: ['meta'] });
+      await waitFor(() => js(`Boolean(document.querySelector('#max-turns'))`));
+      assert.equal(await js(`getComputedStyle(document.querySelector('.sidebar')).display`), 'none');
+      await js(`document.querySelector('[aria-label="Close settings"]').click()`);
+      await waitFor(() => js(`!document.querySelector('.preferences-page')`));
+      await js(`document.querySelector('[aria-label="Toggle sidebar"]').click()`);
+    }
     await js(`document.querySelector('.chat-header [aria-label="Settings"]').click()`);
     await waitFor(() => js(`Boolean(document.querySelector('#max-turns'))`));
     assert.equal(await js(`document.querySelector('#max-turns').value`), phase === 'save' ? '300' : '72');

@@ -371,7 +371,12 @@ async function createWindow() {
     }
     return { action: 'deny' };
   });
-  window.webContents.on('before-input-event', (_event, input) => {
+  window.webContents.on('before-input-event', (event, input) => {
+    // Handle this before page input, including when focus is inside a slide.
+    if (process.platform === 'darwin' && input.type === 'keyDown' && input.key === ',' && input.meta && !input.control && !input.alt && !input.shift) {
+      event.preventDefault();
+      notify('app:settings');
+    }
     // Exit even when keyboard focus is inside custom slide HTML.
     if (input.type === 'keyDown' && input.key === 'Escape') {
       window.setFullScreen(false);
@@ -404,7 +409,9 @@ refreshRecentFolders = () => {
 function buildApplicationMenu() {
 Menu.setApplicationMenu(Menu.buildFromTemplate([
   ...(process.platform === 'darwin' ? [{ label: app.name, submenu: [
-    { role: 'about' }, { type: 'separator' }, { role: 'services' },
+    { role: 'about' }, { type: 'separator' },
+    { label: 'Settings…', accelerator: 'Command+,', click: () => notify('app:settings') },
+    { type: 'separator' }, { role: 'services' },
     { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
     { type: 'separator' },
     { label: `Quit ${app.name}`, accelerator: 'Command+Q', click: () => app.quit() },

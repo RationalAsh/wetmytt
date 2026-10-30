@@ -307,6 +307,12 @@ export default function Home() {
     return () => unsubscribers.forEach(unsubscribe => unsubscribe());
   }, [receiveDeck]);
   useEffect(() => {
+    if (!settingsLoaded) return;
+    return window.wetmytt?.on('app:settings', () => {
+      setSettingsSection('chat'); setSettingsOpen(true);
+    });
+  }, [settingsLoaded]);
+  useEffect(() => {
     const api = window.wetmytt;
     if (!api || busy) return;
     let active = true;
