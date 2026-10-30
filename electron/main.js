@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, Menu, safeStorage, autoUpdater as nativeUpdater } from 'electron';
 import electronUpdater from 'electron-updater';
 import { createUpdates } from './updates.js';
+import { createUpdateLog } from './update-log.js';
 import { cleanInstalledUpdateCache } from './update-cache.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -124,11 +125,20 @@ if (updatesEnabled) {
   await cleanInstalledUpdateCache(path.join(app.getPath('home'), 'Library', 'Caches', 'wetmytt-updater'), app.getVersion())
     .catch(error => console.warn('Could not clean installed update cache:', error.message));
 }
+const updateLogPath = path.join(app.getPath('logs'), 'updates.log');
+const updateLog = createUpdateLog(updateLogPath, { context: { version: app.getVersion(), arch: process.arch, platform: process.platform } });
+if (updatesEnabled) electronUpdater.autoUpdater.logger = updateLog.logger;
 const updates = createUpdates({
+  logger: updateLog.logger,
   updater: electronUpdater.autoUpdater, nativeUpdater,
   enabled: updatesEnabled,
   notify: status => notify('updates:changed', status),
   beforeRestart: () => { quitting = true; return cleanup(); },
+});
+handle('updates:log', async () => {
+  updateLog.logger.info('Update log requested');
+  await updateLog.flush();
+  shell.showItemInFolder(updateLogPath);
 });
 handle('updates:state', updates.state);
 handle('updates:check', updates.check);

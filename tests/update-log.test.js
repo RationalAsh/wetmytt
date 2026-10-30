@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { createUpdateLog } from '../electron/update-log.js';
+
+test('persists error context across logger instances, redacts credentials, and rotates bounded logs', async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'wetmytt-update-log-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const filename = path.join(directory, 'updates.log');
+  const log = createUpdateLog(filename, { maxBytes: 2000, context: { version: '0.4.0', arch: 'arm64' } });
+  log.logger.error('step=downloading', Object.assign(new Error('Failed https://user:secret@example.com/update.zip?token=secret'), { code: 'ECONNRESET' }));
+  log.logger.warn('Authorization: Bearer hidden');
+  await log.flush();
+  const text = await fs.readFile(filename, 'utf8');
+  assert.match(text, /ECONNRESET/);
+  assert.match(text, /step=downloading/);
+  assert.match(text, /"version":"0.4.0"/);
+  assert.match(text, /example.com\/update.zip/);
+  assert.doesNotMatch(text, /secret|hidden/);
+  assert.ok(JSON.parse(text.split('\n')[0]).time);
+  const next = createUpdateLog(filename, { maxBytes: 2000 });
+  next.logger.info('new launch');
+  await next.flush();
+  assert.match(await fs.readFile(filename, 'utf8'), /new launch/);
+  for (let i = 0; i < 30; i++) next.logger.info('x'.repeat(150));
+  await next.flush();
+  assert.deepEqual((await fs.readdir(directory)).sort(), ['updates.log', 'updates.log.1']);
+  assert.ok((await fs.stat(filename)).size <= 2000);
+  assert.ok((await fs.stat(`${filename}.1`)).size <= 2000);
+});

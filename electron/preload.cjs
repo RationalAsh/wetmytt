@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 const invoke = channel => (...args) => ipcRenderer.invoke(channel, ...args);
 contextBridge.exposeInMainWorld('wetmytt', {
-  updateState: invoke('updates:state'), checkForUpdates: invoke('updates:check'), restartToUpdate: invoke('updates:restart'),
+  showUpdateLog: invoke('updates:log'), updateState: invoke('updates:state'), checkForUpdates: invoke('updates:check'), restartToUpdate: invoke('updates:restart'),
   connectCodex: invoke('mcp:connect-codex'),
   connectClaude: invoke('mcp:connect-claude'),
   exportPDF: invoke('deck:export-pdf'),

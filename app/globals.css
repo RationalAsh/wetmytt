@@ -455,3 +455,13 @@ button.recent-remove { width: 28px; height: 28px; padding: 4px; flex-shrink: 0; 
 .folder-status { flex: 1; }
 .pagination { flex-shrink: 0; }
 .pagination .icon-button { width: 24px; height: 24px; padding: 3px; }
+
+.update-settings-button { position: relative; }
+.settings-update-badge { position: absolute; top: -3px; right: -4px; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: white; border: 2px solid var(--paper); font-size: 10px; font-weight: 700; }
+.settings-update-badge svg { width: 12px; height: 12px; flex-shrink: 0; }
+.settings-update-badge.ready { background: #28724b; }
+.settings-update-badge.failed { background: #975322; }
+.update-progress { display: block; width: 100%; height: 6px; margin: 10px 0 14px; accent-color: var(--accent); }
+.app-updates button + button { margin-left: 8px; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }

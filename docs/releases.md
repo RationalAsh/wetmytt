@@ -161,7 +161,8 @@ The repository and release assets must be public.
    into `/Applications` and launch from there, outside the mounted DMG.
 2. Open Settings and select **Check for Updates**. It should report that the
    app is current. Rapid repeated clicks must not start overlapping checks.
-   Checks are throttled for 30 seconds, including after an error.
+   Ordinary checks are throttled for 30 seconds; **Retry now** after a failure
+   starts a new check immediately once the previous operation has settled.
 3. Make a visible change and release `0.3.2` the same way. Before publishing,
    verify that the draft contains both `wetmytt-0.3.2-mac-arm64.zip` and
    `wetmytt-0.3.2-mac-x64.zip`, the DMGs, blockmaps, and `latest-mac.yml`.
@@ -182,8 +183,10 @@ The repository and release assets must be public.
    installation. Also confirm reopening a closed window retains update status.
 6. Repeat on Intel and Apple Silicon. Test offline startup/manual checking:
    Settings should show a quiet connection error and the rest of the app must
-   work. Reconnect, wait at least 30 seconds, and check again. Disconnect during
-   a download to test retry; a failed download must never enable Restart.
+   work. Reconnect and choose **Retry now**. Temporary network/server failures
+   retry automatically after 15 seconds, 1 minute, and 3 minutes, then stop
+   until a manual retry or the next four-hour check. Settings shows the countdown.
+   Disconnect during a download to test retry; a failed download must never enable Restart.
    With an already staged update, quitting and installation should work offline.
 7. Run `npm run dev` or `npm start` from the source checkout and verify Settings
    explains updates require the installed macOS app and no release requests occur.
@@ -205,3 +208,27 @@ update is preserved for installation and offline retry. Cleanup skips unknown
 versions, filenames, malformed metadata, and symlinks, and failures do not block
 startup or updating. Squirrel's own staging and backup files are left to macOS's
 updater. Manually downloaded DMGs are not managed by this cleanup.
+
+## Update diagnostics and status
+
+The Settings button shows a clock badge during downloading and macOS verification,
+a green check when an update is ready, and an attention badge after a failure.
+Its tooltip includes download percentage and elapsed time when available.
+Settings and the update banner show download percentage; Restart is offered only
+after native macOS verification and staging complete.
+
+Settings distinguishes failures while checking, downloading, and verifying or
+preparing an update. Disk-space, permission, and verification errors need user
+action; temporary network/server errors receive up to three automatic retries.
+A manual retry cancels the scheduled retry and starts a fresh retry budget.
+Concurrent requests still share the active operation. This does not add partial
+transfer resumption or a watchdog for an operation that never settles.
+
+For support, choose **Show update log** after an error. Finder reveals
+`updates.log` in Electron's application logs directory (normally
+`~/Library/Logs/Welcome to My TED Talk/` on macOS). Share it together with
+`updates.log.1` if present. Logs contain timestamps, installed version,
+architecture, updater events, failure step, error codes and stacks. URL queries,
+URL credentials, and credential header values are redacted. Each file is limited
+to approximately 1 MiB, with one previous file retained. Logging failures do not
+block updating. Logs stay on the user's computer; nothing is uploaded automatically.

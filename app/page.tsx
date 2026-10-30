@@ -8,7 +8,7 @@ import { FileMenu, ConnectMenu, RecentFolders } from './project-menus';
 import { version } from '../package.json';
 import type { ConversationEvent, ConversationSummary, Deck, Message, Settings, SlideManagement, SlideOperation } from './bridge';
 import { AISettings } from './ai-settings';
-import { UpdateBanner } from './app-updates';
+import { UpdateBanner, UpdateSettingsButton } from './app-updates';
 import { DEFAULT_MAX_TURNS } from '../shared/ai.js';
 import { AgentConnection } from './agent-connection';
 import { ChatThread } from './chat-thread';
@@ -473,7 +473,7 @@ export default function Home() {
         <footer className="slide-controls"><div className="folder-status"><span className="live-status"><span />{deck.root ? 'Watching your folder' : 'Everything lives in your folder'}</span>{deck.root && <GitStatus deck={deck} summary={gitSummary} disabled={busy || managing || exporting || deck.contentSettled === false} />}</div><div className="pagination"><button className="icon-button" aria-label="Previous slide" disabled={!count || slide === 0} onClick={() => navigate(slide - 1)}><Icon name="left" size={17} /></button><span>{count ? String(slide + 1).padStart(2, '0') : '—'}<b>/</b>{count ? String(count).padStart(2, '0') : '—'}</span><button className="icon-button" aria-label="Next slide" disabled={!count || slide >= count - 1} onClick={() => navigate(slide + 1)}><Icon name="right" size={17} /></button></div><span className="key-hint"><kbd>←</kbd><kbd>→</kbd> to navigate</span></footer>
       </section>
       <aside className="sidebar" style={sidebar ? undefined : { display: 'none' }}>
-        <div className="chat-header"><div><Icon name="spark" /><strong>Backstage</strong></div><div><button className="icon-button" title="New conversation (clear context)" aria-label="New conversation" disabled={!deck.root || busy || loadingChat} onClick={newConversation}><Icon name="plus" size={17} /></button><button className="icon-button" title="Settings" aria-label="Settings" disabled={!settingsLoaded} onClick={() => openSettings('chat')}><Icon name="settings" size={17} /></button><button className="icon-button" title="Hide sidebar" aria-label="Hide sidebar" onClick={() => setSidebar(false)}><Icon name="close" size={17} /></button></div></div>
+        <div className="chat-header"><div><Icon name="spark" /><strong>Backstage</strong></div><div><button className="icon-button" title="New conversation (clear context)" aria-label="New conversation" disabled={!deck.root || busy || loadingChat} onClick={newConversation}><Icon name="plus" size={17} /></button><UpdateSettingsButton disabled={!settingsLoaded} onClick={() => openSettings('chat')}><Icon name="settings" size={17} /></UpdateSettingsButton><button className="icon-button" title="Hide sidebar" aria-label="Hide sidebar" onClick={() => setSidebar(false)}><Icon name="close" size={17} /></button></div></div>
         <div className="sidebar-tabs" role="tablist" aria-label="Sidebar">
           <button role="tab" id="chat-tab" aria-selected={sidebarTab === 'chat'} aria-controls="chat-panel" onClick={() => setSidebarTab('chat')}>Chat</button>
           <button role="tab" id="edit-tab" aria-selected={sidebarTab === 'edit'} aria-controls="edit-panel" onClick={() => setSidebarTab('edit')}>Edit</button>

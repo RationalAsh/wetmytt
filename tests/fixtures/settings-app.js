@@ -51,15 +51,30 @@ app.whenReady().then(async () => {
     if (phase === 'save') {
       // Exercise the real preload subscription and UI without contacting GitHub
       // or installing an update in this unpackaged test app.
-      window.webContents.send('updates:changed', { phase: 'downloading', version: '0.4.0' });
+      window.webContents.send('updates:changed', { phase: 'downloading', version: '0.4.0', percent: 42, startedAt: Date.now() - 65_000 });
       await waitFor(() => js(`document.querySelector('.update-banner')?.textContent.includes('Downloading')`));
+      assert.equal(await js(`document.querySelector('.update-banner button') === null`), true);
+      assert.equal(await js(`document.querySelector('.update-progress').value`), 42);
+      assert.match(await js(`document.querySelector('.update-settings-button').title`), /42%.*1:0[56] elapsed/);
+      assert.equal(await js(`Boolean(document.querySelector('.settings-update-badge svg'))`), true);
+      if (process.env.WETMYTT_UPDATE_SCREENSHOT) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+        await fs.writeFile(`${process.env.WETMYTT_UPDATE_SCREENSHOT}.downloading.png`, (await window.webContents.capturePage()).toPNG());
+      }
+      window.webContents.send('updates:changed', { phase: 'staging', version: '0.4.0' });
+      await waitFor(() => js(`document.querySelector('.app-updates').textContent.includes('Verifying')`));
       assert.equal(await js(`document.querySelector('.update-banner button') === null`), true);
       window.webContents.send('updates:changed', { phase: 'downloaded', version: '0.4.0' });
       await waitFor(() => js(`document.querySelector('.update-banner button')?.textContent === 'Restart to Update'`));
       assert.equal(await js(`document.querySelector('.app-updates button').textContent.trim()`), 'Restart to Update');
+      assert.equal(await js(`document.querySelector('.settings-update-badge.ready').textContent`), '✓');
       await js(`document.querySelector('[aria-label="Close settings"]').click()`);
       await waitFor(() => js(`!document.querySelector('.preferences-page')`));
       assert.match(await js(`document.querySelector('.update-banner').textContent`), /Update ready.*Version 0\.4\.0.*Restart to install/);
+      if (process.env.WETMYTT_UPDATE_SCREENSHOT) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+        await fs.writeFile(`${process.env.WETMYTT_UPDATE_SCREENSHOT}.ready.png`, (await window.webContents.capturePage()).toPNG());
+      }
       for (const width of [1100, 580]) {
         window.setMinimumSize(480, 600);
         window.setSize(width, 720);
@@ -80,10 +95,14 @@ app.whenReady().then(async () => {
       await js(`document.querySelector('.update-banner button').click()`);
       await js(`document.querySelector('.chat-header [aria-label="Settings"]').click()`);
       await waitFor(() => js(`Boolean(document.querySelector('#max-turns'))`));
-      window.webContents.send('updates:changed', { phase: 'error', version: '0.4.0', message: 'Check your connection and try again.' });
+      window.webContents.send('updates:changed', { phase: 'error', version: '0.4.0', message: 'Could not download the update. Check your connection and try again.', retryAt: Date.now() + 60_000, retryAttempt: 2 });
       await waitFor(() => js(`document.querySelector('.update-banner button')?.textContent.includes('Retry')`));
+      assert.match(await js(`document.querySelector('.app-updates').textContent`), /Automatic retry 2 of 3/);
+      assert.equal(await js(`document.querySelector('.settings-update-badge.failed').textContent`), '!');
+      assert.match(await js(`document.querySelector('.app-updates').textContent`), /Show update log/);
       window.webContents.send('updates:changed', { phase: 'disabled' });
       await waitFor(() => js(`document.querySelector('.update-banner') === null`));
+      assert.equal(await js(`document.querySelector('.settings-update-badge')`), null);
     }
     window.setMinimumSize(480, 600);
     for (const [width, height] of [[1100, 760], [580, 720]]) {

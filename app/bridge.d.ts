@@ -7,7 +7,7 @@ export type ProjectFiles = { files: { path: string; directory: boolean }[]; chan
 export type SlideManagement = { supported: boolean; reason: string; source: string; ids: string[]; titles: string[] };
 export type Deck = { root?: string; generation?: number; contentRevision?: number; contentSettled?: boolean; url?: string; name?: string | null; branch?: string | null };
 export type Provider = 'openrouter' | 'openai' | 'claude' | 'gemini' | 'ollama';
-export type UpdateStatus = { phase: 'disabled' | 'idle' | 'checking' | 'current' | 'downloading' | 'downloaded' | 'error'; version?: string; message?: string };
+export type UpdateStatus = { phase: 'disabled' | 'idle' | 'checking' | 'current' | 'downloading' | 'staging' | 'downloaded' | 'error'; version?: string; message?: string; step?: 'checking' | 'downloading' | 'staging'; percent?: number; startedAt?: number; retryAt?: number; retryAttempt?: number };
 export type Settings = { provider: Provider; baseUrl: string; model: string; hasKey: boolean; maxTurns: number };
 export type ToolCall = { id: string; name: string; argsText: string; result?: string; status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' };
 export type Message = { id?: string; role: 'user' | 'assistant'; content: string; activity?: boolean; tools?: ToolCall[]; requestId?: string; createdAt?: string };
@@ -18,6 +18,7 @@ export type Conversation = { id: string; title: string; messages: Message[]; req
 declare global {
   interface Window {
     wetmytt?: {
+      showUpdateLog(): Promise<void>;
       updateState(): Promise<UpdateStatus>;
       checkForUpdates(): Promise<UpdateStatus>;
       restartToUpdate(): Promise<void>;
