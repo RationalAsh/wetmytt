@@ -30,6 +30,11 @@ app.whenReady().then(async () => {
     await js(`document.querySelector('.file-actions .menu-trigger').click()`);
     await js(`[...document.querySelectorAll('[role=menuitem]')].find(b => b.textContent === 'Open folder…').click()`);
     await waitFor(() => js(`Boolean(document.querySelector('#files-tab'))`));
+    await waitFor(() => js(`document.querySelector('.last-commit')?.textContent === 'Create presentation' && document.querySelector('.git-working-status')?.dataset.dirty === 'true'`));
+    assert.equal(await js(`document.querySelectorAll('.sidebar-tabs [role=tab]').length`), 4);
+    await js(`document.querySelector('#history-tab').click()`);
+    await waitFor(() => js(`document.querySelector('.commit-timeline h3')?.textContent === 'Create presentation'`));
+    assert.equal(await js(`document.querySelector('#files-panel').hidden`), true);
     await js(`document.querySelector('#files-tab').click()`);
     await waitFor(() => js(`document.querySelector('.project-tree')?.textContent.includes('notes.txt')`));
     assert.equal(await js(`document.querySelector('#chat-panel').hidden`), true);
@@ -44,7 +49,7 @@ app.whenReady().then(async () => {
     await waitFor(() => js(`Boolean(document.querySelector('[aria-label="Unstage notes.txt"]:not(:disabled)'))`));
     await js(`(() => { const input = document.querySelector('#commit-message'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Add presentation notes'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
     await waitFor(() => js(`!document.querySelector('.files-commit button').disabled`));
-    const layout = await js(`(() => { const panel = document.querySelector('#files-panel').getBoundingClientRect(); const toolbar = document.querySelector('.files-toolbar').getBoundingClientRect(); const tree = document.querySelector('.project-tree').getBoundingClientRect(); const commit = document.querySelector('.files-commit').getBoundingClientRect(); return { panelTop: panel.top, toolbarTop: toolbar.top, treeHeight: tree.height, commitBottom: commit.bottom, panelBottom: panel.bottom }; })()`);
+    const layout = await js(`(() => { const panel = document.querySelector('#files-panel').getBoundingClientRect(); const toolbar = document.querySelector('#files-panel .files-toolbar').getBoundingClientRect(); const tree = document.querySelector('.project-tree').getBoundingClientRect(); const commit = document.querySelector('.files-commit').getBoundingClientRect(); return { panelTop: panel.top, toolbarTop: toolbar.top, treeHeight: tree.height, commitBottom: commit.bottom, panelBottom: panel.bottom }; })()`);
     assert.equal(await js(`document.querySelectorAll('#files-panel').length`), 1);
     assert.equal(layout.panelTop, layout.toolbarTop);
     assert.ok(layout.treeHeight > 0);
@@ -59,6 +64,12 @@ app.whenReady().then(async () => {
     let changes = await gitChanges(root);
     assert.deepEqual(changes.map(c => c.path), ['deck.json']);
     assert.equal(changes[0].worktree, 'M');
+    await waitFor(() => js(`document.querySelector('.last-commit')?.textContent === 'Add presentation notes'`));
+    await js(`document.querySelector('#history-tab').click()`);
+    await waitFor(() => js(`document.querySelector('.commit-timeline h3')?.textContent === 'Add presentation notes'`));
+    assert.equal(await js(`document.querySelectorAll('.commit-timeline > li').length`), 2);
+    assert.equal(await js(`document.querySelectorAll('#history-panel').length`), 1);
+    await js(`document.querySelector('#files-tab').click()`);
     // Index-only changes from another tool must refresh without a content write.
     await gitFilesAction(root, 'stage', ['deck.json']);
     await waitFor(() => js(`Boolean(document.querySelector('[aria-label="Unstage deck.json"]'))`));
@@ -76,7 +87,18 @@ app.whenReady().then(async () => {
     await js(`document.querySelector('[aria-label="Unstage renamed-notes.txt"]').click()`);
     await waitFor(() => js(`Boolean(document.querySelector('[aria-label="Stage notes.txt"]'))`));
     assert.ok(!(await gitChanges(root)).some(c => c.path === 'renamed-notes.txt' && c.index === 'R'));
-    console.log('Files integration passed: tree, indicators, stage, unstage, commit staged only, external index refresh, external files, stale project guard.');
+    await js(`document.querySelector('#history-tab').click()`);
+    await gitFilesAction(root, 'stage', ['deck.json', 'notes.txt', 'renamed-notes.txt', 'external.txt']);
+    await gitFilesAction(root, 'commit', [], 'Refine presentation\n\nTighten the opening and keep the supporting notes.');
+    await waitFor(() => js(`document.querySelector('.commit-timeline h3')?.textContent === 'Refine presentation' && document.querySelector('.last-commit')?.textContent === 'Refine presentation' && document.querySelector('.git-working-status')?.dataset.dirty === 'false'`));
+    assert.equal(await js(`document.querySelectorAll('.commit-timeline > li').length`), 3);
+    await js(`document.querySelector('.commit-timeline details').open = true`);
+    assert.equal(await js(`document.querySelector('.commit-body').textContent`), 'Tighten the opening and keep the supporting notes.');
+    if (process.env.WETMYTT_HISTORY_SCREENSHOT) {
+      await new Promise(resolve => setTimeout(resolve, 400));
+      await fs.writeFile(process.env.WETMYTT_HISTORY_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+    }
+    console.log('Files and History integration passed: tree, indicators, staging, commits, timeline, message details, footer status, external changes and stale project guard.');
     app.exit(0);
   } catch (error) { console.error(error); app.exit(1); }
 }).catch(error => { console.error(error); app.exit(1); });

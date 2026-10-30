@@ -13,6 +13,7 @@ import { DEFAULT_MAX_TURNS } from '../shared/ai.js';
 import { AgentConnection } from './agent-connection';
 import { ChatThread } from './chat-thread';
 import { FilesPanel } from './files-panel';
+import { GitStatus, HistoryPanel, useGitSummary } from './git-history';
 import { ContentEditor, type TextField, type TextSelection } from './content-editor';
 import { conversationTokens } from '../shared/ai.js';
 import { textFields } from '../shared/content';
@@ -54,6 +55,7 @@ function ContextMeter({ used, limit, connected }: { used: number; limit: number 
 
 export default function Home() {
   const [deck, setDeck] = useState<Deck>({});
+  const gitSummary = useGitSummary(deck);
   const [revision, setRevision] = useState(0);
   const [previewRevision, setPreviewRevision] = useState<number | undefined>(undefined);
   const [management, setManagement] = useState<(SlideManagement & { revision: number }) | null>(null);
@@ -68,7 +70,7 @@ export default function Home() {
   const deleteDialog = useRef<HTMLDialogElement>(null);
   const [slideIds, setSlideIds] = useState<string[]>([]);
   const [sidebar, setSidebar] = useState(true);
-  const [sidebarTab, setSidebarTab] = useState<'chat' | 'edit' | 'files'>('chat');
+  const [sidebarTab, setSidebarTab] = useState<'chat' | 'edit' | 'files' | 'history'>('chat');
   const [fields, setFields] = useState<TextField[]>([]);
   const [selection, setSelection] = useState<TextSelection | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -456,7 +458,7 @@ export default function Home() {
           <p>This removes the slide from your presentation.</p>
           <div><button autoFocus onClick={() => setDeleteRequest(null)}>Cancel</button><button disabled={!!slideDisabledReason} onClick={() => { if (deleteRequest) void manageSlide(deleteRequest, true); }}>Delete slide</button></div>
         </dialog>
-        <footer className="slide-controls"><div className="folder-status"><span className="live-status"><span />{deck.root ? 'Watching your folder' : 'Everything lives in your folder'}</span>{deck.root && deck.branch && <span className="version-chip" tabIndex={0} aria-describedby="version-detail"><span className="version-label">Version:</span><span className="version-name">{deck.branch}</span><span className="version-tooltip" role="tooltip" id="version-detail">This presentation uses Git internally for version history. {deck.branch === 'Detached HEAD' ? 'You are viewing a commit without an active branch (detached HEAD).' : <>The current branch is <strong>{deck.branch}</strong>.</>}</span></span>}</div><div className="pagination"><button className="icon-button" aria-label="Previous slide" disabled={!count || slide === 0} onClick={() => navigate(slide - 1)}><Icon name="left" size={17} /></button><span>{count ? String(slide + 1).padStart(2, '0') : '—'}<b>/</b>{count ? String(count).padStart(2, '0') : '—'}</span><button className="icon-button" aria-label="Next slide" disabled={!count || slide >= count - 1} onClick={() => navigate(slide + 1)}><Icon name="right" size={17} /></button></div><span className="key-hint"><kbd>←</kbd><kbd>→</kbd> to navigate</span></footer>
+        <footer className="slide-controls"><div className="folder-status"><span className="live-status"><span />{deck.root ? 'Watching your folder' : 'Everything lives in your folder'}</span>{deck.root && <GitStatus summary={gitSummary} />}</div><div className="pagination"><button className="icon-button" aria-label="Previous slide" disabled={!count || slide === 0} onClick={() => navigate(slide - 1)}><Icon name="left" size={17} /></button><span>{count ? String(slide + 1).padStart(2, '0') : '—'}<b>/</b>{count ? String(count).padStart(2, '0') : '—'}</span><button className="icon-button" aria-label="Next slide" disabled={!count || slide >= count - 1} onClick={() => navigate(slide + 1)}><Icon name="right" size={17} /></button></div><span className="key-hint"><kbd>←</kbd><kbd>→</kbd> to navigate</span></footer>
       </section>
       <aside className="sidebar" style={sidebar ? undefined : { display: 'none' }}>
         <div className="chat-header"><div><Icon name="spark" /><strong>Backstage</strong></div><div><button className="icon-button" title="New conversation (clear context)" aria-label="New conversation" disabled={!deck.root || busy || loadingChat} onClick={newConversation}><Icon name="plus" size={17} /></button><button className="icon-button" title="Settings" aria-label="Settings" disabled={!settingsLoaded} onClick={() => openSettings('chat')}><Icon name="settings" size={17} /></button><button className="icon-button" title="Hide sidebar" aria-label="Hide sidebar" onClick={() => setSidebar(false)}><Icon name="close" size={17} /></button></div></div>
@@ -464,7 +466,9 @@ export default function Home() {
           <button role="tab" id="chat-tab" aria-selected={sidebarTab === 'chat'} aria-controls="chat-panel" onClick={() => setSidebarTab('chat')}>Chat</button>
           <button role="tab" id="edit-tab" aria-selected={sidebarTab === 'edit'} aria-controls="edit-panel" onClick={() => setSidebarTab('edit')}>Edit</button>
           <button role="tab" id="files-tab" aria-selected={sidebarTab === 'files'} aria-controls="files-panel" onClick={() => setSidebarTab('files')}>Files</button>
+          <button role="tab" id="history-tab" aria-selected={sidebarTab === 'history'} aria-controls="history-panel" onClick={() => setSidebarTab('history')}>History</button>
         </div>
+        <HistoryPanel key={`history:${deck.root}:${deck.generation}`} deck={deck} summary={gitSummary} active={sidebarTab === 'history' && sidebar} />
         <FilesPanel key={`files:${deck.root}:${deck.generation}`} deck={deck} revision={revision} active={sidebarTab === 'files' && sidebar} disabled={busy || managing || exporting} />
         <ContentEditor key={`${deck.root}:${deck.generation}`} deck={deck} revision={revision} active={sidebarTab === 'edit' && sidebar} selection={selection} onFields={setFields} onBlockedChange={setTextBlocked} onSourceChange={setEditorSource} disabled={managing} onSelect={path => setSelection(current => current?.path === path ? current : { path, token: Date.now() })} />
         <div className="chat-panel" id="chat-panel" role="tabpanel" aria-labelledby="chat-tab" hidden={sidebarTab !== 'chat'}>

@@ -406,3 +406,26 @@ button.recent-remove { width: 28px; height: 28px; padding: 4px; flex-shrink: 0; 
 .files-commit label { font-size: 11px; font-weight: 600; }
 .files-commit textarea { width: 100%; resize: vertical; min-height: 54px; max-height: 120px; border: 1px solid var(--line); border-radius: 7px; padding: 9px; background: var(--paper); color: var(--ink); font-size: 12px; }
 .files-hint { font-size: 10px; color: var(--muted); }
+
+.history-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; font-size: 12px; }
+.history-panel[hidden] { display: none; }
+.history-scroll { flex: 1; min-height: 0; overflow: auto; padding: 8px 18px 20px; }
+.commit-timeline { list-style: none; padding: 0 0 0 14px; margin: 12px 0; }
+.commit-timeline > li { position: relative; border-left: 1px solid var(--line); padding: 0 0 28px 20px; }
+.commit-timeline > li:last-child { border-left-color: transparent; padding-bottom: 6px; }
+.commit-timeline > li::before { content: ''; position: absolute; left: -5px; top: 3px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--accent); background: #fdfcff; }
+.commit-timeline > li:first-child::before { background: var(--accent); }
+.commit-heading { display: flex; align-items: center; gap: 8px; color: var(--accent); font-size: 10px; }
+.commit-latest { padding: 2px 6px; border-radius: 4px; background: var(--tint); font-size: 9px; }
+.commit-timeline h3 { margin: 8px 0; font-size: 13px; line-height: 1.5; font-weight: 600; overflow-wrap: anywhere; }
+.commit-meta { margin: 0; font-size: 10px; line-height: 1.7; color: var(--muted); overflow-wrap: anywhere; }
+.commit-timeline details { margin-top: 10px; font-size: 11px; }
+.commit-timeline summary { cursor: pointer; color: var(--accent); }
+.commit-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; color: var(--muted); }
+.history-more { display: flex; margin: 12px auto; padding: 8px 12px; border: 1px solid var(--line); color: var(--accent); }
+.last-commit { min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.git-working-status { font-size: 9px; white-space: nowrap; color: #267449; }
+.git-working-status[data-dirty="true"] { color: #946015; }
+.slide-controls { gap: 12px; min-height: 50px; height: auto; padding: 8px 0; }
+.folder-status { flex: 1; }
+.pagination { flex-shrink: 0; }

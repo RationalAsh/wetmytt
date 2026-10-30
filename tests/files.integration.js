@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import electron from 'electron';
 
-test('file tree, staging and committing in the actual Electron app', { timeout: 90000 }, async t => {
+test('Files and History tabs, Git status, staging and committing in the actual Electron app', { timeout: 90000 }, async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'wetmytt-files-ui-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const env = { ...process.env };

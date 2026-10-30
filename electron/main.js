@@ -20,7 +20,7 @@ import { exportDeckPDF } from './pdf.js';
 import { listChats, loadChat, runConversation } from './chats.js';
 import { readSlideManagement, mutateSlide } from './slide-management.js';
 import { readContent, saveContent } from './content.js';
-import { currentBranch, gitFilesAction, gitInit } from './git.js';
+import { currentBranch, gitFilesAction, gitInit, gitHistory, gitSummary } from './git.js';
 import { readProjectFiles } from './project-files.js';
 import { createRecentFolders } from './recent-folders.js';
 
@@ -187,6 +187,8 @@ handle('deck:thumbnails', async (folder, version, revision, slides) => {
 });
 handle('deck:read-content', (folder, version) => readContent(contentRoot(folder, version)));
 handle('deck:files', (folder, version) => readProjectFiles(contentRoot(folder, version), projectOperations.signal));
+handle('deck:git-summary', (folder, version) => gitSummary(contentRoot(folder, version), projectOperations.signal));
+handle('deck:history', (folder, version, page) => gitHistory(contentRoot(folder, version), page, projectOperations.signal));
 let filesBusy = false;
 handle('deck:git-action', async (folder, version, action, paths, message) => {
   contentRoot(folder, version);

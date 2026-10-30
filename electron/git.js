@@ -25,7 +25,9 @@ async function command(root, args, signal, extra = []) {
   } catch (error) {
     if (signal?.aborted) throw signal.reason;
     if (error.code === 'ENOENT') throw new Error('Bundled Git is unavailable. Reinstall the app (development: npm rebuild dugite).');
-    throw new Error(`Git failed: ${(error.stderr || error.message).slice(0, 4000)}`);
+    const failure = new Error(`Git failed: ${(error.stderr || error.message).slice(0, 4000)}`);
+    failure.gitExitCode = error.code;
+    throw failure;
   }
 }
 
@@ -74,6 +76,33 @@ export async function currentBranch(root, signal) {
     return branch || 'Detached HEAD';
   } catch {
     return null;
+  }
+}
+
+export async function gitHistory(root, { skip = 0, head, limit = 50 } = {}, signal) {
+  if (!Number.isSafeInteger(skip) || skip < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 50 || (head !== undefined && !/^[a-f0-9]{40,64}$/.test(head))) throw new Error('Invalid history page.');
+  root = await repository(root, signal);
+  if (!head) head = (await command(root, ['rev-parse', '--verify', '--quiet', 'HEAD'], signal).catch(error => {
+    signal?.throwIfAborted();
+    if (error.gitExitCode !== 1) throw error;
+    return '';
+  })).trim();
+  if (!head) return { commits: [], head: null, hasMore: false };
+  const output = await command(root, ['log', '-z', '--no-show-signature', '--format=%H%x00%h%x00%an%x00%aI%x00%s%x00%b', `--max-count=${limit + 1}`, `--skip=${skip}`, head, '--'], signal);
+  const fields = output.split('\0'), commits = [];
+  for (let i = 0; i + 5 < fields.length; i += 6) {
+    commits.push({ hash: fields[i], shortHash: fields[i + 1], author: fields[i + 2], date: fields[i + 3], subject: fields[i + 4], body: fields[i + 5].trimEnd() });
+  }
+  return { commits: commits.slice(0, limit), head, hasMore: commits.length > limit };
+}
+
+export async function gitSummary(root, signal) {
+  try {
+    const [branch, changes, history] = await Promise.all([currentBranch(root, signal), gitChanges(root, signal), gitHistory(root, { limit: 1 }, signal)]);
+    return { branch, latestCommit: history.commits[0] || null, dirty: changes.length > 0, error: null };
+  } catch (error) {
+    signal?.throwIfAborted();
+    return { branch: null, latestCommit: null, dirty: null, error: error.message.includes('no Git repository') ? 'This project has no Git repository. Initialize Git in Files to start its history.' : error.message };
   }
 }
 
