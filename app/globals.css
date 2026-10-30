@@ -377,3 +377,32 @@ button.recent-remove { width: 28px; height: 28px; padding: 4px; flex-shrink: 0; 
 .slide-delete-dialog h2 { margin-top: 0; font-size: 20px; }
 .slide-delete-dialog p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .slide-delete-dialog > div { display: flex; gap: 12px; justify-content: flex-end; }
+
+.files-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; font-size: 12px; }
+.files-panel[hidden] { display: none; }
+.files-toolbar, .files-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; }
+.files-toolbar { border-bottom: 1px solid var(--line); color: var(--muted); flex-shrink: 0; }
+.files-toolbar > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.files-toolbar button, .files-section-heading button { padding: 4px 6px; font-size: 11px; flex-shrink: 0; color: var(--accent); }
+.files-scroll { flex: 1; min-height: 0; overflow: auto; }
+.files-section-heading strong { font-size: 11px; }
+.files-section-heading strong span { color: var(--muted); margin-left: 5px; }
+.files-changes { border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.file-change { display: flex; align-items: center; gap: 8px; padding: 2px 14px; min-height: 28px; }
+.file-change:hover, .project-tree li:hover { background: var(--tint); }
+.file-change-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.file-change button { width: 24px; height: 24px; font-size: 17px; }
+.file-status { font: 600 10px ui-monospace, monospace; color: #946015; min-width: 15px; text-align: center; flex-shrink: 0; }
+.file-status[data-status="U"], .file-status[data-status="A"] { color: #267449; }
+.file-status[data-status="D"], .file-status[data-status="!"] { color: #b63546; }
+.project-tree { list-style: none; margin: 0 0 16px; padding: 0; }
+.project-tree li { display: flex; align-items: center; gap: 6px; padding-right: 16px; min-height: 28px; }
+.project-tree button, .tree-file { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; text-align: left; justify-content: flex-start; padding: 4px 0; font-size: 12px; }
+.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-glyph { color: var(--muted); }
+.files-empty { padding: 10px 16px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.files-error { margin: 12px; color: #b63546; overflow-wrap: anywhere; line-height: 1.5; }
+.files-commit { border-top: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.files-commit label { font-size: 11px; font-weight: 600; }
+.files-commit textarea { width: 100%; resize: vertical; min-height: 54px; max-height: 120px; border: 1px solid var(--line); border-radius: 7px; padding: 9px; background: var(--paper); color: var(--ink); font-size: 12px; }
+.files-hint { font-size: 10px; color: var(--muted); }

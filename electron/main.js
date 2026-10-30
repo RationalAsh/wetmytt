@@ -20,7 +20,8 @@ import { exportDeckPDF } from './pdf.js';
 import { listChats, loadChat, runConversation } from './chats.js';
 import { readSlideManagement, mutateSlide } from './slide-management.js';
 import { readContent, saveContent } from './content.js';
-import { currentBranch } from './git.js';
+import { currentBranch, gitFilesAction, gitInit } from './git.js';
+import { readProjectFiles } from './project-files.js';
 import { createRecentFolders } from './recent-folders.js';
 
 app.setName('Welcome to My TED Talk');
@@ -185,6 +186,20 @@ handle('deck:thumbnails', async (folder, version, revision, slides) => {
   }
 });
 handle('deck:read-content', (folder, version) => readContent(contentRoot(folder, version)));
+handle('deck:files', (folder, version) => readProjectFiles(contentRoot(folder, version), projectOperations.signal));
+let filesBusy = false;
+handle('deck:git-action', async (folder, version, action, paths, message) => {
+  contentRoot(folder, version);
+  if (filesBusy || pendingChat || exportingPDF) throw new Error('Wait for the current operation before changing Git.');
+  filesBusy = true;
+  const signal = projectOperations.signal;
+  try {
+    const result = action === 'init' ? await gitInit(folder, signal) : await gitFilesAction(folder, action, paths, message, signal);
+    contentRoot(folder, version);
+    await notifyDeck();
+    return result;
+  } finally { filesBusy = false; }
+});
 handle('deck:save-content', (folder, version, source, pointer, text) => saveContent(contentRoot(folder, version), source, pointer, text, () => contentRoot(folder, version)));
 const slideGuard = (folder, version, revision) => {
   contentRoot(folder, version);

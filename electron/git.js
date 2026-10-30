@@ -77,6 +77,47 @@ export async function currentBranch(root, signal) {
   }
 }
 
+// Porcelain -z preserves spaces, newlines, Unicode, and rename destinations.
+export async function gitChanges(root, signal) {
+  root = await repository(root, signal);
+  const records = (await command(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=all'], signal)).split('\0');
+  const changes = [];
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i];
+    if (!record) continue;
+    const index = record[0], worktree = record[1], filename = record.slice(3);
+    const originalPath = /[RC]/.test(index + worktree) ? records[++i] : undefined;
+    const conflict = ['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU'].includes(index + worktree);
+    changes.push({ path: filename, originalPath, index, worktree, conflict });
+  }
+  return changes;
+}
+
+export async function gitFilesAction(root, action, values, message, signal) {
+  root = await repository(root, signal);
+  if (action === 'commit') {
+    if (typeof message !== 'string' || !message.trim() || message.length > 10000) throw new Error('Enter a commit message (up to 10,000 characters).');
+    return gitTool(root, 'git_commit', { message: message.trim() }, signal);
+  }
+  if (!['stage', 'unstage'].includes(action)) throw new Error('Unknown files action.');
+  if (!Array.isArray(values) || !values.length || values.length > 1000) throw new Error('Select files to stage or unstage.');
+  for (const value of values) {
+    if (typeof value !== 'string' || !value || path.isAbsolute(value) || value.split(/[/\\]/).some(part => ['..', '.git', '.wetmytt', 'node_modules'].includes(part))) throw new Error('Use project file paths.');
+    let target = path.resolve(root, value);
+    if (!target.startsWith(root + path.sep)) throw new Error('Path is outside the project.');
+    while (target !== root) {
+      const stat = await fs.lstat(target).catch(error => { if (error.code !== 'ENOENT') throw error; return null; });
+      if (stat?.isSymbolicLink()) throw new Error('Symlinks cannot be staged from Files.');
+      if (target === path.resolve(root, value) && stat && !stat.isFile()) throw new Error('Select files, not directories.');
+      target = path.dirname(target);
+    }
+  }
+  // An unborn branch has no HEAD for restore --staged; remove only its index entries.
+  const hasHead = await command(root, ['rev-parse', '--verify', 'HEAD'], signal).then(() => true, () => false);
+  const args = action === 'stage' ? ['add'] : hasHead ? ['restore', '--staged'] : ['rm', '--cached', '--force'];
+  return command(root, [...args, '--', ...values], signal, await noFilters(root, signal));
+}
+
 export async function gitInit(root, signal, initialCommit = false) {
   signal?.throwIfAborted();
   const metadata = await fs.lstat(path.join(root, '.git')).catch(() => null);

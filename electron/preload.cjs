@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('wetmytt', {
   thumbnails: invoke('deck:thumbnails'),
   readSlideManagement: invoke('deck:read-slide-management'), mutateSlide: invoke('deck:mutate-slide'),
   readContent: invoke('deck:read-content'), saveContent: invoke('deck:save-content'),
+  projectFiles: invoke('deck:files'), gitAction: invoke('deck:git-action'),
   reveal: invoke('deck:reveal'), settings: invoke('ai:settings'), saveSettings: invoke('ai:save'), savePreferences: invoke('ai:preferences'),
   chat: invoke('ai:chat'), cancel: invoke('ai:cancel'), context: invoke('ai:context'), present: invoke('deck:present'),
   chats: invoke('ai:chats'), loadChat: invoke('ai:load-chat'),

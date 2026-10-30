@@ -12,6 +12,7 @@ import { UpdateBanner } from './app-updates';
 import { DEFAULT_MAX_TURNS } from '../shared/ai.js';
 import { AgentConnection } from './agent-connection';
 import { ChatThread } from './chat-thread';
+import { FilesPanel } from './files-panel';
 import { ContentEditor, type TextField, type TextSelection } from './content-editor';
 import { conversationTokens } from '../shared/ai.js';
 import { textFields } from '../shared/content';
@@ -67,7 +68,7 @@ export default function Home() {
   const deleteDialog = useRef<HTMLDialogElement>(null);
   const [slideIds, setSlideIds] = useState<string[]>([]);
   const [sidebar, setSidebar] = useState(true);
-  const [sidebarTab, setSidebarTab] = useState<'chat' | 'edit'>('chat');
+  const [sidebarTab, setSidebarTab] = useState<'chat' | 'edit' | 'files'>('chat');
   const [fields, setFields] = useState<TextField[]>([]);
   const [selection, setSelection] = useState<TextSelection | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -462,7 +463,9 @@ export default function Home() {
         <div className="sidebar-tabs" role="tablist" aria-label="Sidebar">
           <button role="tab" id="chat-tab" aria-selected={sidebarTab === 'chat'} aria-controls="chat-panel" onClick={() => setSidebarTab('chat')}>Chat</button>
           <button role="tab" id="edit-tab" aria-selected={sidebarTab === 'edit'} aria-controls="edit-panel" onClick={() => setSidebarTab('edit')}>Edit</button>
+          <button role="tab" id="files-tab" aria-selected={sidebarTab === 'files'} aria-controls="files-panel" onClick={() => setSidebarTab('files')}>Files</button>
         </div>
+        <FilesPanel key={`files:${deck.root}:${deck.generation}`} deck={deck} revision={revision} active={sidebarTab === 'files' && sidebar} disabled={busy || managing || exporting} />
         <ContentEditor key={`${deck.root}:${deck.generation}`} deck={deck} revision={revision} active={sidebarTab === 'edit' && sidebar} selection={selection} onFields={setFields} onBlockedChange={setTextBlocked} onSourceChange={setEditorSource} disabled={managing} onSelect={path => setSelection(current => current?.path === path ? current : { path, token: Date.now() })} />
         <div className="chat-panel" id="chat-panel" role="tabpanel" aria-labelledby="chat-tab" hidden={sidebarTab !== 'chat'}>
         <div className="conversation-controls">

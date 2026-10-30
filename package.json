@@ -27,6 +27,7 @@
     "test:visual": "node --test tests/visual-inspection.integration.js",
     "test:slides": "node --test tests/slide-management.integration.js",
     "test:edit": "node --test tests/content.integration.js",
+    "test:files": "node --test tests/files.integration.js",
     "typecheck": "tsc --noEmit",
     "test:pdf": "node --test tests/pdf.integration.js",
     "test:package": "node --test tests/packaged-tools.integration.js"

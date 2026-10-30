@@ -1,4 +1,6 @@
 export type SlideOperation = { type: 'delete' | 'duplicate' | 'moveEarlier' | 'moveLater'; id: string };
+export type FileChange = { path: string; originalPath?: string; index: string; worktree: string; conflict: boolean };
+export type ProjectFiles = { files: { path: string; directory: boolean }[]; changes: FileChange[]; branch: string | null; gitError: string | null };
 export type SlideManagement = { supported: boolean; reason: string; source: string; ids: string[]; titles: string[] };
 export type Deck = { root?: string; generation?: number; contentRevision?: number; contentSettled?: boolean; url?: string; name?: string | null; branch?: string | null };
 export type Provider = 'openrouter' | 'openai' | 'claude' | 'gemini' | 'ollama';
@@ -23,6 +25,8 @@ declare global {
       removeRecent(folder: string): Promise<void>;
       clearRecent(): Promise<void>;
       state(): Promise<Deck>;
+      projectFiles(root: string, generation: number): Promise<ProjectFiles>;
+      gitAction(root: string, generation: number, action: 'stage' | 'unstage' | 'commit' | 'init', paths: string[], message?: string): Promise<string>;
       thumbnails(root: string, generation: number, revision: number, slides: { index: number; id: string }[]): Promise<{ root: string; generation: number; revision: number; index: number; id: string; url?: string; error?: string }[] | null>;
       readSlideManagement(root: string, generation: number, revision: number): Promise<SlideManagement>;
       mutateSlide(root: string, generation: number, revision: number, source: string, renderedIds: string[], operation: SlideOperation): Promise<SlideManagement & { duplicateId?: string }>;
