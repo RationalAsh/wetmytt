@@ -22,7 +22,17 @@ test('creates a new presentation with all starter files', async t => {
     const relative = path.relative(starter, path.join(entry.parentPath, entry.name));
     const destination = path.join(folder, relative);
     if (entry.isDirectory()) assert.ok((await fs.stat(destination)).isDirectory());
-    else assert.deepEqual(await fs.readFile(destination), await fs.readFile(path.join(starter, relative)));
+    else if (relative === 'deck.json') {
+      const actual = JSON.parse(await fs.readFile(destination, 'utf8'));
+      const template = JSON.parse(await fs.readFile(path.join(starter, relative), 'utf8'));
+      assert.equal(new Set(actual.slides.map(slide => slide.id)).size, actual.slides.length);
+      actual.slides.forEach((slide, index) => {
+        assert.match(slide.id, /^[0-9a-f-]{36}$/);
+        assert.notEqual(slide.id, template.slides[index].id);
+        template.slides[index].id = slide.id;
+      });
+      assert.deepEqual(actual, template);
+    } else assert.deepEqual(await fs.readFile(destination), await fs.readFile(path.join(starter, relative)));
   }
 });
 

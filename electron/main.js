@@ -18,6 +18,7 @@ import { connectCodex } from './codex-plugin.js';
 import { connectClaude } from './claude-extension.js';
 import { exportDeckPDF } from './pdf.js';
 import { listChats, loadChat, runConversation } from './chats.js';
+import { readSlideManagement, mutateSlide } from './slide-management.js';
 import { readContent, saveContent } from './content.js';
 import { currentBranch } from './git.js';
 import { createRecentFolders } from './recent-folders.js';
@@ -184,7 +185,25 @@ handle('deck:thumbnails', async (folder, version, revision, slides) => {
   }
 });
 handle('deck:read-content', (folder, version) => readContent(contentRoot(folder, version)));
-handle('deck:save-content', (folder, version, source, pointer, text) => saveContent(contentRoot(folder, version), source, pointer, text));
+handle('deck:save-content', (folder, version, source, pointer, text) => saveContent(contentRoot(folder, version), source, pointer, text, () => contentRoot(folder, version)));
+const slideGuard = (folder, version, revision) => {
+  contentRoot(folder, version);
+  if (revision !== contentRevision || !contentSettled) throw new Error('The presentation changed. Wait for it to reload before managing slides.');
+};
+handle('deck:read-slide-management', async (folder, version, revision) => {
+  slideGuard(folder, version, revision);
+  const result = await readSlideManagement(folder);
+  slideGuard(folder, version, revision);
+  return result;
+});
+handle('deck:mutate-slide', (folder, version, revision, source, renderedIds, operation) => {
+  slideGuard(folder, version, revision);
+  if (pendingChat || exportingPDF) throw new Error('Wait for the current operation before managing slides.');
+  return mutateSlide(folder, source, renderedIds, operation, () => {
+    slideGuard(folder, version, revision);
+    if (pendingChat || exportingPDF) throw new Error('Wait for the current operation before managing slides.');
+  });
+});
 handle('deck:import-assets', (expectedRoot, sources) => {
   if (!root || root !== expectedRoot) throw new Error('The open project changed. Drop the files again.');
   return runTool(root, 'import_assets', { sources }, projectOperations.signal).then(JSON.parse);

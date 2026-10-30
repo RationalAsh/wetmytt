@@ -29,3 +29,26 @@ test('preview forwards file drags and drops to its parent and prevents file navi
   listeners.drop({ dataTransfer: { types: ['text/plain'] }, preventDefault: () => assert.fail('Text drops should be unaffected') });
   assert.equal(messages.length, 3);
 });
+
+test('bridge reports stable identities and requires non-nested data-slide-id containers for management', async () => {
+  const source = await fs.readFile(new URL('../electron/bridge.js', import.meta.url), 'utf8');
+  for (const scenario of [
+    { ids: ['a', 'b'], managed: true, stable: true },
+    { ids: ['a', 'a'], managed: true, stable: false },
+    { ids: ['', ''], managed: false, stable: false },
+    { ids: ['a', 'b'], nested: true, managed: false, stable: true },
+  ]) {
+    const messages = [], listeners = {};
+    const slides = scenario.ids.map(id => ({ dataset: { slideId: id }, parentElement: { closest: () => scenario.nested ? {} : null } }));
+    const parent = { postMessage: message => messages.push(message) };
+    vm.runInNewContext(source, {
+      parent, window: {}, location: { search: '?contentRevision=3' }, URLSearchParams,
+      document: { querySelectorAll: () => slides, body: {}, documentElement: { dataset: {} }, title: 'Deck', createElement: () => ({}), head: { append() {} } },
+      MutationObserver: class { observe() {} },
+      addEventListener: (name, listener) => { listeners[name] = listener; },
+    });
+    listeners.message({ source: parent, origin: 'http://localhost', data: { type: 'wetmytt:navigate', index: 0 } });
+    assert.equal(messages.at(-1).managedSlides, scenario.managed);
+    assert.deepEqual(Array.from(messages.at(-1).slides), scenario.stable ? scenario.ids.map(id => `id:${id}`) : ['index:3:0', 'index:3:1']);
+  }
+});

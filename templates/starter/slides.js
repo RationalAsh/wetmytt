@@ -9,6 +9,7 @@ fetch('deck.json').then(response => {
   deck.slides.forEach((slide, index) => {
     const section = document.createElement('section');
     section.dataset.slide = '';
+    if (typeof slide.id === 'string') section.dataset.slideId = slide.id;
     section.className = `slide ${['cover', 'split', 'closing'].includes(slide.layout) ? slide.layout : 'cover'}`;
     section.hidden = index !== 0;
     const content = document.createElement('div');

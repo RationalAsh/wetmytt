@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -17,5 +18,9 @@ export async function createDeck(folder) {
   for (const entry of await fs.readdir(starter)) {
     await fs.cp(path.join(starter, entry), path.join(folder, entry), { recursive: true, force: false, errorOnExist: true });
   }
+  const contentPath = path.join(folder, 'deck.json');
+  const content = JSON.parse(await fs.readFile(contentPath, 'utf8'));
+  content.slides.forEach(slide => { slide.id = randomUUID(); });
+  await fs.writeFile(contentPath, JSON.stringify(content, null, 2) + '\n');
   await gitInit(folder, undefined, true);
 }

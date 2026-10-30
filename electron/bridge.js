@@ -49,7 +49,7 @@
     if (all.length) index = Math.max(0, Math.min(index, all.length - 1));
     all.forEach((slide, i) => { slide.hidden = i !== index; });
     restoreSelection();
-    if (parentOrigin) parent.postMessage({ type: 'wetmytt:state', index, count: all.length, slides: identities(all), revision, token, title: document.title }, parentOrigin);
+    if (parentOrigin) parent.postMessage({ type: 'wetmytt:state', index, count: all.length, slides: identities(all), managedSlides: all.every(slide => !!slide.dataset.slideId && !slide.parentElement?.closest('[data-slide]')), revision, token, title: document.title }, parentOrigin);
   }
   addEventListener('message', event => {
     if (event.source !== parent) return;

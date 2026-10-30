@@ -11,9 +11,9 @@ function fieldLabel(path: string) {
   return path ? path.slice(1).split('/').map(key => key.replace(/~1/g, '/').replace(/~0/g, '~')).join(' › ') : 'Text';
 }
 
-export function ContentEditor({ deck, revision, active, selection, onFields, onSelect }: {
+export function ContentEditor({ deck, revision, active, selection, onFields, onSelect, onBlockedChange, onSourceChange, disabled = false }: {
   deck: Deck; revision: number; active: boolean; selection: TextSelection | null;
-  onFields: (fields: TextField[]) => void; onSelect: (path: string) => void;
+  onFields: (fields: TextField[]) => void; onSelect: (path: string) => void; onBlockedChange: (blocked: boolean) => void; onSourceChange: (source: string | null) => void; disabled?: boolean;
 }) {
   const [source, setSource] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -49,8 +49,11 @@ export function ContentEditor({ deck, revision, active, selection, onFields, onS
     input?.focus({ preventScroll: true });
   }, [active, selection, loading]);
 
+  useEffect(() => { onSourceChange(source); }, [source, onSourceChange]);
+  useEffect(() => { onBlockedChange(Object.keys(drafts).length > 0 || saving); }, [drafts, saving, onBlockedChange]);
+
   async function save(path: string) {
-    if (!deck.root || !window.wetmytt || source === null || saving) return;
+    if (!deck.root || !window.wetmytt || source === null || saving || disabled) return;
     setSaving(true); setError(''); setStatus('');
     try {
       const next = await window.wetmytt.saveContent(deck.root, deck.generation!, source, path, drafts[path]);
@@ -66,7 +69,7 @@ export function ContentEditor({ deck, revision, active, selection, onFields, onS
   return <div className="content-editor" ref={panel} hidden={!active} role="tabpanel" id="edit-panel" aria-labelledby="edit-tab">
     <div className="edit-intro"><strong>Edit slide text</strong><p>Click text on a slide to jump to its JSON key. Edit the value below, then save to update the slide.</p></div>
     {!deck.root ? <p className="edit-empty">Open a deck to edit its text.</p> : <>
-      <div className="edit-file"><code>deck.json</code><button disabled={saving || loading} onClick={() => { dirty.current = false; setDrafts({}); setStatus(''); setReload(value => value + 1); }}>{dirty.current ? 'Discard edits & reload' : 'Reload fields'}</button></div>
+      <div className="edit-file"><code>deck.json</code><button disabled={disabled || saving || loading} onClick={() => { dirty.current = false; setDrafts({}); setStatus(''); setReload(value => value + 1); }}>{dirty.current ? 'Discard edits & reload' : 'Reload fields'}</button></div>
       {loading && <p role="status">Loading text fields…</p>}
       {error && <p className="settings-error" role="alert">{error}</p>}
       {status && <p className="edit-status" role="status">{status}</p>}
@@ -75,12 +78,12 @@ export function ContentEditor({ deck, revision, active, selection, onFields, onS
       {fields.map(field => {
         const changed = Object.hasOwn(drafts, field.path);
         return <div className={`edit-field${selection?.path === field.path ? ' active' : ''}`} key={field.path}>
-          <label><span title={field.path}>{fieldLabel(field.path)}</span><textarea data-path={field.path} value={changed ? drafts[field.path] : field.value} disabled={saving || loading} rows={Math.min(8, Math.max(2, (changed ? drafts[field.path] : field.value).split('\n').length + 1))} onFocus={() => onSelect(field.path)} onChange={event => {
+          <label><span title={field.path}>{fieldLabel(field.path)}</span><textarea data-path={field.path} value={changed ? drafts[field.path] : field.value} disabled={disabled || saving || loading} rows={Math.min(8, Math.max(2, (changed ? drafts[field.path] : field.value).split('\n').length + 1))} onFocus={() => onSelect(field.path)} onChange={event => {
             const next = { ...drafts };
             if (event.target.value === field.value) delete next[field.path]; else next[field.path] = event.target.value;
             dirty.current = Object.keys(next).length > 0; setDrafts(next); setStatus('');
           }} /></label>
-          {changed && <div className="edit-field-actions"><span>Unsaved changes</span><button className="primary" disabled={saving} onClick={() => void save(field.path)}>{saving ? 'Saving…' : 'Save text'}</button></div>}
+          {changed && <div className="edit-field-actions"><span>Unsaved changes</span><button className="primary" disabled={disabled || saving} onClick={() => void save(field.path)}>{saving ? 'Saving…' : 'Save text'}</button></div>}
         </div>;
       })}
     </>}

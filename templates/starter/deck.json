@@ -1,8 +1,35 @@
 {
   "title": "Okay, hear me out.",
   "slides": [
-    { "eyebrow": "01 / THE FLOOR IS YOURS", "title": "Okay,\nhear me out.", "body": "You have an idea. These are the slides to back it up.", "layout": "cover" },
-    { "eyebrow": "02 / HERE’S THE THING", "title": "A big claim.\nA little evidence.", "body": "Show the problem. Make your case. Give people something to think about.", "bullets": ["Start with something people care about.", "Give every slide one clear point.", "Show your working."], "layout": "split", "image": "assets/orbit.svg" },
-    { "eyebrow": "03 / THANKS FOR HEARING ME OUT", "title": "Now go\nmake your point.", "body": "Edit the files. Ask your AI. Make this talk yours.", "layout": "closing" }
-  ]
+    {
+      "eyebrow": "01 / THE FLOOR IS YOURS",
+      "title": "Okay,\nhear me out.",
+      "body": "You have an idea. These are the slides to back it up.",
+      "layout": "cover",
+      "id": "5185fb26-a73d-40af-9a8d-9621ac1e39c0"
+    },
+    {
+      "eyebrow": "02 / HERE’S THE THING",
+      "title": "A big claim.\nA little evidence.",
+      "body": "Show the problem. Make your case. Give people something to think about.",
+      "bullets": [
+        "Start with something people care about.",
+        "Give every slide one clear point.",
+        "Show your working."
+      ],
+      "layout": "split",
+      "image": "assets/orbit.svg",
+      "id": "fe66a556-20cb-46fa-a92b-31b049594f9e"
+    },
+    {
+      "eyebrow": "03 / THANKS FOR HEARING ME OUT",
+      "title": "Now go\nmake your point.",
+      "body": "Edit the files. Ask your AI. Make this talk yours.",
+      "layout": "closing",
+      "id": "14d351f7-1e91-4127-9b48-971c99acc44e"
+    }
+  ],
+  "wetmytt": {
+    "slideManagement": 1
+  }
 }

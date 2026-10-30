@@ -7,12 +7,25 @@ export async function readContent(root) {
   return source;
 }
 
-export async function saveContent(root, source, pointer, text) {
-  if (typeof source !== 'string' || await readContent(root) !== source) {
-    throw new Error('deck.json changed on disk. Reload the fields before saving your edit.');
-  }
-  const value = replaceText(JSON.parse(source), pointer, text);
-  const next = JSON.stringify(value, null, 2) + '\n';
-  await writeFile(root, 'deck.json', next);
+const writes = new Map();
+export function withContentWrite(root, action) {
+  const next = (writes.get(root) || Promise.resolve()).then(action);
+  const settled = next.catch(() => {});
+  writes.set(root, settled);
+  void settled.then(() => { if (writes.get(root) === settled) writes.delete(root); });
   return next;
+}
+
+export function saveContent(root, source, pointer, text, guard = () => {}) {
+  return withContentWrite(root, async () => {
+    guard();
+    if (typeof source !== 'string' || await readContent(root) !== source) {
+      throw new Error('deck.json changed on disk. Reload the fields before saving your edit.');
+    }
+    const value = replaceText(JSON.parse(source), pointer, text);
+    const next = JSON.stringify(value, null, 2) + '\n';
+    guard();
+    await writeFile(root, 'deck.json', next, guard);
+    return next;
+  });
 }

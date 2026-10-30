@@ -91,11 +91,12 @@ export async function readFile(root, relative) {
   return fs.readFile(target, 'utf8');
 }
 
-export async function writeFile(root, relative, content) {
+export async function writeFile(root, relative, content, beforeWrite = () => {}) {
   if (typeof content !== 'string' || Buffer.byteLength(content) > 1_000_000) throw new Error('Text file exceeds 1 MB.');
   if (relative.endsWith('.json')) JSON.parse(content);
   const target = await scopedPath(root, relative, true);
   await fs.mkdir(path.dirname(target), { recursive: true });
+  beforeWrite();
   await fs.writeFile(target, content, 'utf8');
   return `Saved ${relative}`;
 }

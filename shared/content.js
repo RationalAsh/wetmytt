@@ -1,12 +1,18 @@
+export function reservedSlideField(value, pointer) {
+  return value?.wetmytt?.slideManagement === 1 && (pointer === '/wetmytt' || pointer.startsWith('/wetmytt/') || /^\/slides\/\d+\/id(?:\/|$)/.test(pointer));
+}
+
 // JSON pointers keep keys containing dots, slashes, and array indexes unambiguous.
-export function textFields(value, pointer = '') {
+export function textFields(value, pointer = '', root = value) {
+  if (reservedSlideField(root, pointer)) return [];
   if (typeof value === 'string') return [{ path: pointer, value }];
   if (!value || typeof value !== 'object') return [];
-  return Object.entries(value).flatMap(([key, child]) => textFields(child, `${pointer}/${key.replace(/~/g, '~0').replace(/\//g, '~1')}`));
+  return Object.entries(value).flatMap(([key, child]) => textFields(child, `${pointer}/${key.replace(/~/g, '~0').replace(/\//g, '~1')}`, root));
 }
 
 export function replaceText(value, pointer, text) {
   if (typeof pointer !== 'string' || typeof text !== 'string') throw new Error('Choose a text field.');
+  if (reservedSlideField(value, pointer)) throw new Error('Slide identity and management metadata cannot be edited as text.');
   if (pointer === '' && typeof value === 'string') return text;
   if (!pointer.startsWith('/')) throw new Error('Invalid JSON pointer.');
   const keys = pointer.slice(1).split('/').map(key => key.replace(/~1/g, '/').replace(/~0/g, '~'));

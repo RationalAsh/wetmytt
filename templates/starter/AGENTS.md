@@ -42,3 +42,7 @@ MCP provides `screenshot_slide` for visual review at 1280 by 720; built-in chat 
 ## PDF behavior
 
 PDF export prints each live slide as a static 16:9 page using screen styles. Text and SVG stay sharp; raster images and canvas retain their resolution. Fonts and images must load successfully. Finite animations finish and repeating animations pause before printing. Video and interactive content export only their current static appearance; provide a useful static state.
+
+## Slide management contract
+
+This starter opts in with `wetmytt.slideManagement: 1` in deck.json. Keep a unique, nonempty `id` on each slide object and render it as `data-slide-id` on that slide's top-level `[data-slide]` container. Render one container per slides array entry, in array order; do not nest them. Preserve IDs while editing or moving slides; assign fresh IDs when duplicating. IDs are opaque, not titles or positions. Rebuild index-based `data-json-path` bindings after reordering. Keep duplicable content in the slide JSON or shared assets; the app clones only the JSON object. Remove the opt-in if replacing this with an incompatible renderer.

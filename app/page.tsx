@@ -6,7 +6,7 @@ import brandIcon from '../electron/assets/icon.svg';
 import { SlideThumbnails } from './slide-thumbnails';
 import { FileMenu, ConnectMenu, RecentFolders } from './project-menus';
 import { version } from '../package.json';
-import type { ConversationEvent, ConversationSummary, Deck, Message, Settings } from './bridge';
+import type { ConversationEvent, ConversationSummary, Deck, Message, Settings, SlideManagement, SlideOperation } from './bridge';
 import { AISettings } from './ai-settings';
 import { UpdateBanner } from './app-updates';
 import { DEFAULT_MAX_TURNS } from '../shared/ai.js';
@@ -14,6 +14,7 @@ import { AgentConnection } from './agent-connection';
 import { ChatThread } from './chat-thread';
 import { ContentEditor, type TextField, type TextSelection } from './content-editor';
 import { conversationTokens } from '../shared/ai.js';
+import { textFields } from '../shared/content';
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const paths: Record<string, React.ReactNode> = {
@@ -54,6 +55,16 @@ export default function Home() {
   const [deck, setDeck] = useState<Deck>({});
   const [revision, setRevision] = useState(0);
   const [previewRevision, setPreviewRevision] = useState<number | undefined>(undefined);
+  const [management, setManagement] = useState<(SlideManagement & { revision: number }) | null>(null);
+  const [managedSlides, setManagedSlides] = useState(false);
+  const [editorSource, setEditorSource] = useState<string | null>(null);
+  const [recoveryVersion, setRecoveryVersion] = useState(0);
+  const [textBlocked, setTextBlocked] = useState(false);
+  const [managing, setManaging] = useState(false);
+  const managingRef = useRef(false);
+  const recovery = useRef<{ source: string; ids: string[]; selected: string; focus: string; revision: number } | null>(null);
+  const [deleteRequest, setDeleteRequest] = useState<SlideOperation | null>(null);
+  const deleteDialog = useRef<HTMLDialogElement>(null);
   const [slideIds, setSlideIds] = useState<string[]>([]);
   const [sidebar, setSidebar] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<'chat' | 'edit'>('chat');
@@ -88,6 +99,89 @@ export default function Home() {
   const chatSession = useRef(0);
   const activeRun = useRef<string | null>(null);
   const dragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setManagement(null);
+    if (!deck.root || deck.generation === undefined || deck.contentRevision === undefined || deck.contentSettled === false || !window.wetmytt) return;
+    let cancelled = false;
+    void window.wetmytt.readSlideManagement(deck.root, deck.generation, deck.contentRevision).then(value => {
+      if (!cancelled) setManagement({ ...value, revision: deck.contentRevision! });
+    }).catch(() => { if (!cancelled) setManagement(null); });
+    return () => { cancelled = true; };
+  }, [deck.root, deck.generation, deck.contentRevision, deck.contentSettled]);
+
+  useEffect(() => {
+    const pending = recovery.current;
+    if (!pending || !management || management.revision !== deck.contentRevision || !managedSlides || management.source !== pending.source || slideIds.length !== pending.ids.length || pending.ids.some((id, index) => slideIds[index] !== `id:${id}`)) return;
+    recovery.current = null;
+    const index = pending.ids.indexOf(pending.selected);
+    slideRef.current = Math.max(0, index); setSlide(Math.max(0, index));
+    iframe.current?.contentWindow?.postMessage({ type: 'wetmytt:navigate', index: Math.max(0, index) }, new URL(deck.url!).origin);
+    const currentSession = session.current;
+    requestAnimationFrame(() => {
+      if (session.current !== currentSession) return;
+      const button = Array.from(document.querySelectorAll<HTMLButtonElement>('.slide-thumbnail')).find(item => item.dataset.slideId === `id:${pending.focus}`);
+      button?.focus({ preventScroll: true });
+      managingRef.current = false; setManaging(false);
+    });
+  }, [management, managedSlides, slideIds, deck.url, deck.contentRevision, recoveryVersion]);
+
+  useEffect(() => {
+    if (!recovery.current) return;
+    const currentSession = session.current;
+    const timer = setTimeout(() => {
+      if (!recovery.current || session.current !== currentSession) return;
+      recovery.current = null; managingRef.current = false; setManaging(false);
+      setError('The slide change was saved, but the preview did not reload with matching slides. Check the deck renderer.');
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [recoveryVersion]);
+
+  // A later external edit must not leave the app waiting for an obsolete result.
+  useEffect(() => {
+    if (management && recovery.current && management.revision > recovery.current.revision && management.source !== recovery.current.source) {
+      recovery.current = null; managingRef.current = false; setManaging(false);
+      setError('The presentation changed again. Slide management has reloaded.');
+    }
+  }, [management]);
+
+  useEffect(() => {
+    const dialog = deleteDialog.current;
+    if (deleteRequest && !dialog?.open) dialog?.showModal();
+    else if (!deleteRequest && dialog?.open) dialog.close();
+  }, [deleteRequest]);
+
+  useEffect(() => { setDeleteRequest(null); }, [deck.root, deck.generation, deck.contentRevision]);
+
+  const slideDisabledReason = !management || management.revision !== deck.contentRevision ? 'Loading slide management…' : !management.supported ? management.reason
+    : !managedSlides || management.ids.length !== slideIds.length || management.ids.some((id, index) => slideIds[index] !== `id:${id}`) ? 'Rendered slides do not match deck.json.'
+    : textBlocked ? 'Save or discard text edits before managing slides.'
+    : editorSource !== null && editorSource !== management.source ? 'Waiting for the saved presentation to reload.'
+    : managing || busy || exporting || deck.contentSettled === false ? 'Wait for the current operation to finish.' : '';
+
+  async function manageSlide(operation: SlideOperation, confirmed = false) {
+    if (slideDisabledReason || managingRef.current || !management || !deck.root || !window.wetmytt) return;
+    if (operation.type === 'delete' && !confirmed) { setDeleteRequest(operation); return; }
+    const currentSession = session.current;
+    const selected = management.ids[slideRef.current];
+    const targetIndex = management.ids.indexOf(operation.id);
+    managingRef.current = true; setManaging(true); setError(''); setDeleteRequest(null);
+    try {
+      const result = await window.wetmytt.mutateSlide(deck.root, deck.generation!, deck.contentRevision!, management.source, slideIds, operation);
+      if (session.current !== currentSession) return;
+      const nextSelected = result.duplicateId || (result.ids.includes(selected) ? selected : result.ids[Math.min(targetIndex, result.ids.length - 1)]);
+      recovery.current = { revision: deck.contentRevision!, source: result.source, ids: result.ids, selected: nextSelected, focus: result.duplicateId || (result.ids.includes(operation.id) ? operation.id : nextSelected) };
+      setSelection(null); setFields(textFields(JSON.parse(result.source)));
+      // Read the current snapshot in case the watcher finished before the reply.
+      const current = await window.wetmytt.state();
+      if (session.current === currentSession && current.root === deck.root && current.generation === deck.generation) {
+        if (current.contentRevision !== deckRef.current.contentRevision || (current.contentSettled && deckRef.current.contentSettled === false)) receiveDeck(current);
+        setRecoveryVersion(value => value + 1);
+      }
+    } catch (err) {
+      if (session.current === currentSession) { recovery.current = null; managingRef.current = false; setManaging(false); setError(String(err)); }
+    }
+  }
 
   const [recentFolders, setRecentFolders] = useState<string[]>([]);
   async function recentAction(action: 'open' | 'remove' | 'clear', folder = '') {
@@ -157,6 +251,7 @@ export default function Home() {
         (next.contentRevision === current.contentRevision && current.contentSettled === true && next.contentSettled === false)))) return;
     if (deckRef.current.root !== next.root || deckRef.current.generation !== next.generation) {
       session.current++;
+      recovery.current = null; managingRef.current = false; setManaging(false); setManagement(null); setDeleteRequest(null); setTextBlocked(false); setEditorSource(null);
       setFields([]); setSelection(null);
       const currentChat = ++chatSession.current;
       setConversationId(null); setConversations([]); setLoadingChat(Boolean(next.root)); setContextUsed(0);
@@ -196,7 +291,7 @@ export default function Home() {
     const unsubscribers = [api.on('recent:changed', setRecentFolders), api.on('recent:error', setError), api.on('deck:invalidated', (next: Deck) => {
       if (next.root !== deckRef.current.root || next.generation !== deckRef.current.generation) return;
       const invalid = { ...deckRef.current, ...next };
-      deckRef.current = invalid; setDeck(invalid); setCount(0); setSlideIds([]);
+      deckRef.current = invalid; setDeck(invalid); setCount(0); setSlideIds([]); setManagedSlides(false);
     }), api.on('deck:changed', receiveDeck), api.on('ai:conversation', (event: ConversationEvent) => {
       if (event.runId !== activeRun.current || event.root !== deckRef.current.root || event.generation !== deckRef.current.generation) return;
       setConversationId(event.conversation.id); setMessages(event.conversation.messages);
@@ -217,6 +312,7 @@ export default function Home() {
     function onMessage(event: MessageEvent) {
       if (!deckRef.current.url || event.source !== iframe.current?.contentWindow || event.origin !== new URL(deckRef.current.url).origin) return;
       if (event.data?.type === 'wetmytt:state' && deckRef.current.contentSettled !== false && event.data.revision === String(deckRef.current.contentRevision) && Array.isArray(event.data.slides) && event.data.slides.every((id: unknown) => typeof id === 'string') && Number.isInteger(event.data.index) && Number.isInteger(event.data.count)) {
+        setManagedSlides(event.data.managedSlides === true);
         slideRef.current = event.data.index; setSlide(event.data.index); setCount(event.data.count); setSlideIds(event.data.slides);
       }
       if (event.data?.type === 'wetmytt:select' && (event.data.path === null || typeof event.data.path === 'string')) {
@@ -264,8 +360,8 @@ export default function Home() {
 
   const configurePreview = useCallback(() => {
     if (!deck.url) return;
-    iframe.current?.contentWindow?.postMessage({ type: 'wetmytt:edit', enabled: !presenting, fields, path: selection?.path ?? null }, new URL(deck.url).origin);
-  }, [deck.url, presenting, fields, selection]);
+    iframe.current?.contentWindow?.postMessage({ type: 'wetmytt:edit', enabled: !presenting && !managing, fields, path: selection?.path ?? null }, new URL(deck.url).origin);
+  }, [deck.url, presenting, managing, fields, selection]);
   useEffect(configurePreview, [configurePreview, revision]);
 
   async function choose(create: boolean) {
@@ -273,7 +369,7 @@ export default function Home() {
     catch (err) { setError(String(err)); }
   }
   async function exportPDF() {
-    if (!deck.root || !window.wetmytt || exporting) return;
+    if (!deck.root || !window.wetmytt || exporting || managingRef.current) return;
     const currentSession = session.current;
     setExporting(true); setExportStatus(''); setError('');
     try {
@@ -303,7 +399,7 @@ export default function Home() {
     finally { if (chatSession.current === currentChat) setLoadingChat(false); }
   }
   async function send(text: string) {
-    if (!text.trim() || busy || activeRun.current || loadingChat || !deck.root || !window.wetmytt) return;
+    if (!text.trim() || managingRef.current || busy || activeRun.current || loadingChat || !deck.root || !window.wetmytt) return;
     if (!settings.model) { openSettings('connection'); return; }
     const history: Message[] = [...messages, { role: 'user', content: text.trim() }];
     const currentSession = session.current;
@@ -325,7 +421,7 @@ export default function Home() {
     <header className="topbar">
       <div className="brand"><Image className="brand-mark" src={brandIcon} width={38} height={38} alt="" /><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="release-badge" aria-label={`App version ${version}`}>v{version}</span></div>
       <div className="file-actions"><FileMenu desktop={desktop} hasDeck={Boolean(deck.root)} {...recentProps} onNew={() => void choose(true)} onChoose={() => void choose(false)} onAssets={() => void chooseAssets()} onReveal={() => { void window.wetmytt?.reveal().catch(err => setError(String(err))); }} onClose={() => void closeProject()} /></div>
-      <div className="top-actions"><button className="icon-button" title="Settings" aria-label="Settings" disabled={!settingsLoaded} onClick={() => openSettings('chat')}><Icon name="settings" size={18} /></button><button disabled={!desktop || !deck.root || exporting} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><ConnectMenu desktop={desktop} onConnect={setAgentOpen} /><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
+      <div className="top-actions"><button className="icon-button" title="Settings" aria-label="Settings" disabled={!settingsLoaded} onClick={() => openSettings('chat')}><Icon name="settings" size={18} /></button><button disabled={!desktop || !deck.root || exporting || managing} onClick={() => void exportPDF()} aria-busy={exporting}><Icon name="download" />{exporting ? 'Exporting…' : 'Export PDF'}</button><ConnectMenu desktop={desktop} onConnect={setAgentOpen} /><button className={sidebar ? 'icon-button selected' : 'icon-button'} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={sidebar} onClick={() => setSidebar(!sidebar)}><Icon name="chat" /></button><button className="primary" disabled={!deck.root} onClick={() => void present(true)}><Icon name="play" />Present</button></div>
     </header>
     <UpdateBanner />
     {!desktop && <div className="browser-notice">This is the web preview. Run <code>npm run dev</code> to use folders and AI in Electron.</div>}
@@ -335,7 +431,7 @@ export default function Home() {
     {dragging && deck.root && <div className="asset-drop-overlay"><div><Icon name="folder" size={32} /><strong>Drop files to add assets</strong><span>Copy to {deck.name}/assets/</span></div></div>}
     <div className="workspace">
       <section className="editor">
-        <div className={deck.root ? "deck-heading has-thumbnails" : "deck-heading"}><div className="deck-title"><span className="eyebrow">YOUR PRESENTATION</span><h1 title={deck.name || undefined}>{deck.name || 'Got a point? Make it.'}</h1></div>{deck.root && <SlideThumbnails key={`${deck.root}:${deck.generation}:${deck.contentRevision}`} deck={deck} ids={slideIds} count={count} slide={slide} onNavigate={navigate} />}</div>
+        <div className={deck.root ? "deck-heading has-thumbnails" : "deck-heading"}><div className="deck-title"><span className="eyebrow">YOUR PRESENTATION</span><h1 title={deck.name || undefined}>{deck.name || 'Got a point? Make it.'}</h1></div>{deck.root && <SlideThumbnails key={`${deck.root}:${deck.generation}:${deck.contentRevision}`} deck={deck} ids={slideIds} count={count} slide={slide} onNavigate={navigate} disabledReason={slideDisabledReason} onAction={manageSlide} />}</div>
         <div className="canvas-area">
           {deck.url ? <div className="slide-frame"><iframe ref={iframe} title="Presentation slide" src={`${deck.url}index.html?revision=${revision}&contentRevision=${previewRevision}`} sandbox="allow-scripts allow-same-origin" onLoad={() => { navigate(slideRef.current); configurePreview(); }} /></div> : <div className="welcome-card">
             <div className="welcome-spotlight" aria-hidden="true" /><span className="welcome-tag"><span />THE FLOOR IS YOURS</span>
@@ -346,6 +442,13 @@ export default function Home() {
           </div>}
         </div>
         {!deck.root && desktop && <RecentFolders {...recentProps} />}
+        {deck.root && slideDisabledReason && <p className="slide-management-status" role="status">{slideDisabledReason}</p>}
+        <dialog ref={deleteDialog} className="slide-delete-dialog" aria-labelledby="slide-delete-title" onCancel={() => setDeleteRequest(null)} onClose={() => { if (!deleteDialog.current?.open) setDeleteRequest(null); }}>
+          <h2 id="slide-delete-title">Delete slide {deleteRequest && management ? management.ids.indexOf(deleteRequest.id) + 1 : ''}?</h2>
+          <p>{deleteRequest && management?.titles[management.ids.indexOf(deleteRequest.id)]}</p>
+          <p>This removes the slide from your presentation.</p>
+          <div><button autoFocus onClick={() => setDeleteRequest(null)}>Cancel</button><button disabled={!!slideDisabledReason} onClick={() => { if (deleteRequest) void manageSlide(deleteRequest, true); }}>Delete slide</button></div>
+        </dialog>
         <footer className="slide-controls"><div className="folder-status"><span className="live-status"><span />{deck.root ? 'Watching your folder' : 'Everything lives in your folder'}</span>{deck.root && deck.branch && <span className="version-chip" tabIndex={0} aria-describedby="version-detail"><span className="version-label">Version:</span><span className="version-name">{deck.branch}</span><span className="version-tooltip" role="tooltip" id="version-detail">This presentation uses Git internally for version history. {deck.branch === 'Detached HEAD' ? 'You are viewing a commit without an active branch (detached HEAD).' : <>The current branch is <strong>{deck.branch}</strong>.</>}</span></span>}</div><div className="pagination"><button className="icon-button" aria-label="Previous slide" disabled={!count || slide === 0} onClick={() => navigate(slide - 1)}><Icon name="left" size={17} /></button><span>{count ? String(slide + 1).padStart(2, '0') : '—'}<b>/</b>{count ? String(count).padStart(2, '0') : '—'}</span><button className="icon-button" aria-label="Next slide" disabled={!count || slide >= count - 1} onClick={() => navigate(slide + 1)}><Icon name="right" size={17} /></button></div><span className="key-hint"><kbd>←</kbd><kbd>→</kbd> to navigate</span></footer>
       </section>
       <aside className="sidebar" style={sidebar ? undefined : { display: 'none' }}>
@@ -354,7 +457,7 @@ export default function Home() {
           <button role="tab" id="chat-tab" aria-selected={sidebarTab === 'chat'} aria-controls="chat-panel" onClick={() => setSidebarTab('chat')}>Chat</button>
           <button role="tab" id="edit-tab" aria-selected={sidebarTab === 'edit'} aria-controls="edit-panel" onClick={() => setSidebarTab('edit')}>Edit</button>
         </div>
-        <ContentEditor key={`${deck.root}:${deck.generation}`} deck={deck} revision={revision} active={sidebarTab === 'edit' && sidebar} selection={selection} onFields={setFields} onSelect={path => setSelection(current => current?.path === path ? current : { path, token: Date.now() })} />
+        <ContentEditor key={`${deck.root}:${deck.generation}`} deck={deck} revision={revision} active={sidebarTab === 'edit' && sidebar} selection={selection} onFields={setFields} onBlockedChange={setTextBlocked} onSourceChange={setEditorSource} disabled={managing} onSelect={path => setSelection(current => current?.path === path ? current : { path, token: Date.now() })} />
         <div className="chat-panel" id="chat-panel" role="tabpanel" aria-labelledby="chat-tab" hidden={sidebarTab !== 'chat'}>
         <div className="conversation-controls">
           <select aria-label="Saved conversations" value={conversationId || ''} disabled={!deck.root || busy || loadingChat} onChange={event => void loadConversation(event.target.value)}>
@@ -363,9 +466,9 @@ export default function Home() {
           </select>
           <span title="Saved in this project's .wetmytt/chats/ folder. Resuming uses the model selected below.">{deck.root ? 'Auto-saved to .wetmytt/chats/' : 'Open a deck to save conversations'}</span>
         </div>
-        <ChatThread key={`${deck.root}:${deck.generation}:${chatSession.current}`} messages={messages} busy={busy} loading={loadingChat} disabled={!deck.root || !desktop} connected={Boolean(settings.model)}
+        <ChatThread key={`${deck.root}:${deck.generation}:${chatSession.current}`} messages={messages} busy={busy} loading={loadingChat} disabled={!deck.root || !desktop || managing} connected={Boolean(settings.model)}
           onSend={send} onCancel={async () => { await window.wetmytt?.cancel(); }} onConnect={() => openSettings('connection')}
-          intro={<div className="chat-intro"><span className="spark-tile"><Icon name="spark" size={25} /></span><h2>You bring the idea.<br />We’ll bring the slides.</h2><p>Find your opening. Cut the waffle. Land the ending. Tell your AI what you’re thinking.</p><div className="suggestions">{['Give this deck a stronger opening', 'Make the slides more concise', 'Give this deck a bold stage presence'].map((text, i) => <button key={text} disabled={!deck.root || busy || loadingChat} onClick={() => void send(text)}><span>{['↗', '≋', '◐'][i]}</span>{text}<span>↗</span></button>)}</div><div className="agent-note"><Icon name="terminal" size={17} /><p>Already have an agent?<br /><span>Run it in your deck folder. We’ll keep up.</span></p></div></div>}
+          intro={<div className="chat-intro"><span className="spark-tile"><Icon name="spark" size={25} /></span><h2>You bring the idea.<br />We’ll bring the slides.</h2><p>Find your opening. Cut the waffle. Land the ending. Tell your AI what you’re thinking.</p><div className="suggestions">{['Give this deck a stronger opening', 'Make the slides more concise', 'Give this deck a bold stage presence'].map((text, i) => <button key={text} disabled={!deck.root || busy || loadingChat || managing} onClick={() => void send(text)}><span>{['↗', '≋', '◐'][i]}</span>{text}<span>↗</span></button>)}</div><div className="agent-note"><Icon name="terminal" size={17} /><p>Already have an agent?<br /><span>Run it in your deck folder. We’ll keep up.</span></p></div></div>}
           footer={<div className="composer-model"><button type="button" className="model-select" disabled={!settingsLoaded} onClick={() => openSettings('connection')}><span className={settings.model ? 'connection-dot connected' : 'connection-dot'} />{settings.model || 'Connect your AI'}</button><ContextMeter used={contextUsed} limit={contextLimit} connected={Boolean(settings.model)} /></div>}
         />
         </div>

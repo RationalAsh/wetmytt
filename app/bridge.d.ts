@@ -1,3 +1,5 @@
+export type SlideOperation = { type: 'delete' | 'duplicate' | 'moveEarlier' | 'moveLater'; id: string };
+export type SlideManagement = { supported: boolean; reason: string; source: string; ids: string[]; titles: string[] };
 export type Deck = { root?: string; generation?: number; contentRevision?: number; contentSettled?: boolean; url?: string; name?: string | null; branch?: string | null };
 export type Provider = 'openrouter' | 'openai' | 'claude' | 'gemini' | 'ollama';
 export type UpdateStatus = { phase: 'disabled' | 'idle' | 'checking' | 'current' | 'downloading' | 'downloaded' | 'error'; version?: string; message?: string };
@@ -22,6 +24,8 @@ declare global {
       clearRecent(): Promise<void>;
       state(): Promise<Deck>;
       thumbnails(root: string, generation: number, revision: number, slides: { index: number; id: string }[]): Promise<{ root: string; generation: number; revision: number; index: number; id: string; url?: string; error?: string }[] | null>;
+      readSlideManagement(root: string, generation: number, revision: number): Promise<SlideManagement>;
+      mutateSlide(root: string, generation: number, revision: number, source: string, renderedIds: string[], operation: SlideOperation): Promise<SlideManagement & { duplicateId?: string }>;
       readContent(root: string, generation: number): Promise<string>;
       saveContent(root: string, generation: number, source: string, pointer: string, text: string): Promise<string>;
       open(): Promise<Deck | null>;

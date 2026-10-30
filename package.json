@@ -24,6 +24,7 @@
     "test:quit": "node --test tests/quit.integration.js",
     "test:settings": "node --test tests/settings.integration.js",
     "test:chat": "node --test tests/chat.integration.js",
+    "test:slides": "node --test tests/slide-management.integration.js",
     "test:edit": "node --test tests/content.integration.js",
     "typecheck": "tsc --noEmit",
     "test:pdf": "node --test tests/pdf.integration.js",

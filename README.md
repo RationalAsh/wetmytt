@@ -41,6 +41,7 @@ This app. **New deck** creates the folder and a starter HTML presentation. The b
 
 - **HTML slides, as files.** Each deck is a folder: `index.html`, `deck.json`, `slides.js`, `styles.css`, and `assets/`. The same folder opens here, in an editor, or with any agent that can write files.
 - **AI-first editing.** The window is a slide preview plus a chat sidebar. Bring your own key for OpenAI, Claude, Gemini, or OpenRouter, or point it at a local Ollama model. The agent reads and writes the deck using dedicated editing, research, asset, and Git tools.
+- **Manage slides.** Duplicate, delete, or move slides earlier/later from thumbnail menus in new decks. Existing JSON decks can [opt in to slide management](docs/slide-management.md).
 - **Click to edit text.** Select text on a slide to highlight it and open its JSON field in the sidebar's **Edit** tab. Keys become labels; values are editable text. Save each field to update the preview.
 - **A small set of controls.** Create or open a folder, move between slides, present, export, and show the files on disk.
 - **Local first.** The deck stays in the folder you chose. Provider settings stay in the app. Conversations are saved inside the deck at `.wetmytt/chats/`.
@@ -110,6 +111,8 @@ The app watches the complete deck folder for changes, including images and neste
 With a project open, drag files anywhere onto the app (including the slide preview) to copy them into its `assets/` folder. You can also choose **File → Add assets** to choose multiple files. Originals stay in place, and duplicate names get a numbered suffix instead of overwriting existing assets. Folders and files over 25 MB are not imported. Agents can use `import_assets` with absolute local paths or `download_asset` with a public URL and filename; both return relative paths for use in the slides.
 
 Click a thumbnail beside the presentation name to jump to a slide. The current slide is highlighted and stays visible as you navigate. Scroll the strip with a trackpad, its chevrons, or the seeker underneath; edge fades indicate more slides. Previews load as needed and refresh when the deck changes. **File → Show files** opens the presentation folder.
+
+On supported decks, each thumbnail’s **⋯** menu offers **Duplicate**, **Delete**, **Move earlier**, and **Move later**. Delete asks for confirmation and keeps at least one slide. Save or discard text drafts before changing slide structure. See [the slide management contract](docs/slide-management.md) to opt in an existing JSON deck.
 
 Use the visible arrows or **← / →** to navigate. With a thumbnail focused, **Home / End** jumps to the first or last slide. **Present** enters full screen with the shell hidden; **Esc** exits. A hidden exit button also appears on hover at the top right. Hide or show the chat sidebar with the top-right panel button. Navigation keys do not interfere with typing in chat.
 
@@ -237,6 +240,8 @@ The export window uses the same 1280 × 720 presentation viewport as slide captu
 Run `npm run test:pdf` to test PDF export through the actual Electron app, including its UI, bridge, save dialog handling, and Chromium rendering.
 
 Run `npm run test:edit` after `npm run build` to test text selection, JSON field focus, saving, preview refresh, and external edit conflicts in the actual Electron app.
+
+Run `npm run test:slides` after `npm run build` to test slide menus, identity and selection, deletion confirmation, text draft protection, and external edit conflicts in the actual Electron app.
 
 ## Refresh README screenshots
 
