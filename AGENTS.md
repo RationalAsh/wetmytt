@@ -14,8 +14,10 @@ Before each logical change (which may span several files), check `git status` an
 
 After each logical change, review the diff and run the relevant checks. Stage explicit changed paths, inspect the staged diff, and commit with a concise, descriptive message explaining what changed and why. Confirm `git status` is clean before starting another change or reporting completion. Do not create empty commits for read-only or unchanged work. Never discard edits or rewrite history unless requested. If validation or a commit fails, report it honestly and preserve the edits.
 
-## README download badges
+## Release follow-up: README and GitHub Pages
 
 After publishing a new stable GitHub Release, update both macOS download badges near the top of `README.md` to the published release's DMG asset URLs: Apple Silicon uses `arm64`, and Intel uses `x64`. Verify both assets exist before changing the links, then commit and push the README update. Do not advance the badges for draft releases or prereleases.
+
+Also refresh the GitHub Pages site after every new stable release: run the **Project website** workflow (`.github/workflows/pages.yml`) on `master`, wait for deployment to succeed, and verify the live site's version, release-notes link, and both architecture download buttons match the published release. The site resolves download URLs at build time, so publishing a release alone does not update it. Treat both the README update and the Pages deployment as required release follow-up; if either is blocked, report the outstanding step instead of reporting the release work complete. Do not deploy a draft or prerelease as the site's latest release. See `docs/website.md` for deployment details.
 
 The DMG filenames currently include the version (`wetmytt-X.Y.Z-mac-ARCH.dmg`), so `/releases/latest/download/…` does not remove the need to update their filenames. Keep the separate `/releases/latest` page link version-independent. If releases later provide fixed-name DMG aliases for both architectures, the badges can use those aliases with `/releases/latest/download/` instead. See `docs/releases.md` for the release checklist.
