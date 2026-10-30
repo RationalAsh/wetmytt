@@ -2,6 +2,9 @@ import { app, BrowserWindow, dialog } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { resolveGitBinary } from 'dugite';
 import { gitChanges, gitFilesAction, gitInit } from '../../electron/git.js';
 
 const [directory] = process.argv.slice(2);
@@ -98,7 +101,32 @@ app.whenReady().then(async () => {
       await new Promise(resolve => setTimeout(resolve, 400));
       await fs.writeFile(process.env.WETMYTT_HISTORY_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
     }
-    console.log('Files and History integration passed: tree, indicators, staging, commits, timeline, message details, footer status, external changes and stale project guard.');
+    // Restore from the footer without an agent; the backup can recover both files.
+    await waitFor(() => js(`document.querySelector('.restore-save')?.disabled === true`));
+    const saved = await fs.readFile(path.join(root, 'deck.json'), 'utf8');
+    await fs.writeFile(path.join(root, 'deck.json'), saved + '\n');
+    await fs.writeFile(path.join(root, 'draft.txt'), 'Keep this draft');
+    await waitFor(() => js(`document.querySelector('.restore-save')?.disabled === false`));
+    assert.match(await js(`document.querySelector('#restore-detail').textContent`), /git stash push --include-untracked/);
+    assert.equal(await js(`window.wetmytt.restoreLastSave(${JSON.stringify(root)}, -1).then(() => false, () => true)`), true);
+    await js(`document.querySelector('.restore-save').focus()`);
+    assert.equal(await js(`getComputedStyle(document.querySelector('#restore-detail')).display`), 'block');
+    await js(`document.querySelector('.restore-save').click()`);
+    await waitFor(() => js(`document.querySelector('.restore-result')?.textContent.includes('Last save restored.') && document.querySelector('.restore-save').disabled`));
+    assert.equal(await fs.readFile(path.join(root, 'deck.json'), 'utf8'), saved);
+    await assert.rejects(fs.stat(path.join(root, 'draft.txt')), { code: 'ENOENT' });
+    assert.deepEqual(await gitChanges(root), []);
+    if (process.env.WETMYTT_RESTORE_SCREENSHOT) {
+      await js(`document.querySelector('.restore-save').blur()`);
+      await fs.writeFile(process.env.WETMYTT_RESTORE_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+    }
+    const command = await js(`document.querySelector('.restore-backup').textContent`);
+    const backup = command.split(' ').at(-1);
+    assert.match(backup, /^[a-f0-9]{40,64}$/);
+    await promisify(execFile)(resolveGitBinary(), ['stash', 'apply', '--index', backup], { cwd: root });
+    assert.equal(await fs.readFile(path.join(root, 'deck.json'), 'utf8'), saved + '\n');
+    assert.equal(await fs.readFile(path.join(root, 'draft.txt'), 'utf8'), 'Keep this draft');
+    console.log('Files and History integration passed, including footer restore, stale project guard and backup recovery.');
     app.exit(0);
   } catch (error) { console.error(error); app.exit(1); }
 }).catch(error => { console.error(error); app.exit(1); });

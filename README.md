@@ -108,6 +108,8 @@ The **Edit** tab lists string values in `deck.json`, including nested objects an
 
 The app watches the complete deck folder for changes, including images and nested assets, and reloads while retaining the current slide where possible. Hidden files and `node_modules` are ignored. A temporarily invalid JSON file displays an error in the slide area; saving valid JSON recovers automatically.
 
+**Restore last save**, beside the branch indicator at the bottom, returns your files to the latest commit. It preserves changed and new files in a local backup first. Hover or focus the button for the exact Git command; after restoring, hover or focus the confirmation message for the command to recover the backup. This covers manual edits and unfinished AI edits; it does not undo already committed changes. See [restoring a saved version](docs/restoring.md) for details.
+
 With a project open, drag files anywhere onto the app (including the slide preview) to copy them into its `assets/` folder. You can also choose **File → Add assets** to choose multiple files. Originals stay in place, and duplicate names get a numbered suffix instead of overwriting existing assets. Folders and files over 25 MB are not imported. Agents can use `import_assets` with absolute local paths or `download_asset` with a public URL and filename; both return relative paths for use in the slides.
 
 Click a thumbnail beside the presentation name to jump to a slide. The current slide is highlighted and stays visible as you navigate. Scroll the strip with a trackpad, its chevrons, or the seeker underneath; edge fades indicate more slides. Previews load as needed and refresh when the deck changes. **File → Show files** opens the presentation folder.

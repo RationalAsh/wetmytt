@@ -102,6 +102,14 @@ h1 { font-size: 21px; font-weight: 700; margin: 9px 0 0; letter-spacing: -.6px; 
 .version-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .version-tooltip { display: none; position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 5; width: 240px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--muted); font-size: 11px; line-height: 1.6; box-shadow: 0 4px 16px #30204414; overflow-wrap: anywhere; }
 .version-chip:hover .version-tooltip, .version-chip:focus .version-tooltip { display: block; }
+.restore-control { position: relative; display: inline-flex; }
+.restore-save { padding: 4px 8px; font-size: 10px; white-space: nowrap; }
+.restore-control:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.restore-control:hover .version-tooltip, .restore-control:focus-within .version-tooltip { display: block; }
+.restore-result { position: relative; order: 1; flex-basis: 100%; overflow-wrap: anywhere; color: var(--ink); }
+.restore-result[role="alert"] { color: #a12b35; }
+.restore-result:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.restore-result:hover .restore-backup, .restore-result:focus .restore-backup { display: block; user-select: text; }
 .pagination { display: flex; align-items: center; gap: 12px; color: #5e5074; }
 .pagination > span { font-size: 11px; font-variant-numeric: tabular-nums; min-width: 58px; text-align: center; }
 .pagination b { font-weight: 400; color: #b8adc9; margin: 0 10px; }

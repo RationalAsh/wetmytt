@@ -109,7 +109,7 @@ export async function gitSummary(root, signal) {
 // Porcelain -z preserves spaces, newlines, Unicode, and rename destinations.
 export async function gitChanges(root, signal) {
   root = await repository(root, signal);
-  const records = (await command(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=all'], signal)).split('\0');
+  const records = (await command(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=all'], signal, await noFilters(root, signal))).split('\0');
   const changes = [];
   for (let i = 0; i < records.length; i++) {
     const record = records[i];
@@ -120,6 +120,28 @@ export async function gitChanges(root, signal) {
     changes.push({ path: filename, originalPath, index, worktree, conflict });
   }
   return changes;
+}
+
+// Stash saves the index, working files, and new files before restoring HEAD.
+// Keep the stash: restoring a save must never throw away the user's only copy.
+export async function restoreLastSave(root, signal) {
+  root = await repository(root, signal);
+  const head = (await gitHistory(root, { limit: 1 }, signal)).head;
+  if (!head) throw new Error('There is no saved version yet. Save a version in Files first.');
+  const changes = await gitChanges(root, signal);
+  if (!changes.length) return { restored: false, backup: null };
+  if (changes.some(change => change.conflict)) throw new Error('Resolve the conflicting files before restoring a saved version. Your files have not been changed.');
+  const message = 'Backup before restoring last save';
+  // Stash internally passes quoted untracked filenames to clean; forcing literal
+  // pathspecs there leaves names containing Unicode or newlines behind. This
+  // operation accepts no user-supplied pathspecs, so use Git's normal handling.
+  await command(root, ['--no-literal-pathspecs', 'stash', 'push', '--include-untracked', '--message', message], signal, [
+    ...await noFilters(root, signal),
+    '-c', 'user.name=Welcome to My TED Talk', '-c', 'user.email=wetmytt@users.noreply.local',
+  ]);
+  const backup = (await command(root, ['rev-parse', '--verify', 'refs/stash'], signal)).trim();
+  if ((await gitChanges(root, signal)).length) throw new Error(`Some files could not be restored or changed during restore. Your backup is ${backup}. Pause other editors and try again.`);
+  return { restored: true, backup };
 }
 
 export async function gitFilesAction(root, action, values, message, signal) {

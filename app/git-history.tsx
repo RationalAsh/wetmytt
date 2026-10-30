@@ -30,10 +30,34 @@ export function useGitSummary(deck: Deck) {
   return value?.key === key ? value.summary : null;
 }
 
-export function GitStatus({ summary }: { summary: GitSummary | null }) {
+function RestoreLastSave({ deck, summary, disabled }: { deck: Deck; summary: GitSummary; disabled: boolean }) {
+  const [restoring, setRestoring] = useState(false);
+  const [result, setResult] = useState<{ message: string; detail?: string; error?: boolean } | null>(null);
+  const pending = useRef(false);
+  const reason = !summary.latestCommit ? 'There is no saved version yet.' : disabled ? 'Wait for the current operation to finish.' : !summary.dirty ? 'Your presentation already matches the last save.' : '';
+  async function restore() {
+    if (pending.current || reason || !deck.root || !window.wetmytt) return;
+    pending.current = true; setRestoring(true); setResult(null);
+    try {
+      const result = await window.wetmytt.restoreLastSave(deck.root, deck.generation!);
+      setResult(result.restored ? { message: 'Last save restored. Your changes are backed up.', detail: `To recover this backup: git stash apply --index ${result.backup}` } : { message: 'Already at the last save.' });
+    } catch (error) { setResult({ message: String(error), error: true }); }
+    finally { pending.current = false; setRestoring(false); }
+  }
+  return <>
+    <span className="restore-control" tabIndex={reason || restoring ? 0 : -1} aria-describedby="restore-detail">
+      <button className="restore-save" disabled={restoring || !!reason} aria-busy={restoring} aria-describedby="restore-detail" onClick={() => void restore()}>{restoring ? 'Restoring…' : 'Restore last save'}</button>
+      <span className="version-tooltip" id="restore-detail" role="tooltip">{reason && <>{reason}<br /></>}Returns to the latest saved version, keeping a backup of changed and new files. Ignored files stay in place.<br /><code>git stash push --include-untracked --message "Backup before restoring last save"</code></span>
+    </span>
+    {result && <span className="restore-result" role={result.error ? 'alert' : 'status'} tabIndex={result.detail ? 0 : undefined} aria-describedby={result.detail ? 'restore-backup' : undefined}>{result.message}{result.detail && <span className="version-tooltip restore-backup" id="restore-backup" role="tooltip">{result.detail}</span>}</span>}
+  </>;
+}
+
+export function GitStatus({ deck, summary, disabled }: { deck: Deck; summary: GitSummary | null; disabled: boolean }) {
   if (!summary?.branch) return null;
   return <>
     <span className="version-chip" tabIndex={0} aria-describedby="version-detail"><span className="version-label">Branch:</span><span className="version-name">{summary.branch}</span><span className="version-tooltip" role="tooltip" id="version-detail">{summary.branch === 'Detached HEAD' ? 'You are viewing a commit without an active branch (detached HEAD).' : <>The current branch is <strong>{summary.branch}</strong>.</>}</span></span>
+    <RestoreLastSave key={`${deck.root}:${deck.generation}`} deck={deck} summary={summary} disabled={disabled} />
     <span className="last-commit" title={summary.latestCommit ? `${summary.latestCommit.shortHash} · ${summary.latestCommit.subject}` : undefined}>{summary.latestCommit?.subject || 'No commits yet'}</span>
     <span className="git-working-status" data-dirty={summary.dirty} role="status">{summary.dirty ? 'Uncommitted changes' : 'No uncommitted changes'}</span>
   </>;

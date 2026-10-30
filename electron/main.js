@@ -11,7 +11,7 @@ import { chat } from './agent.js';
 import { contextLimit } from './providers.js';
 import { createAISettings } from './ai-settings.js';
 import { createDeck } from './decks.js';
-import { runTool } from './tools.js';
+import { runTool, withProject } from './tools.js';
 import { loadMcpToken, startMcpServer } from './mcp.js';
 import { screenshotSlide, createThumbnailRenderer } from './screenshot.js';
 import { connectCodex } from './codex-plugin.js';
@@ -19,8 +19,8 @@ import { connectClaude } from './claude-extension.js';
 import { exportDeckPDF } from './pdf.js';
 import { listChats, loadChat, runConversation } from './chats.js';
 import { readSlideManagement, mutateSlide } from './slide-management.js';
-import { readContent, saveContent } from './content.js';
-import { currentBranch, gitFilesAction, gitInit, gitHistory, gitSummary } from './git.js';
+import { readContent, saveContent, withContentWrite } from './content.js';
+import { currentBranch, gitFilesAction, gitInit, gitHistory, gitSummary, restoreLastSave } from './git.js';
 import { readProjectFiles } from './project-files.js';
 import { createRecentFolders } from './recent-folders.js';
 
@@ -190,6 +190,23 @@ handle('deck:files', (folder, version) => readProjectFiles(contentRoot(folder, v
 handle('deck:git-summary', (folder, version) => gitSummary(contentRoot(folder, version), projectOperations.signal));
 handle('deck:history', (folder, version, page) => gitHistory(contentRoot(folder, version), page, projectOperations.signal));
 let filesBusy = false;
+let restoring = false;
+handle('deck:restore-last-save', async (folder, version) => {
+  contentRoot(folder, version);
+  if (filesBusy || pendingChat || exportingPDF) throw new Error('Wait for the current operation before restoring.');
+  filesBusy = true; restoring = true;
+  const signal = projectOperations.signal;
+  try {
+    return await withProject(folder, () => withContentWrite(folder, async () => {
+      contentRoot(folder, version);
+      const result = await restoreLastSave(folder, signal);
+      contentRoot(folder, version);
+      invalidateThumbnails();
+      await notifyDeck();
+      return result;
+    }), signal);
+  } finally { filesBusy = false; restoring = false; }
+});
 handle('deck:git-action', async (folder, version, action, paths, message) => {
   contentRoot(folder, version);
   if (filesBusy || pendingChat || exportingPDF) throw new Error('Wait for the current operation before changing Git.');
@@ -202,10 +219,13 @@ handle('deck:git-action', async (folder, version, action, paths, message) => {
     return result;
   } finally { filesBusy = false; }
 });
-handle('deck:save-content', (folder, version, source, pointer, text) => saveContent(contentRoot(folder, version), source, pointer, text, () => contentRoot(folder, version)));
+handle('deck:save-content', (folder, version, source, pointer, text) => saveContent(contentRoot(folder, version), source, pointer, text, () => {
+  contentRoot(folder, version);
+  if (restoring) throw new Error('Wait for the saved version to finish restoring.');
+}));
 const slideGuard = (folder, version, revision) => {
   contentRoot(folder, version);
-  if (revision !== contentRevision || !contentSettled) throw new Error('The presentation changed. Wait for it to reload before managing slides.');
+  if (restoring || revision !== contentRevision || !contentSettled) throw new Error('The presentation changed. Wait for it to reload before managing slides.');
 };
 handle('deck:read-slide-management', async (folder, version, revision) => {
   slideGuard(folder, version, revision);
@@ -222,10 +242,12 @@ handle('deck:mutate-slide', (folder, version, revision, source, renderedIds, ope
   });
 });
 handle('deck:import-assets', (expectedRoot, sources) => {
+  if (restoring) throw new Error('Wait for the saved version to finish restoring.');
   if (!root || root !== expectedRoot) throw new Error('The open project changed. Drop the files again.');
   return runTool(root, 'import_assets', { sources }, projectOperations.signal).then(JSON.parse);
 });
 handle('deck:choose-assets', async (expectedRoot, expectedGeneration) => {
+  if (restoring) throw new Error('Wait for the saved version to finish restoring.');
   const folder = contentRoot(expectedRoot, expectedGeneration);
   const result = await dialog.showOpenDialog(window, { properties: ['openFile', 'multiSelections'], title: 'Add assets to presentation' });
   if (result.canceled) return null;
@@ -257,6 +279,7 @@ handle('deck:create', async () => {
 });
 handle('deck:export-pdf', async expectedRoot => {
   if (!root || root !== expectedRoot) throw new Error('The open project changed. Please export again.');
+  if (restoring) throw new Error('Wait for the saved version to finish restoring.');
   if (exportingPDF) throw new Error('A PDF export is already running.');
   exportingPDF = true;
   const folder = root, deckGeneration = generation;
@@ -298,6 +321,7 @@ handle('ai:chats', expectedRoot => listChats(chatRoot(expectedRoot)));
 handle('ai:load-chat', (expectedRoot, id) => loadChat(chatRoot(expectedRoot), id));
 handle('ai:chat', async (expectedRoot, id, text, runId) => {
   const folder = chatRoot(expectedRoot);
+  if (restoring) throw new Error('Wait for the saved version to finish restoring.');
   if (pendingChat) throw new Error('A request is already running.');
   pendingChat = new AbortController();
   const signal = pendingChat.signal;

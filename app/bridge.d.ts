@@ -30,6 +30,7 @@ declare global {
       state(): Promise<Deck>;
       projectFiles(root: string, generation: number): Promise<ProjectFiles>;
       gitSummary(root: string, generation: number): Promise<GitSummary>;
+      restoreLastSave(root: string, generation: number): Promise<{ restored: boolean; backup: string | null }>;
       gitHistory(root: string, generation: number, page?: { skip?: number; head?: string }): Promise<GitHistory>;
       gitAction(root: string, generation: number, action: 'stage' | 'unstage' | 'commit' | 'init', paths: string[], message?: string): Promise<string>;
       thumbnails(root: string, generation: number, revision: number, slides: { index: number; id: string }[]): Promise<{ root: string; generation: number; revision: number; index: number; id: string; url?: string; error?: string }[] | null>;
