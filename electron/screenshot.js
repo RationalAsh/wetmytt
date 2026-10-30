@@ -92,8 +92,8 @@ export function createThumbnailRenderer(root, { revision = '', width = 320, sign
   };
 }
 
-export async function screenshotSlide(root, slide) {
-  return (await screenshotSlides(root, [slide]))[0];
+export async function screenshotSlide(root, slide, options) {
+  return (await screenshotSlides(root, [slide], options))[0];
 }
 
 export async function screenshotSlides(root, slides, { width = 1280, signal } = {}) {

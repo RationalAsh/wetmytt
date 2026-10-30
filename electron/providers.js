@@ -1,5 +1,9 @@
 import { knownContextWindow, providers } from '../shared/ai.js';
 
+export class ImageInputError extends Error {}
+
+const hasImages = messages => messages.some(message => Array.isArray(message.content) && message.content.some(part => part.type === 'image_url' || part.type === 'image'));
+
 function checkAborted(signal) {
   if (signal.aborted) throw new Error(signal.reason?.name === 'TimeoutError'
     ? 'The AI request timed out. Try a smaller request or a faster model.' : 'AI request stopped.');
@@ -32,6 +36,9 @@ async function fetchCompletion(settings, body, signal) {
         429: 'Rate limit or quota reached. Check your usage and try again later.',
       }[response.status] || 'The provider is unavailable. Try again later.';
       await response.body?.cancel().catch(() => {});
+      // Routers can return 404 when no endpoint accepts image input. Retrying
+      // without images also leaves genuine model/URL errors actionable.
+      if ([400, 404, 413, 415, 422].includes(response.status) && hasImages(body.messages)) throw new ImageInputError(`${name} rejected image input. Use a model with image support.`);
       if ([502, 503, 504].includes(response.status) && attempt + 1 < attempts) continue;
       throw new Error(`${name} returned ${response.status}. ${advice}`);
     }
@@ -64,7 +71,11 @@ export async function requestMessage(settings, messages, tools, signal) {
         ...(message.content ? [{ type: 'text', text: message.content }] : []),
         ...message.tool_calls.map(call => ({ type: 'tool_use', id: call.id, name: call.function.name, input: JSON.parse(call.function.arguments) })),
       ] };
-      return { role: message.role, content: message.content };
+      return { role: message.role, content: Array.isArray(message.content) ? message.content.map(part => {
+        if (part.type !== 'image_url') return part;
+        const [, media_type, data] = /^data:([^;]+);base64,(.+)$/.exec(part.image_url.url);
+        return { type: 'image', source: { type: 'base64', media_type, data } };
+      }) : message.content };
     }),
     tools: tools.map(tool => ({ name: tool.name, description: tool.description, input_schema: tool.parameters })),
   } : {
