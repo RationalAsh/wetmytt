@@ -10,3 +10,4 @@ dist/
 *.cer
 *.certSigningRequest
 build/git/
+/docs/local-launch-plan.md
