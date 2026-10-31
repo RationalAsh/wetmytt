@@ -5,8 +5,8 @@
 `wetmytt` for short. A playful nod to the familiar “welcome to my TED talk” sign-off, with its own violet-and-lime stage identity. An independent project, not affiliated with TED. This is an early build.
 
 <!-- Release agents: after publishing a new stable release, update both versioned DMG links and redeploy GitHub Pages via the Project website workflow on master. Verify the live site matches the release. See AGENTS.md and docs/releases.md. -->
-[![Download for macOS — Apple Silicon](https://img.shields.io/badge/Download_for_macOS-Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/RationalAsh/wetmytt/releases/download/v0.4.0/wetmytt-0.4.0-mac-arm64.dmg)
-[![Download for macOS — Intel](https://img.shields.io/badge/Download_for_macOS-Intel-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/RationalAsh/wetmytt/releases/download/v0.4.0/wetmytt-0.4.0-mac-x64.dmg)
+[![Download for macOS — Apple Silicon](https://img.shields.io/badge/Download_for_macOS-Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/RationalAsh/wetmytt/releases/download/v0.4.1/wetmytt-0.4.1-mac-arm64.dmg)
+[![Download for macOS — Intel](https://img.shields.io/badge/Download_for_macOS-Intel-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/RationalAsh/wetmytt/releases/download/v0.4.1/wetmytt-0.4.1-mac-x64.dmg)
 
 Apple Silicon: M1 and later. Intel: Intel-based Macs. Open the DMG and drag the app into Applications; no Node.js or npm required. [Latest release and release notes](https://github.com/RationalAsh/wetmytt/releases/latest).
 
