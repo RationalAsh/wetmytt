@@ -105,6 +105,27 @@ async function performOpenDeck(folder) {
   return state();
 }
 
+// Squirrel cannot update an app running from the DMG, Downloads or a
+// translocated path. Returns true when the app is relaunching from Applications.
+async function offerMoveToApplications() {
+  if (!app.isPackaged || process.platform !== 'darwin' || process.env.WETMYTT_DEV_URL || app.isInApplicationsFolder()) return false;
+  const skipFile = path.join(app.getPath('userData'), 'skip-move-to-applications');
+  if (await fs.access(skipFile).then(() => true, () => false)) return false;
+  const { response, checkboxChecked } = await dialog.showMessageBox({
+    type: 'question', buttons: ['Move to Applications', 'Not Now'], defaultId: 0, cancelId: 1,
+    message: 'Move to the Applications folder?',
+    detail: `${app.name} needs to be in Applications to install updates automatically.`,
+    checkboxLabel: 'Don’t ask again',
+  });
+  if (response === 0) {
+    try { return app.moveToApplicationsFolder(); }
+    catch (error) { dialog.showErrorBox('Could not move to Applications', `${error.message}\n\nDrag the app into Applications from Finder instead.`); }
+  } else if (checkboxChecked) {
+    await fs.mkdir(path.dirname(skipFile), { recursive: true }).then(() => fs.writeFile(skipFile, '')).catch(error => console.warn('Could not save move preference:', error.message));
+  }
+  return false;
+}
+
 function handle(channel, callback) {
   ipcMain.handle(channel, async (event, ...args) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || new URL(event.senderFrame.url).origin !== shellOrigin) throw new Error('Untrusted IPC sender.');
@@ -122,6 +143,7 @@ app.setAboutPanelOptions({
   copyright: 'Copyright © 2026 Ashwin Narayan',
   credits: 'Made by Ashwin Narayan.\nLicensed under the MIT License.',
 });
+if (await offerMoveToApplications()) return;
 let quitting = false, cleanupPromise;
 const updatesEnabled = app.isPackaged && process.platform === 'darwin' && !process.env.WETMYTT_DEV_URL && process.env.NODE_ENV !== 'development';
 if (updatesEnabled) {
