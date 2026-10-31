@@ -155,7 +155,7 @@ export async function restoreLastSave(root, signal) {
   // operation accepts no user-supplied pathspecs, so use Git's normal handling.
   await command(root, ['--no-literal-pathspecs', 'stash', 'push', '--include-untracked', '--message', message], signal, [
     ...await noFilters(root, signal),
-    '-c', 'user.name=Welcome to My TED Talk', '-c', 'user.email=wetmytt@users.noreply.local',
+    '-c', 'user.name=Welcome to my Talk', '-c', 'user.email=wetmytt@users.noreply.local',
   ]);
   const backup = (await command(root, ['rev-parse', '--verify', 'refs/stash'], signal)).trim();
   if ((await gitChanges(root, signal)).length) throw new Error(`Some files could not be restored or changed during restore. Your backup is ${backup}. Pause other editors and try again.`);
@@ -216,7 +216,7 @@ export async function gitTool(root, name, args, signal) {
   if (name === 'git_commit') {
     const config = await command(root, ['config', '--null', '--list'], signal);
     const entries = new Map(config.split('\0').map(entry => { const at = entry.indexOf('\n'); return [entry.slice(0, at), entry.slice(at + 1)]; }));
-    const identity = ['-c', `user.name=${entries.get('user.name') || 'Welcome to My TED Talk'}`, '-c', `user.email=${entries.get('user.email') || 'wetmytt@users.noreply.local'}`];
+    const identity = ['-c', `user.name=${entries.get('user.name') || 'Welcome to my Talk'}`, '-c', `user.email=${entries.get('user.email') || 'wetmytt@users.noreply.local'}`];
     return command(root, ['commit', '--no-verify', '--no-gpg-sign', '-m', args.message], signal, [...await noFilters(root, signal), ...identity]);
   }
   if (name === 'git_branch') {

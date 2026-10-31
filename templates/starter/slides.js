@@ -1,4 +1,4 @@
-// The rendering is yours to change. Keep data-slide on each slide for Welcome to My TED Talk navigation.
+// The rendering is yours to change. Keep data-slide on each slide for Welcome to my Talk navigation.
 fetch('deck.json').then(response => {
   if (!response.ok) throw new Error('Could not read deck.json');
   return response.json();

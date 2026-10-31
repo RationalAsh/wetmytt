@@ -24,8 +24,10 @@ import { readContent, saveContent, withContentWrite } from './content.js';
 import { currentBranch, gitFilesAction, gitInit, gitHistory, gitSummary, gitBranches, gitBranchAction, restoreLastSave } from './git.js';
 import { readProjectFiles } from './project-files.js';
 import { createRecentFolders } from './recent-folders.js';
-import { projectUrl } from './agent-metadata.js';
+import { appName, projectUrl } from './agent-metadata.js';
 
+// Keep the original internal name so upgrades reuse the same user-data folder,
+// logs and Keychain entry for saved API keys. Visible text uses appName.
 app.setName('Welcome to My TED Talk');
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -114,7 +116,7 @@ async function offerMoveToApplications() {
   const { response, checkboxChecked } = await dialog.showMessageBox({
     type: 'question', buttons: ['Move to Applications', 'Not Now'], defaultId: 0, cancelId: 1,
     message: 'Move to the Applications folder?',
-    detail: `${app.name} needs to be in Applications to install updates automatically.`,
+    detail: `${appName} needs to be in Applications to install updates automatically.`,
     checkboxLabel: 'Don’t ask again',
   });
   if (response === 0) {
@@ -138,7 +140,7 @@ function handle(channel, callback) {
 if (!app.requestSingleInstanceLock()) app.quit();
 else app.whenReady().then(async () => {
 app.setAboutPanelOptions({
-  applicationName: app.name,
+  applicationName: appName,
   applicationVersion: app.getVersion(),
   copyright: 'Copyright © 2026 Ashwin Narayan',
   credits: 'Made by Ashwin Narayan.\nLicensed under the MIT License.',
@@ -413,7 +415,7 @@ async function createWindow() {
   if (!shellServer && !process.env.WETMYTT_DEV_URL) shellServer = await serveFolder(path.join(project, 'out'));
   const url = process.env.WETMYTT_DEV_URL || shellServer.url;
   shellOrigin = new URL(url).origin;
-  window = new BrowserWindow({ width: 1440, height: 940, minWidth: 900, minHeight: 620, backgroundColor: '#f4f2f8', title: 'Welcome to My TED Talk', webPreferences: { preload: path.join(project, 'electron/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  window = new BrowserWindow({ width: 1440, height: 940, minWidth: 900, minHeight: 620, backgroundColor: '#f4f2f8', title: appName, webPreferences: { preload: path.join(project, 'electron/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   window.webContents.setWindowOpenHandler(({ url: target, referrer }) => {
     // Chat links open in the browser; slide content cannot launch external apps.
     if (referrer.url && new URL(referrer.url).origin === shellOrigin && /^https?:\/\//i.test(target)) {
@@ -469,13 +471,13 @@ function reportProblem() {
 function buildApplicationMenu() {
 const menuError = title => error => dialog.showErrorBox(title, error.message);
 Menu.setApplicationMenu(Menu.buildFromTemplate([
-  ...(process.platform === 'darwin' ? [{ label: app.name, submenu: [
-    { role: 'about' }, { type: 'separator' },
+  ...(process.platform === 'darwin' ? [{ label: appName, submenu: [
+    { role: 'about', label: `About ${appName}` }, { type: 'separator' },
     { label: 'Settings…', accelerator: 'Command+,', click: () => notify('app:settings') },
     { type: 'separator' }, { role: 'services' },
-    { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
+    { type: 'separator' }, { role: 'hide', label: `Hide ${appName}` }, { role: 'hideOthers' }, { role: 'unhide' },
     { type: 'separator' },
-    { label: `Quit ${app.name}`, accelerator: 'Command+Q', click: () => app.quit() },
+    { label: `Quit ${appName}`, accelerator: 'Command+Q', click: () => app.quit() },
   ] }] : []),
   { label: 'File', submenu: [
     { label: 'New presentation…', accelerator: 'CmdOrCtrl+N', click: () => { void chooseAndCreateDeck().catch(menuError('Could not create presentation')); } },
@@ -491,7 +493,7 @@ Menu.setApplicationMenu(Menu.buildFromTemplate([
   { label: 'View', submenu: [...(app.isPackaged ? [] : [{ role: 'reload' }, { role: 'toggleDevTools' }, { type: 'separator' }]), { role: 'togglefullscreen' }] },
   { role: 'windowMenu' },
   { role: 'help', submenu: [
-    { label: `${app.name} Help`, click: () => { void shell.openExternal(`${projectUrl}#readme`); } },
+    { label: `${appName} Help`, click: () => { void shell.openExternal(`${projectUrl}#readme`); } },
     { label: 'Release Notes', click: () => { void shell.openExternal(`${projectUrl}/releases/tag/v${app.getVersion()}`); } },
     { type: 'separator' },
     { label: 'Report a Problem…', click: () => { void reportProblem().catch(menuError('Could not open the issue form')); } },
@@ -520,6 +522,6 @@ app.on('before-quit', event => {
 });
 }).catch(error => {
   console.error(error);
-  dialog.showErrorBox('Welcome to My TED Talk could not start', error.message);
+  dialog.showErrorBox(`${appName} could not start`, error.message);
   app.quit();
 });

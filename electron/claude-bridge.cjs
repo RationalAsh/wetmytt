@@ -15,7 +15,7 @@ const send = message => fetch(url, {
   signal: AbortSignal.timeout(120000), redirect: 'error',
 });
 async function readResponse(response) {
-  if (!response.ok) throw new Error(`App connection returned HTTP ${response.status}. Keep Welcome to My TED Talk running. If access is denied, reinstall its Claude extension to refresh the credentials.`);
+  if (!response.ok) throw new Error(`App connection returned HTTP ${response.status}. Keep Welcome to my Talk running. If access is denied, reinstall its Claude extension to refresh the credentials.`);
   session = response.headers.get('mcp-session-id') || session;
   if (response.status === 202 || response.status === 204) return;
   return response.json();
@@ -55,7 +55,7 @@ async function forward(line) {
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (error) {
     const detail = error.cause?.code ? `${error.message} (${error.cause.code})` : error.message;
-    const text = `Welcome to My TED Talk connection failed: ${detail.replace(/\.+$/, '')}. Keep the app running, then call get_presentation and retry.`;
+    const text = `Welcome to my Talk connection failed: ${detail.replace(/\.+$/, '')}. Keep the app running, then call get_presentation and retry.`;
     console.error(text);
     if (message && Object.hasOwn(message, 'id')) {
       // Tool failures belong in CallToolResult so Claude can read and act on

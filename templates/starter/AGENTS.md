@@ -1,6 +1,6 @@
 # Editing this presentation
 
-This folder is the complete presentation. Edit files directly; Welcome to My TED Talk reloads on every change.
+This folder is the complete presentation. Edit files directly; Welcome to my Talk reloads on every change.
 
 ## Git workflow
 

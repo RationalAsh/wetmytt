@@ -1,8 +1,8 @@
-# Welcome to My TED Talk
+# Welcome to my Talk
 
 **Got a point? Make it.**
 
-`wetmytt` for short. A playful nod to the familiar “welcome to my TED talk” sign-off, with its own violet-and-lime stage identity. An independent project, not affiliated with TED. This is an early build.
+A playful nod to the familiar “welcome to my talk” opener, with its own violet-and-lime stage identity. This is an early build.
 
 <!-- Release agents: after publishing a new stable release, update both versioned DMG links and redeploy GitHub Pages via the Project website workflow on master. Verify the live site matches the release. See AGENTS.md and docs/releases.md. -->
 [![Download for macOS — Apple Silicon](https://img.shields.io/badge/Download_for_macOS-Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/RationalAsh/wetmytt/releases/download/v0.4.1/wetmytt-0.4.1-mac-arm64.dmg)
@@ -14,7 +14,7 @@ Apple Silicon: M1 and later. Intel: Intel-based Macs. Open the DMG and drag the 
 
 ## What it does
 
-Welcome to My TED Talk is a local desktop app for HTML slide decks. A deck is a folder of files. You describe the talk, an AI edits those files, and you present from the same window or export a PDF to share.
+Welcome to my Talk is a local desktop app for HTML slide decks. A deck is a folder of files. You describe the talk, an AI edits those files, and you present from the same window or export a PDF to share.
 
 ## The problem
 
@@ -124,7 +124,7 @@ Use the visible arrows or **← / →** to navigate. With a thumbnail focused, *
 
 ### Custom slide HTML
 
-Mark each slide container with `data-slide`, keep a closing `</body>` tag, and respect `[hidden] { display: none !important; }`. Welcome to My TED Talk injects a small bridge that counts those containers, hides inactive slides, and communicates navigation with the shell. It does not prescribe the HTML structure inside a slide. The default renderer reads JSON, but custom HTML can use any local rendering approach.
+Mark each slide container with `data-slide`, keep a closing `</body>` tag, and respect `[hidden] { display: none !important; }`. Welcome to my Talk injects a small bridge that counts those containers, hides inactive slides, and communicates navigation with the shell. It does not prescribe the HTML structure inside a slide. The default renderer reads JSON, but custom HTML can use any local rendering approach.
 
 Each slide can have its own HTML, CSS, JavaScript, animations, SVG, canvas, and interactions; the starter layouts and JSON schema are examples. Use browser-ready local code: the sandbox has no Node.js, Electron APIs, backend, remote resource/API access, or dynamic code evaluation (`eval` / `new Function`). Design for the 16:9 canvas (1280 × 720 for capture/export). Keep text in `deck.json` with bindings when you want the Edit tab to work, and provide useful static states for PDF export.
 
@@ -146,7 +146,7 @@ Built-in chat also offers `screenshot_slide`: image-capable models can inspect r
 
 `search_web` retrieves DuckDuckGo HTML results without an API key, curl installation, or search subscription. It returns titles, source URLs, and snippets, with a one-minute cache. Public search may return a challenge or change its markup; those cases produce an explicit error rather than invented results. `fetch_url` extracts readable text from public HTTP(S) pages without executing JavaScript. Requests have a 30-second deadline, at most five redirects, and bounded response sizes. Page text is capped at 40,000 characters; binary downloads use `download_asset` instead. Private network URLs and URLs containing credentials are rejected.
 
-New decks automatically initialize a local Git repository on `main` and receive a **Create presentation** commit. Existing folders are left unchanged until `git_init` is explicitly called. Git is bundled with the desktop app, so users do not need to install it. Commits use configured Git name/email where present, falling back to **Welcome to My TED Talk <wetmytt@users.noreply.local>** for missing values, without editing global configuration. The default ignores exclude `.wetmytt/` chat history, `node_modules/`, and `.DS_Store`. Use explicit file paths to stage changes; `.gitignore` is supported. Git tools provide local status, diff, log, stage, unstage, commit, branch, switch, and restore operations. They do not fetch, push, run hooks or filters, or accept arbitrary Git arguments. `git_restore` discards unstaged edits to the specified tracked files. Linked worktrees and repositories stored outside the deck are not supported.
+New decks automatically initialize a local Git repository on `main` and receive a **Create presentation** commit. Existing folders are left unchanged until `git_init` is explicitly called. Git is bundled with the desktop app, so users do not need to install it. Commits use configured Git name/email where present, falling back to **Welcome to my Talk <wetmytt@users.noreply.local>** for missing values, without editing global configuration. The default ignores exclude `.wetmytt/` chat history, `node_modules/`, and `.DS_Store`. Use explicit file paths to stage changes; `.gitignore` is supported. Git tools provide local status, diff, log, stage, unstage, commit, branch, switch, and restore operations. They do not fetch, push, run hooks or filters, or accept arbitrary Git arguments. `git_restore` discards unstaged edits to the specified tracked files. Linked worktrees and repositories stored outside the deck are not supported.
 
 `replace_text` is preferred for focused edits to existing files. Supply `{ "path": "styles.css", "old_text": "font-size: 0.9cqw;", "new_text": "font-size: 0.95cqw;" }` after reading the file. The non-empty `old_text` must match exactly once, including whitespace and line endings; include surrounding context to distinguish repeated text. Replacement text is literal (no regex or diff syntax), and an empty `new_text` deletes the match. Missing or ambiguous matches, unchanged replacements, invalid JSON results, and files or results over 1 MB are rejected without writing. The tool edits existing regular text files within the presentation and shares the editing queue with chat and MCP.
 
@@ -163,7 +163,7 @@ cd /path/to/my-presentation
 codex
 ```
 
-Welcome to My TED Talk does not need to launch or supervise the agent. Changes from any editor or agent appear automatically.
+Welcome to my Talk does not need to launch or supervise the agent. Changes from any editor or agent appear automatically.
 
 ### Connect Codex to the running app
 
@@ -171,7 +171,7 @@ The Electron app hosts a Streamable HTTP MCP endpoint at `http://127.0.0.1:43187
 
 1. Start the app and open a presentation.
 2. Choose **Connect → Connect to Codex** in the toolbar. The app prepares a private local plugin and opens its details in Codex Desktop.
-3. Select **Install** in Codex, then start a new Codex chat and use the **Welcome to My TED Talk** plugin.
+3. Select **Install** in Codex, then start a new Codex chat and use the **Welcome to my Talk** plugin.
 
 No manual MCP configuration is needed. If the plugin doesn't appear immediately, restart Codex and click **Open in Codex** in the connection dialog. Codex remains responsible for the final installation and enablement; the app does not silently install the plugin or change tool approval settings.
 
@@ -185,7 +185,7 @@ The endpoint binds only to `127.0.0.1`, checks Host and Origin headers, and requ
 
 ### Connect Claude to the running app
 
-Choose **Connect → Connect to Claude** in the toolbar. The app prepares a private `wetmytt.mcpb` extension and opens it for installation in Claude Desktop. Follow Claude's installation prompts, then start a new chat and enable the **Welcome to My TED Talk** tools. Keep this app running with a presentation open.
+Choose **Connect → Connect to Claude** in the toolbar. The app prepares a private `wetmytt.mcpb` extension and opens it for installation in Claude Desktop. Follow Claude's installation prompts, then start a new chat and enable the **Welcome to my Talk** tools. Keep this app running with a presentation open.
 
 If the installer doesn't open, use Claude Settings → Desktop app → Extensions → Advanced settings → Install Extension and select the file shown in the connection dialog. This follows [Claude's custom desktop extension installation flow](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop). The extension uses Claude's bundled Node.js runtime; no separate Node installation is needed.
 

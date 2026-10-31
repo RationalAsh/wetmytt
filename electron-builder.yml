@@ -1,5 +1,5 @@
 appId: io.github.rationalash.wetmytt
-productName: Welcome to My TED Talk
+productName: Welcome to my Talk
 asar: true
 beforePack: scripts/before-pack.cjs
 extraResources:

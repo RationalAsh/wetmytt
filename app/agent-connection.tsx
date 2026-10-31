@@ -25,10 +25,10 @@ export function AgentConnection({ agent, onClose }: { agent: 'Codex' | 'Claude';
   }, []);
   return <dialog ref={dialog} className="settings-modal agent-modal" onCancel={onClose} onClick={event => { if (event.target === event.currentTarget) onClose(); }} aria-labelledby="agent-title">
     <div className="modal-heading"><h2 id="agent-title">Connect to {agent}</h2><button className="icon-button" aria-label="Close connection settings" onClick={onClose}>×</button></div>
-    <p>Use the Welcome to My TED Talk {agent === 'Claude' ? 'extension' : 'plugin'} to edit your open presentation and capture slide screenshots.</p>
+    <p>Use the Welcome to my Talk {agent === 'Claude' ? 'extension' : 'plugin'} to edit your open presentation and capture slide screenshots.</p>
     {agent === 'Claude' ? <>
       <p role="status">{busy ? 'Preparing your local extension and opening Claude…' : opened ? 'Opened the extension. Follow the installation prompts in Claude Desktop.' : 'Finish connecting in Claude Desktop.'}</p>
-      <ol className="agent-steps"><li>Install the extension in Claude Desktop.</li><li>Open a presentation here and keep this app running.</li><li>Start a new Claude chat and enable the Welcome to My TED Talk tools.</li></ol>
+      <ol className="agent-steps"><li>Install the extension in Claude Desktop.</li><li>Open a presentation here and keep this app running.</li><li>Start a new Claude chat and enable the Welcome to my Talk tools.</li></ol>
       <p>If the installer doesn’t open, go to Claude Settings → Desktop app → Extensions → Advanced settings → Install Extension and select the file below. After switching presentations, reconnect the extension.</p>
       {filename && <p className="agent-path">{filename}</p>}
     </> : <>

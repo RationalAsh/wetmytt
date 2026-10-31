@@ -434,7 +434,7 @@ export default function Home() {
 
   return <main className={presenting ? 'app presenting' : 'app'}>
     <header className="topbar">
-      <div className="brand"><Image className="brand-mark" src={brandIcon} width={38} height={38} alt="" /><strong><span>Welcome to</span>My TED Talk<span className="brand-period">.</span></strong><span className="release-badge" aria-label={`App version ${version}`}>v{version}</span></div>
+      <div className="brand"><Image className="brand-mark" src={brandIcon} width={38} height={38} alt="" /><strong><span>Welcome to</span>my Talk<span className="brand-period">.</span></strong><span className="release-badge" aria-label={`App version ${version}`}>v{version}</span></div>
       <div className="file-actions">
         <FileMenu desktop={desktop} hasDeck={Boolean(deck.root)} exporting={exporting} managing={managing} {...recentProps} onNew={() => void choose(true)} onChoose={() => void choose(false)} onAssets={() => void chooseAssets()} onReveal={() => { void window.wetmytt?.reveal().catch(err => setError(String(err))); }} onExport={() => void exportPDF()} onClose={() => void closeProject()} />
         <ConnectMenu desktop={desktop} onConnect={setAgentOpen} />

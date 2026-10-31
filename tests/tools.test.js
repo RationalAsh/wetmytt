@@ -112,7 +112,7 @@ test('Git uses configured identity, falls back without changing config, and neve
   await fs.writeFile(path.join(root, 'slide.txt'), 'next\n');
   await tool('git_stage', { paths: ['slide.txt'] });
   await tool('git_commit', { message: 'Fallback identity' });
-  assert.match((await rawGit(root, ['log', '-1', '--format=%an <%ae>'])).stdout, /Welcome to My TED Talk <wetmytt@users.noreply.local>/);
+  assert.match((await rawGit(root, ['log', '-1', '--format=%an <%ae>'])).stdout, /Welcome to my Talk <wetmytt@users.noreply.local>/);
   assert.equal((await rawGit(root, ['config', 'user.name'])).stdout.trim(), '');
   await fs.writeFile(path.join(root, 'slide.txt'), 'discard\n');
   await tool('git_restore', { paths: ['slide.txt'] });

@@ -7,8 +7,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 test('packaged app loads shared tools from ASAR and creates history using its bundled Git', { timeout: 30000 }, async t => {
-  const app = process.env.WETMYTT_PACKAGED_APP || path.resolve(`dist/${process.arch === 'arm64' ? 'mac-arm64' : 'mac'}/Welcome to My TED Talk.app`);
-  const binary = path.join(app, 'Contents/MacOS/Welcome to My TED Talk');
+  const app = process.env.WETMYTT_PACKAGED_APP || path.resolve(`dist/${process.arch === 'arm64' ? 'mac-arm64' : 'mac'}/Welcome to my Talk.app`);
+  const binary = path.join(app, 'Contents/MacOS/Welcome to my Talk');
   const resources = path.join(app, 'Contents/Resources');
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'wetmytt-packaged-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));

@@ -116,5 +116,5 @@ jobs:
           cd ..
           gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/*.blockmap dist/latest-mac.yml dist/SHA256SUMS.txt \
             --verify-tag --draft \
-            --title "Welcome to My TED Talk $GITHUB_REF_NAME" \
+            --title "Welcome to my Talk $GITHUB_REF_NAME" \
             --notes-file "docs/release-notes/$GITHUB_REF_NAME.md"

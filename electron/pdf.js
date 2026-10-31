@@ -61,7 +61,7 @@ export async function exportDeckPDF(root) {
       } finally { await contents.removeInsertedCSS(css); }
     }
     pdf.setTitle(await contents.getTitle());
-    pdf.setCreator('Welcome to My TED Talk');
+    pdf.setCreator('Welcome to my Talk');
     return { bytes: Buffer.from(await pdf.save()), pages: count };
   };
   try {

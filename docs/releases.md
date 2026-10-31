@@ -88,7 +88,7 @@ A **tag** records the exact commit being released. You do not need a release bra
 Ensure `package.json` says `0.1.0`, commit all release changes, and push the release commit. Then:
 
 ```sh
-git tag -a v0.1.0 -m "Welcome to My TED Talk 0.1.0"
+git tag -a v0.1.0 -m "Welcome to my Talk 0.1.0"
 git push origin v0.1.0
 ```
 
@@ -119,7 +119,7 @@ Once the certificate and secrets are configured, future releases use the same wo
 6. Tag the tested commit and push the tag:
 
    ```sh
-   git tag -a v0.1.1 -m "Welcome to My TED Talk 0.1.1"
+   git tag -a v0.1.1 -m "Welcome to my Talk 0.1.1"
    git push origin v0.1.1
    ```
 
@@ -233,7 +233,8 @@ transfer resumption or a watchdog for an operation that never settles.
 
 For support, choose **Show update log** after an error. Finder reveals
 `updates.log` in Electron's application logs directory (normally
-`~/Library/Logs/Welcome to My TED Talk/` on macOS). Share it together with
+`~/Library/Logs/Welcome to My TED Talk/` on macOS; the folder keeps the app's
+original name so existing logs and settings carry over). Share it together with
 `updates.log.1` if present. Logs contain timestamps, installed version,
 architecture, updater events, failure step, error codes and stacks. URL queries,
 URL credentials, and credential header values are redacted. Each file is limited
