@@ -30,6 +30,8 @@ app.setName('Welcome to My TED Talk');
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let window, shellServer, deckServer, watcher, root, pendingChat, shellOrigin, watchTimer;
 let exportingPDF = false;
+// True only while the app's own presentation mode owns full screen.
+let presenting = false;
 let thumbnailOperations = new AbortController();
 let thumbnailRenderer, contentRevision = 0, contentSettled = true;
 let openingDeck = Promise.resolve();
@@ -295,7 +297,7 @@ handle('deck:close', async () => {
   invalidateThumbnails();
   projectOperations.abort(); projectOperations = new AbortController();
   mcp?.cancelStaleSessions();
-  window.setFullScreen(false);
+  if (presenting) { presenting = false; window.setFullScreen(false); }
   await notifyDeck();
   return state();
 });
@@ -339,7 +341,12 @@ handle('deck:export-pdf', async expectedRoot => {
   }
 });
 handle('deck:reveal', () => root ? shell.openPath(root) : undefined);
-handle('deck:present', value => { window.setFullScreen(Boolean(value)); });
+handle('deck:present', value => {
+  // Leaving a presentation must not exit full screen the user entered themselves.
+  if (!value && !presenting) return;
+  presenting = Boolean(value);
+  window.setFullScreen(presenting);
+});
 handle('ai:settings', settings.state);
 handle('ai:context', () => contextLimit(settings.context()));
 handle('ai:preferences', settings.savePreferences);
@@ -394,7 +401,8 @@ async function createWindow() {
       notify('app:settings');
     }
     // Exit even when keyboard focus is inside custom slide HTML.
-    if (input.type === 'keyDown' && input.key === 'Escape') {
+    if (presenting && input.type === 'keyDown' && input.key === 'Escape') {
+      presenting = false;
       window.setFullScreen(false);
       notify('deck:fullscreen', false);
     }
@@ -414,8 +422,9 @@ async function createWindow() {
     thumbnailOperations.abort(); thumbnailOperations = new AbortController();
     void thumbnailRenderer?.close(); thumbnailRenderer = undefined;
   });
-  window.on('enter-full-screen', () => notify('deck:fullscreen', true));
-  window.on('leave-full-screen', () => notify('deck:fullscreen', false));
+  // Ordinary macOS full screen keeps the workspace visible; only Present hides it.
+  window.on('enter-full-screen', () => { if (presenting) notify('deck:fullscreen', true); });
+  window.on('leave-full-screen', () => { presenting = false; notify('deck:fullscreen', false); });
   await window.loadURL(url);
 }
 refreshRecentFolders = () => {
