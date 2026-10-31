@@ -65,6 +65,13 @@ Commit and push the release setup. In the repository's **Actions → macOS relea
 
 Download the `mac-arm64` and `mac-x64` workflow artifacts. Install and test the corresponding DMG on each Mac: launch, create/open a deck, save text, present, export PDF, and configure AI if used. Both builds currently run on an Apple Silicon macOS runner, with the Intel Electron binary packaged for x64; an actual Intel launch check is still needed.
 
+Also check behaviour that only packaged builds have:
+
+- **Move to Applications:** launch the app directly from the mounted DMG. It should offer to move itself into Applications; **Move to Applications** should move and relaunch it, and **Not Now** with **Don’t ask again** checked should stop the prompt on later launches from outside Applications.
+- **Menus:** **View** shows only **Toggle Full Screen** (no Reload or DevTools). **File → New presentation…** (Cmd+N) creates a deck, and **Window** minimizes with Cmd+M.
+- **Help:** **Report a Problem…** opens a new GitHub issue prefilled with the app version, architecture, and macOS version. **Show Update Log** reveals `updates.log` in Finder.
+- **Full screen:** enter full screen with the green window button, then press Escape. The window should stay in full screen with the workspace visible. Start **Present**, and Escape should leave the presentation.
+
 For local signed builds, with the certificate installed in Keychain Access, set `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID` in your shell (without committing them), then run:
 
 ```sh
@@ -116,7 +123,7 @@ Once the certificate and secrets are configured, future releases use the same wo
    git push origin v0.1.1
    ```
 
-7. Wait for **macOS release** to finish. Check the draft contains both architecture DMGs and ZIPs, blockmaps, `latest-mac.yml`, release notes, and `SHA256SUMS.txt`. Install and check each architecture on its matching Mac if not already done on this commit.
+7. Wait for **macOS release** to finish. Check the draft contains both architecture DMGs and ZIPs, blockmaps, `latest-mac.yml`, release notes, and `SHA256SUMS.txt`. Install and check each architecture on its matching Mac, including the packaged-build checks in [Test before tagging](#3-test-before-tagging), if not already done on this commit.
 8. Publish the draft in GitHub Releases. Share the release page so users can choose their Mac's download.
 9. After publishing a stable release, update both download badges at the top of `README.md` to its published DMG URLs (`arm64` for Apple Silicon, `x64` for Intel). Verify both assets exist, commit the README change, and push it. Keep the separate `/releases/latest` link unchanged. Do not update badges for drafts or prereleases. Direct installer links need this update because their asset filenames contain the version; GitHub's `/releases/latest/download/` redirect still requires an exact asset filename.
 10. Refresh GitHub Pages by running **Actions → Project website → Run workflow** on `master`. Wait for the deployment to succeed, then verify the live site's version, release-notes link, and both Mac download buttons match the published stable release. Publishing a release does not automatically deploy the site; its download URLs are resolved at build time. See [Project website](website.md) for setup and deployment details. Both the README update and the Pages deployment are required before release follow-up is complete; report any blocked step explicitly.
