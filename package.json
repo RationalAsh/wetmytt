@@ -1,7 +1,7 @@
 {
   "name": "wetmytt",
   "productName": "Welcome to My TED Talk",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "license": "MIT",
   "description": "A local desktop app for HTML slide decks.",
