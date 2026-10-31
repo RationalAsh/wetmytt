@@ -465,3 +465,24 @@ button.recent-remove { width: 28px; height: 28px; padding: 4px; flex-shrink: 0; 
 .app-updates button + button { margin-left: 8px; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.edit-slide { margin-bottom: 18px; }
+.edit-slide-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.edit-slide-head span { font-size: 10px; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
+.edit-slide-head strong { font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.edit-group { margin: 0 0 14px; padding: 10px 10px 0; border: 1px solid var(--line); border-radius: 9px; }
+.edit-group legend { padding: 0 6px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.edit-group .edit-field { border: 0; padding: 0 0 12px; background: transparent; }
+.edit-field input[type="text"], .edit-field input[type="number"], .edit-field select, .edit-list input[type="text"], .edit-list textarea { width: 100%; border: 1px solid var(--line); border-radius: 5px; padding: 8px 9px; color: var(--ink); background: var(--paper); font-size: 12px; line-height: 1.6; }
+.edit-label { display: block; margin-bottom: 10px; color: var(--accent); font-size: 11px; font-weight: 600; line-height: 1.6; }
+.edit-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.edit-list li { display: flex; align-items: flex-start; gap: 4px; border-radius: 6px; }
+.edit-list li.active input, .edit-list li.active textarea { border-color: #b39bdf; background: #f7f3ff; }
+.edit-list-actions { display: flex; flex-shrink: 0; }
+.edit-list-actions button { width: 24px; height: 32px; font-size: 12px; color: var(--muted); }
+.edit-add, .edit-field-actions button { align-self: flex-start; font-size: 11px; padding: 6px 8px; color: var(--accent); border: 1px solid var(--line); }
+.edit-color { display: flex; gap: 8px; align-items: center; }
+.edit-color input[type="color"] { width: 36px; height: 32px; padding: 2px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); flex-shrink: 0; }
+.edit-toggle { flex-direction: row !important; align-items: center; gap: 8px !important; }
+.edit-thumb { max-width: 100%; max-height: 90px; object-fit: contain; align-self: flex-start; border: 1px solid var(--line); border-radius: 5px; background: var(--tint); }
+.edit-deck { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.edit-deck summary { cursor: pointer; font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }

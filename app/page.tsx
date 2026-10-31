@@ -482,7 +482,7 @@ export default function Home() {
         </div>
         <HistoryPanel key={`history:${deck.root}:${deck.generation}`} deck={deck} summary={gitSummary} active={sidebarTab === 'history' && sidebar} />
         <FilesPanel key={`files:${deck.root}:${deck.generation}`} deck={deck} revision={revision} active={sidebarTab === 'files' && sidebar} disabled={busy || managing || exporting} />
-        <ContentEditor key={`${deck.root}:${deck.generation}`} deck={deck} revision={revision} active={sidebarTab === 'edit' && sidebar} selection={selection} onFields={setFields} onBlockedChange={setTextBlocked} onSourceChange={setEditorSource} disabled={managing} onSelect={path => setSelection(current => current?.path === path ? current : { path, token: Date.now() })} />
+        <ContentEditor key={`${deck.root}:${deck.generation}`} deck={deck} revision={revision} active={sidebarTab === 'edit' && sidebar} selection={selection} slide={slide} onFields={setFields} onBlockedChange={setTextBlocked} onSourceChange={setEditorSource} disabled={managing} onSelect={path => setSelection(current => current?.path === path ? current : { path, token: Date.now() })} />
         <div className="chat-panel" id="chat-panel" role="tabpanel" aria-labelledby="chat-tab" hidden={sidebarTab !== 'chat'}>
         <div className="conversation-controls">
           <select aria-label="Saved conversations" value={conversationId || ''} disabled={!deck.root || busy || loadingChat} onChange={event => void loadConversation(event.target.value)}>

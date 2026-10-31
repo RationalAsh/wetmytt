@@ -55,7 +55,7 @@ app.whenReady().then(async () => {
     };
     const selected = async id => waitFor(() => js(`document.querySelector('.slide-thumbnail[aria-current=true]')?.dataset.slideId === ${JSON.stringify('id:' + id)}`));
     await ready(3);
-    assert.equal(await js(`Boolean(document.querySelector('textarea[data-path="/slides/0/id"]'))`), false);
+    assert.equal(await js(`Boolean(document.querySelector('[data-path="/slides/0/id"]'))`), false);
     const original = await read();
     // Keyboard menu navigation and Escape return focus to the trigger.
     await js(`document.querySelector('.thumbnail-actions').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))`);
@@ -122,10 +122,9 @@ app.whenReady().then(async () => {
     await waitFor(() => preview(`document.querySelector('[data-slide]:not([hidden]) h1')?.dataset.jsonPath === '/slides/1/title'`));
     await preview(`document.querySelector('[data-slide]:not([hidden]) h1').click()`);
     await waitFor(() => js(`document.activeElement?.dataset.path === '/slides/1/title'`));
-    await js(`(() => { const input = document.querySelector('textarea[data-path="/slides/1/title"]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Draft title'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-    await waitFor(() => js(`[...document.querySelectorAll('.thumbnail-actions')].every(b => b.disabled)`));
-    assert.ok(await js(`document.querySelector('.slide-management-status').textContent.includes('Save or discard')`));
-    await js(`[...document.querySelectorAll('button')].find(b => b.textContent === 'Save text').click()`);
+    await js(`(() => { const input = document.querySelector('[data-path="/slides/1/title"]'); Object.getOwnPropertyDescriptor(input.constructor.prototype, 'value').set.call(input, 'Draft title'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    // Slide actions stay disabled until the autosave settles.
+    await waitFor(() => js(`[...document.querySelectorAll('.thumbnail-actions')].every(b => b.disabled) && document.querySelector('.slide-management-status').textContent.includes('Save or discard')`));
     await ready(3);
     assert.equal((await read()).slides.find(s => s.id === original.slides[1].id).title, 'Draft title');
     // Non-selected deletion preserves the selected ID; the last slide cannot be deleted.

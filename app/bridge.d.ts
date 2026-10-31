@@ -40,7 +40,7 @@ declare global {
       readSlideManagement(root: string, generation: number, revision: number): Promise<SlideManagement>;
       mutateSlide(root: string, generation: number, revision: number, source: string, renderedIds: string[], operation: SlideOperation): Promise<SlideManagement & { duplicateId?: string }>;
       readContent(root: string, generation: number): Promise<string>;
-      saveContent(root: string, generation: number, source: string, pointer: string, text: string): Promise<string>;
+      saveContent(root: string, generation: number, source: string, pointer: string, value: string | number | boolean | string[]): Promise<string>;
       open(): Promise<Deck | null>;
       create(): Promise<Deck | null>;
       close(): Promise<Deck>;

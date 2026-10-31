@@ -26,3 +26,29 @@ export function replaceText(value, pointer, text) {
   target[key] = text;
   return value;
 }
+
+const isStrings = value => Array.isArray(value) && value.every(item => typeof item === 'string');
+
+// Replaces an existing value in place. The new value must keep the old value's kind
+// (string, number, boolean, or list of strings) so edits cannot reshape the deck.
+export function replaceValue(value, pointer, next) {
+  if (typeof pointer !== 'string') throw new Error('Choose a field.');
+  if (reservedSlideField(value, pointer)) throw new Error('Slide identity and management metadata cannot be edited.');
+  if (!pointer.startsWith('/')) throw new Error('Invalid JSON pointer.');
+  const keys = pointer.slice(1).split('/').map(key => key.replace(/~1/g, '/').replace(/~0/g, '~'));
+  let target = value;
+  for (const key of keys.slice(0, -1)) {
+    if (!target || typeof target !== 'object' || !Object.hasOwn(target, key)) throw new Error('The field no longer exists.');
+    target = target[key];
+  }
+  const key = keys.at(-1);
+  if (!target || typeof target !== 'object' || !Object.hasOwn(target, key)) throw new Error('Choose an existing field.');
+  const current = target[key];
+  const matches = typeof current === 'string' ? typeof next === 'string'
+    : typeof current === 'boolean' ? typeof next === 'boolean'
+    : typeof current === 'number' ? typeof next === 'number' && Number.isFinite(next)
+    : isStrings(current) && isStrings(next);
+  if (!matches) throw new Error('Choose an existing field.');
+  target[key] = next;
+  return value;
+}

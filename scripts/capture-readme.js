@@ -80,11 +80,11 @@ app.whenReady().then(async () => {
   await waitFor(() => js(`document.querySelector('#edit-tab').getAttribute('aria-selected') === 'true' && document.activeElement?.dataset.path === '/slides/0/title'`), 'click-to-edit field selection');
   assert.equal(await preview(`document.querySelector('h1').hasAttribute('data-wetmytt-selected')`), true);
   await js(`(() => {
-    const input = document.querySelector('textarea[data-path="/slides/0/title"]');
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Okay,\\nlet’s make a point.');
+    const input = document.querySelector('[data-path="/slides/0/title"]');
+    Object.getOwnPropertyDescriptor(input.constructor.prototype, 'value').set.call(input, 'Okay,\\nlet’s make a point.');
     input.dispatchEvent(new Event('input', { bubbles: true }));
   })()`);
-  await waitFor(() => js(`Boolean(document.querySelector('.edit-field.active .edit-field-actions'))`), 'the Save text button');
+  await waitFor(() => js(`Boolean(document.querySelector('.edit-field.active'))`), 'the edited field');
   // Let the editor's smooth scroll settle before capturing the selected field.
   await waitFor(() => js(`(() => {
     const field = document.querySelector('.edit-field.active').getBoundingClientRect();
@@ -92,8 +92,7 @@ app.whenReady().then(async () => {
     return field.top >= panel.top && field.bottom <= panel.bottom;
   })()`), 'the complete selected field');
   await capture('editing');
-  // Verify the pictured action really saves through IPC and refreshes the slide.
-  await click('Save text');
+  // Verify the edit autosaves through IPC and refreshes the slide.
   await waitFor(() => preview(`document.querySelector('h1')?.textContent === 'Okay,\\nlet’s make a point.'`), 'the saved text in the preview');
   assert.equal(JSON.parse(await fs.readFile(path.join(deck, 'deck.json'), 'utf8')).slides[0].title, 'Okay,\nlet’s make a point.');
 
