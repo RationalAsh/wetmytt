@@ -24,6 +24,7 @@ import { readContent, saveContent, withContentWrite } from './content.js';
 import { currentBranch, gitFilesAction, gitInit, gitHistory, gitSummary, gitBranches, gitBranchAction, restoreLastSave } from './git.js';
 import { readProjectFiles } from './project-files.js';
 import { createRecentFolders } from './recent-folders.js';
+import { projectUrl } from './agent-metadata.js';
 
 app.setName('Welcome to My TED Talk');
 
@@ -137,11 +138,12 @@ const updates = createUpdates({
   notify: status => notify('updates:changed', status),
   beforeRestart: () => { quitting = true; return cleanup(); },
 });
-handle('updates:log', async () => {
+async function showUpdateLog() {
   updateLog.logger.info('Update log requested');
   await updateLog.flush();
   shell.showItemInFolder(updateLogPath);
-});
+}
+handle('updates:log', showUpdateLog);
 handle('updates:state', updates.state);
 handle('updates:check', updates.check);
 handle('updates:restart', updates.restart);
@@ -301,16 +303,19 @@ handle('deck:close', async () => {
   await notifyDeck();
   return state();
 });
-handle('deck:open', async () => {
+// Shared by the toolbar and the File menu.
+async function chooseAndOpenDeck() {
   const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'], title: 'Open presentation folder' });
   if (!result.canceled) return openDeck(result.filePaths[0]);
   return null;
-});
-handle('deck:create', async () => {
+}
+async function chooseAndCreateDeck() {
   const result = await dialog.showSaveDialog(window, { title: 'Create presentation folder', defaultPath: path.join(app.getPath('documents'), 'Untitled presentation'), buttonLabel: 'Create presentation' });
   if (result.canceled || !result.filePath) return null;
   return createPresentation(result.filePath);
-});
+}
+handle('deck:open', chooseAndOpenDeck);
+handle('deck:create', chooseAndCreateDeck);
 handle('deck:export-pdf', async expectedRoot => {
   if (!root || root !== expectedRoot) throw new Error('The open project changed. Please export again.');
   if (changingWorktree) throw new Error('Wait for the current project operation to finish.');
@@ -431,7 +436,16 @@ refreshRecentFolders = () => {
   notify('recent:changed', recentFolders.list());
   buildApplicationMenu();
 };
+function reportProblem() {
+  const body = [
+    '**What happened?**', '', '', '**What did you expect?**', '', '', '**Steps to reproduce**', '1. ', '',
+    '**Environment**', `- App version: ${app.getVersion()}`, `- Architecture: ${process.arch}`, `- macOS: ${process.getSystemVersion()}`, '',
+    'For update problems, attach updates.log from Help → Show Update Log.',
+  ].join('\n');
+  return shell.openExternal(`${projectUrl}/issues/new?${new URLSearchParams({ body })}`);
+}
 function buildApplicationMenu() {
+const menuError = title => error => dialog.showErrorBox(title, error.message);
 Menu.setApplicationMenu(Menu.buildFromTemplate([
   ...(process.platform === 'darwin' ? [{ label: app.name, submenu: [
     { role: 'about' }, { type: 'separator' },
@@ -441,11 +455,26 @@ Menu.setApplicationMenu(Menu.buildFromTemplate([
     { type: 'separator' },
     { label: `Quit ${app.name}`, accelerator: 'Command+Q', click: () => app.quit() },
   ] }] : []),
-  { label: 'File', submenu: [{ label: 'Open presentation…', accelerator: 'CmdOrCtrl+O', click: async () => { const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'] }); if (!result.canceled) openDeck(result.filePaths[0]).catch(error => dialog.showErrorBox('Could not open deck', error.message)); } }, { label: 'Open recent', submenu: [
-    ...recentFolders.list().map(folder => ({ label: folder, click: () => { void openDeck(folder).catch(error => dialog.showErrorBox('Could not open deck', error.message)); } })),
-    ...(recentFolders.list().length ? [{ type: 'separator' }, { label: 'Clear recent folders', click: () => { void recentFolders.clear().then(refreshRecentFolders).catch(error => dialog.showErrorBox('Could not clear recent folders', error.message)); } }] : [{ label: 'No recent folders', enabled: false }]),
-  ] }, { role: 'close' }] },
-  { role: 'editMenu' }, { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }, { role: 'togglefullscreen' }] },
+  { label: 'File', submenu: [
+    { label: 'New presentation…', accelerator: 'CmdOrCtrl+N', click: () => { void chooseAndCreateDeck().catch(menuError('Could not create presentation')); } },
+    { label: 'Open presentation…', accelerator: 'CmdOrCtrl+O', click: () => { void chooseAndOpenDeck().catch(menuError('Could not open deck')); } },
+    { label: 'Open recent', submenu: [
+      ...recentFolders.list().map(folder => ({ label: folder, click: () => { void openDeck(folder).catch(menuError('Could not open deck')); } })),
+      ...(recentFolders.list().length ? [{ type: 'separator' }, { label: 'Clear recent folders', click: () => { void recentFolders.clear().then(refreshRecentFolders).catch(menuError('Could not clear recent folders')); } }] : [{ label: 'No recent folders', enabled: false }]),
+    ] },
+    { type: 'separator' }, { role: 'close' },
+  ] },
+  { role: 'editMenu' },
+  // Reloading the shell mid-request loses UI state, so keep it to development builds.
+  { label: 'View', submenu: [...(app.isPackaged ? [] : [{ role: 'reload' }, { role: 'toggleDevTools' }, { type: 'separator' }]), { role: 'togglefullscreen' }] },
+  { role: 'windowMenu' },
+  { role: 'help', submenu: [
+    { label: `${app.name} Help`, click: () => { void shell.openExternal(`${projectUrl}#readme`); } },
+    { label: 'Release Notes', click: () => { void shell.openExternal(`${projectUrl}/releases/tag/v${app.getVersion()}`); } },
+    { type: 'separator' },
+    { label: 'Report a Problem…', click: () => { void reportProblem().catch(menuError('Could not open the issue form')); } },
+    { label: 'Show Update Log', click: () => { void showUpdateLog().catch(menuError('Could not open the update log')); } },
+  ] },
  ]));
 }
 buildApplicationMenu();
